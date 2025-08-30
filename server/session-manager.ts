@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+import { supabaseStorage } from "./supabase-storage";
 import { randomBytes } from "crypto";
 import type { InsertUserSession, InsertSessionAuditLog } from "@shared/schema";
 
@@ -27,7 +27,7 @@ export class SessionManager {
       expiresAt,
     };
 
-    const session = await storage.createUserSession(sessionData);
+    const session = await supabaseStorage.createUserSession(sessionData);
 
     // Log session creation
     await this.logActivity(session.id, userId, 'login', undefined, ipAddress, userAgent, {
@@ -43,7 +43,7 @@ export class SessionManager {
    * Validate and refresh a session
    */
   static async validateSession(sessionToken: string, ipAddress?: string, userAgent?: string): Promise<{ userId: string; sessionId: string; isValid: boolean }> {
-    const session = await storage.getUserSessionByToken(sessionToken);
+    const session = await supabaseStorage.getUserSessionByToken(sessionToken);
 
     if (!session) {
       return { userId: '', sessionId: '', isValid: false };
@@ -66,7 +66,7 @@ export class SessionManager {
     }
 
     // Update last activity
-    await storage.updateUserSession(session.id, {
+    await supabaseStorage.updateUserSession(session.id, {
       lastActivity: now,
       ipAddress: ipAddress || session.ipAddress,
       userAgent: userAgent || session.userAgent,
@@ -82,9 +82,9 @@ export class SessionManager {
    * Invalidate a specific session
    */
   static async invalidateSession(sessionId: string, reason: string = 'logout'): Promise<void> {
-    const session = await storage.getUserSession(sessionId);
+    const session = await supabaseStorage.getUserSession(sessionId);
     if (session) {
-      await storage.updateUserSession(sessionId, { isActive: 0 });
+      await supabaseStorage.updateUserSession(sessionId, { isActive: 0 });
       await this.logActivity(sessionId, session.userId, reason, undefined, undefined, undefined, {
         reason,
       });
@@ -96,7 +96,7 @@ export class SessionManager {
    * Invalidate all sessions for a user
    */
   static async invalidateUserSessions(userId: string): Promise<void> {
-    const sessions = await storage.getUserSessions(userId);
+    const sessions = await supabaseStorage.getUserSessions(userId);
     for (const session of sessions) {
       if (session.isActive) {
         await this.invalidateSession(session.id, 'new_login');
@@ -108,7 +108,7 @@ export class SessionManager {
    * Clean up expired sessions
    */
   static async cleanupExpiredSessions(): Promise<number> {
-    const expiredSessions = await storage.getExpiredSessions();
+    const expiredSessions = await supabaseStorage.getExpiredSessions();
     let cleanedCount = 0;
 
     for (const session of expiredSessions) {
@@ -142,21 +142,21 @@ export class SessionManager {
       metadata: metadata ? JSON.stringify(metadata) : undefined,
     };
 
-    await storage.createSessionAuditLog(logData);
+    await supabaseStorage.createSessionAuditLog(logData);
   }
 
   /**
    * Get active sessions for a user
    */
   static async getActiveSessions(userId: string): Promise<any[]> {
-    return await storage.getUserActiveSessions(userId);
+    return await supabaseStorage.getUserActiveSessions(userId);
   }
 
   /**
    * Get session audit logs for a user
    */
   static async getSessionAuditLogs(userId: string, limit: number = 50): Promise<any[]> {
-    return await storage.getSessionAuditLogs(userId, limit);
+    return await supabaseStorage.getSessionAuditLogs(userId, limit);
   }
 
   /**
@@ -168,7 +168,7 @@ export class SessionManager {
     recentLogins: number;
     averageSessionDuration: number;
   }> {
-    return await storage.getSessionStatistics();
+    return await supabaseStorage.getSessionStatistics();
   }
 }
 

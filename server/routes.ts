@@ -1,8 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { supabaseStorage } from "./supabase-storage";
 import { parseDateFilterParams, filterByDateRange, type TimePeriod } from "./utils/date-filter";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./supabase-auth";
 
 // Auth interface to match the user object structure
 interface AuthenticatedRequest extends Request {
@@ -45,7 +45,7 @@ async function calculateAndUpdateDeadheadMiles(truckId: string, deliveredLoadDes
     console.log(`[calculateAndUpdateDeadheadMiles] Calculating deadhead for truck ${truckId} from previous delivery in ${deliveryLocation}`);
     
     // Find all loads for this truck that don't have deadhead miles calculated yet (pending or in_transit)
-    const allLoads = await storage.getLoads();
+    const allLoads = await supabaseStorage.getLoads();
     const truckLoads = allLoads.filter(load => 
       load.truckId === truckId && 
       load.status !== 'delivered' && 
@@ -81,7 +81,7 @@ async function calculateAndUpdateDeadheadMiles(truckId: string, deliveredLoadDes
     
     if (deadheadMiles > 0) {
       // Update the next load with deadhead information
-      const updatedLoad = await storage.updateLoad(nextLoad.id, {
+      const updatedLoad = await supabaseStorage.updateLoad(nextLoad.id, {
         deadheadFromCity: deliveredLoadDestinationCity,
         deadheadFromState: deliveredLoadDestinationState,
         deadheadMiles: deadheadMiles,
@@ -91,7 +91,7 @@ async function calculateAndUpdateDeadheadMiles(truckId: string, deliveredLoadDes
       console.log(`[calculateAndUpdateDeadheadMiles] Updated load ${nextLoad.id} with ${deadheadMiles} deadhead miles from ${deliveryLocation} to ${nextPickupLocation}`);
       
       // Create activity to log this automatic calculation
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Deadhead miles auto-calculated`,
         description: `${deadheadMiles} deadhead miles calculated from ${deliveryLocation} to ${nextPickupLocation} for next load`,
         type: "info"
@@ -122,7 +122,7 @@ async function updateWeeklyFuelCosts(truckId: string) {
     
     // Get only fuel purchases that are attached to loads for this truck
     // This ensures we only include fuel costs for actual revenue-generating operations
-    const allFuelPurchases = await storage.getFuelPurchases(undefined, truckId);
+    const allFuelPurchases = await supabaseStorage.getFuelPurchases(undefined, truckId);
     const attachedFuelPurchases = allFuelPurchases.filter(purchase => purchase.loadId !== null);
     
     console.log(`[updateWeeklyFuelCosts] Found ${attachedFuelPurchases.length} fuel purchases attached to loads for truck`);
@@ -138,7 +138,7 @@ async function updateWeeklyFuelCosts(truckId: string) {
     console.log(`[updateWeeklyFuelCosts] Attached fuel totals - Cost: $${totalFuelCost.toFixed(2)}, Gallons: ${totalGallons.toFixed(1)}, Avg Price: $${avgFuelPrice.toFixed(4)}`);
     
     // Get loads for this truck during the current week to calculate total miles with deadhead
-    const allLoads = await storage.getLoads();
+    const allLoads = await supabaseStorage.getLoads();
     const weeklyLoads = allLoads.filter(load => {
       if (load.truckId !== truckId) return false;
       const loadDate = new Date(load.createdAt || load.deliveryDate || load.pickupDate || now);
@@ -153,7 +153,7 @@ async function updateWeeklyFuelCosts(truckId: string) {
     console.log(`[updateWeeklyFuelCosts] Weekly miles breakdown - Revenue: ${totalRevenueMiles}, Deadhead: ${totalDeadheadMiles}, Total: ${totalMilesWithDeadhead}`);
     
     // Get latest cost breakdown for this truck
-    const costBreakdowns = await storage.getTruckCostBreakdowns(truckId);
+    const costBreakdowns = await supabaseStorage.getTruckCostBreakdowns(truckId);
     let latestBreakdown = costBreakdowns.length > 0 ? costBreakdowns[costBreakdowns.length - 1] : null;
     
     if (latestBreakdown) {
@@ -190,10 +190,10 @@ async function updateWeeklyFuelCosts(truckId: string) {
       console.log(`[updateWeeklyFuelCosts] Updating breakdown with attached fuel cost: $${weeklyFuelCost.toFixed(2)} (MPG based on ${totalGallons} attached gallons)`);
       
       // Update the cost breakdown
-      await storage.updateTruckCostBreakdown(latestBreakdown.id, updatedBreakdown);
+      await supabaseStorage.updateTruckCostBreakdown(latestBreakdown.id, updatedBreakdown);
       
       // Update truck's variable costs
-      await storage.updateTruck(truckId, {
+      await supabaseStorage.updateTruck(truckId, {
         variableCosts: updatedBreakdown.totalVariableCosts
       });
       
@@ -208,7 +208,7 @@ async function updateWeeklyFuelCosts(truckId: string) {
       console.log(`[updateWeeklyFuelCosts] New breakdown MPG: ${totalMilesWithDeadhead} total miles ÷ ${totalGallons} gallons = ${milesPerGallon} MPG`);
       
       // Create a new cost breakdown for this week with fuel costs from attached purchases
-      const newBreakdown = await storage.createTruckCostBreakdown({
+      const newBreakdown = await supabaseStorage.createTruckCostBreakdown({
         truckId: truckId,
         // Set minimal default costs, focusing on fuel from attached purchases
         truckPayment: 0,
@@ -278,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User not authenticated" });
       }
-      const user = await storage.getUser(userId);
+      const user = await supabaseStorage.getUser(userId);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -293,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
       }
-      const user = await storage.getUser(userId);
+      const user = await supabaseStorage.getUser(userId);
       
       if (!user || !user.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
@@ -313,7 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/users - returns all registered users (founder only)
   app.get("/api/users", isAuthenticated, isFounder, async (req: any, res) => {
     try {
-      const users = await storage.getAllUsers();
+      const users = await supabaseStorage.getAllUsers();
       
       // Log admin access to user management
       const userId = req.user?.claims?.sub;
@@ -351,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get target user details
-      const targetUser = await storage.getUser(targetUserId);
+      const targetUser = await supabaseStorage.getUser(targetUserId);
       if (!targetUser) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -371,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Log the admin deletion activity
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: 'Admin User Deletion',
         description: `User ${targetUser.email || targetUserId} was deleted by admin`,
         type: 'warning'
@@ -379,25 +379,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Delete all user-related data
       // 1. Delete all user's trucks and associated data
-      const userTrucks = await storage.getTrucksByUser(targetUserId);
+      const userTrucks = await supabaseStorage.getTrucksByUser(targetUserId);
       for (const truck of userTrucks) {
-        await storage.deleteTruck(truck.id);
+        await supabaseStorage.deleteTruck(truck.id);
       }
 
       // 2. Delete all user's loads
-      const userLoads = await storage.getLoadsByUser(targetUserId);
+      const userLoads = await supabaseStorage.getLoadsByUser(targetUserId);
       for (const load of userLoads) {
-        await storage.deleteLoad(load.id);
+        await supabaseStorage.deleteLoad(load.id);
       }
 
       // 3. Delete all user's drivers
-      const userDrivers = await storage.getDriversByUser(targetUserId);
+      const userDrivers = await supabaseStorage.getDriversByUser(targetUserId);
       for (const driver of userDrivers) {
-        await storage.deleteDriver(driver.id);
+        await supabaseStorage.deleteDriver(driver.id);
       }
 
       // 4. Actually delete the user record from the database
-      const userDeleted = await storage.deleteUser(targetUserId);
+      const userDeleted = await supabaseStorage.deleteUser(targetUserId);
       if (!userDeleted) {
         return res.status(500).json({ error: "Failed to delete user record" });
       }
@@ -467,7 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify the session belongs to the current user
-      const session = await storage.getUserSession(sessionId);
+      const session = await supabaseStorage.getUserSession(sessionId);
       if (!session || session.userId !== userId) {
         return res.status(403).json({ error: 'Access denied' });
       }
@@ -491,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "First name and last name are required" });
       }
       
-      const updatedUser = await storage.updateUser(userId, updateData);
+      const updatedUser = await supabaseStorage.updateUser(userId, updateData);
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -518,9 +518,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveUserId = demoUserId && req.isFounderAccess ? demoUserId : authenticatedUserId;
 
       // Fetch data for the effective user (authenticated user or demo user)
-      const trucks = await storage.getTrucksByUser(effectiveUserId);
-      const loads = await storage.getLoadsByUser(effectiveUserId);
-      const allFuelPurchases = await storage.getFuelPurchasesByUser(effectiveUserId);
+      const trucks = await supabaseStorage.getTrucksByUser(effectiveUserId);
+      const loads = await supabaseStorage.getLoadsByUser(effectiveUserId);
+      const allFuelPurchases = await supabaseStorage.getFuelPurchasesByUser(effectiveUserId);
       
       // Parse date filter parameters with error handling
       let period, range;
@@ -603,7 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let actualGallonsUsed = 0;
       for (const load of filteredLoads) {
         if (load.miles > 0) {
-          const fuelPurchases = await storage.getFuelPurchases(load.id);
+          const fuelPurchases = await supabaseStorage.getFuelPurchases(load.id);
           const loadFuelCost = fuelPurchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
           const loadGallons = fuelPurchases.reduce((sum, purchase) => sum + purchase.gallons, 0);
           actualFuelCosts += loadFuelCost;
@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           } else {
             // Fallback: check for cost breakdown data
-            const latestBreakdown = await storage.getLatestTruckCostBreakdown(truck.id);
+            const latestBreakdown = await supabaseStorage.getLatestTruckCostBreakdown(truck.id);
             if (latestBreakdown && latestBreakdown.costPerMile > 0) {
               totalTruckCPM += latestBreakdown.costPerMile;
 
@@ -720,10 +720,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(`[Business Analytics] Comprehensive report request with query:`, req.query);
       
-      const trucks = await storage.getTrucks();
-      const loads = await storage.getLoads();
-      const allFuelPurchases = await storage.getFuelPurchases();
-      const costBreakdowns = await storage.getTruckCostBreakdowns("");
+      const trucks = await supabaseStorage.getTrucks();
+      const loads = await supabaseStorage.getLoads();
+      const allFuelPurchases = await supabaseStorage.getFuelPurchases();
+      const costBreakdowns = await supabaseStorage.getTruckCostBreakdowns("");
       
       // Parse date filter parameters
       const { period, range } = parseDateFilterParams(req.query);
@@ -860,7 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveUserId = demoUserId || authenticatedUserId;
       
       // Fetch trucks for the effective user (authenticated user or demo user)
-      const trucks = await storage.getTrucksByUser(effectiveUserId);
+      const trucks = await supabaseStorage.getTrucksByUser(effectiveUserId);
         
       const { period, range } = parseDateFilterParams(req.query);
       
@@ -871,7 +871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredTrucks.map(async (truck) => {
           let driver = null;
           if (truck.currentDriverId) {
-            driver = await storage.getDriver(truck.currentDriverId);
+            driver = await supabaseStorage.getDriver(truck.currentDriverId);
           }
           return {
             ...truck,
@@ -889,14 +889,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/trucks/:id", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
-      const truck = await storage.getTruck(req.params.id);
+      const truck = await supabaseStorage.getTruck(req.params.id);
       if (!truck) {
         return res.status(404).json({ error: "Truck not found" });
       }
       
       let driver = null;
       if (truck.currentDriverId) {
-        driver = await storage.getDriver(truck.currentDriverId);
+        driver = await supabaseStorage.getDriver(truck.currentDriverId);
       }
       
       // Use the costPerMile already calculated by the storage layer
@@ -913,7 +913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trucks/:id/last-location", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const location = await storage.getTruckLastKnownLocation(id);
+      const location = await supabaseStorage.getTruckLastKnownLocation(id);
       
       if (!location) {
         return res.status(404).json({ message: "No last known location found for truck" });
@@ -932,9 +932,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       console.log(`[POST /api/trucks/${id}/recalculate-miles] Manually recalculating truck miles...`);
       
-      await storage.updateTruckTotalMiles(id);
+      await supabaseStorage.updateTruckTotalMiles(id);
       
-      const truck = await storage.getTruck(id);
+      const truck = await supabaseStorage.getTruck(id);
       res.json({ success: true, newTotalMiles: truck?.totalMiles });
     } catch (error) {
       console.error("Error recalculating truck miles:", error);
@@ -944,7 +944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/truck-cost-breakdown/:truckId", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
-      const breakdowns = await storage.getTruckCostBreakdowns(req.params.truckId);
+      const breakdowns = await supabaseStorage.getTruckCostBreakdowns(req.params.truckId);
       const latest = breakdowns.length > 0 ? breakdowns[breakdowns.length - 1] : null;
       res.json(latest);
     } catch (error) {
@@ -966,7 +966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       weekEnd.setDate(now.getDate() + 7); // Add 7 days
       
       // Map frontend field names to database schema and handle dates
-      const breakdown = await storage.createTruckCostBreakdown({
+      const breakdown = await supabaseStorage.createTruckCostBreakdown({
         truckId,
         // Fixed costs
         truckPayment: costData.costBreakdown.truckPayment || 0,
@@ -1002,12 +1002,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Update truck with calculated costs
-      const truck = await storage.updateTruck(truckId, {
+      const truck = await supabaseStorage.updateTruck(truckId, {
         fixedCosts: costData.costBreakdown.totalFixedCosts,
         variableCosts: costData.costBreakdown.totalVariableCosts
       });
       
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Cost breakdown updated`,
         description: `${truck?.name || 'Truck'} cost breakdown set to $${costData.costBreakdown.costPerMile.toFixed(3)}/mile`,
         type: "info",
@@ -1033,7 +1033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         delete processedData.driverPayPerMile; // Remove the field that doesn't exist in schema
       }
       
-      const updatedBreakdown = await storage.updateTruckCostBreakdown(req.params.id, processedData);
+      const updatedBreakdown = await supabaseStorage.updateTruckCostBreakdown(req.params.id, processedData);
       if (!updatedBreakdown) {
         return res.status(404).json({ error: "Cost breakdown not found" });
       }
@@ -1046,7 +1046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/trucks/:id", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
-      const updatedTruck = await storage.updateTruck(req.params.id, req.body);
+      const updatedTruck = await supabaseStorage.updateTruck(req.params.id, req.body);
       if (!updatedTruck) {
         return res.status(404).json({ error: "Truck not found" });
       }
@@ -1072,13 +1072,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[DELETE /api/trucks/:id] Attempting to delete truck with ID: ${truckId} for user: ${userId}`);
       
       // Verify truck ownership before deletion (all users must own their trucks)
-      const truck = await storage.getTruck(truckId);
+      const truck = await supabaseStorage.getTruck(truckId);
       if (!truck || truck.userId !== userId) {
         console.log(`[DELETE /api/trucks/:id] Access denied - truck ${truckId} not owned by user ${userId}`);
         return res.status(403).json({ error: "Access denied - truck not found or not owned by user" });
       }
       
-      const deleted = await storage.deleteTruck(truckId);
+      const deleted = await supabaseStorage.deleteTruck(truckId);
       if (!deleted) {
         console.log(`[DELETE /api/trucks/:id] Truck not found: ${truckId}`);
         return res.status(404).json({ error: "Truck not found" });
@@ -1106,7 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If driver name is provided, create the driver first
       let currentDriverId = null;
       if (truckData.driverName && truckData.driverName.trim()) {
-        const driver = await storage.createDriver({
+        const driver = await supabaseStorage.createDriver({
           name: truckData.driverName.trim(),
           cdlNumber: `CDL-${Date.now()}`, // Generate temporary CDL number
           isActive: 1,
@@ -1117,7 +1117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the truck with proper user ownership
       console.log(`[SECURITY] Creating truck for user: ${userId}`);
-      const truck = await storage.createTruck({
+      const truck = await supabaseStorage.createTruck({
         name: truckData.name,
         fixedCosts: truckData.fixedCosts || 0,
         variableCosts: truckData.variableCosts || 0,
@@ -1142,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const weekEnd = new Date(now);
         weekEnd.setDate(now.getDate() + 7); // Add 7 days
         
-        await storage.createTruckCostBreakdown({
+        await supabaseStorage.createTruckCostBreakdown({
           truckId: truck.id,
           ...truckData.costBreakdown,
           weekStarting: new Date(truckData.costBreakdown.weekStarting || now),
@@ -1151,7 +1151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create activity for new truck
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `New truck added to fleet`,
         description: `${truck.name} registered with detailed cost breakdown`,
         type: "info"
@@ -1188,7 +1188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveUserId = demoUserId && req.isFounderAccess ? demoUserId : authenticatedUserId;
       
       // Fetch loads for the effective user (authenticated user or demo user)
-      const loads = await storage.getLoadsByUser(effectiveUserId);
+      const loads = await supabaseStorage.getLoadsByUser(effectiveUserId);
       const { period, range } = parseDateFilterParams(req.query);
       
       // Filter loads by date range
@@ -1198,7 +1198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enhancedLoads = await Promise.all(
         filteredLoads.map(async (load) => {
           // Get fuel purchases for this load
-          const fuelPurchases = await storage.getFuelPurchases(load.id);
+          const fuelPurchases = await supabaseStorage.getFuelPurchases(load.id);
           
           // Calculate actual fuel costs
           const actualFuelCost = fuelPurchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
@@ -1223,7 +1223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let profitPerMile = 0;
           
           if (load.truckId) {
-            const truck = await storage.getTruck(load.truckId);
+            const truck = await supabaseStorage.getTruck(load.truckId);
             if (truck) {
               // Calculate truck cost per mile (fixed + variable)
               // Fixed and variable costs are WEEKLY costs, so divide by weekly miles (not lifetime total)
@@ -1292,7 +1292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalMilesWithDeadhead: validatedData.totalMilesWithDeadhead
       });
       
-      const load = await storage.createLoad(validatedData);
+      const load = await supabaseStorage.createLoad(validatedData);
       console.log("[POST /api/loads] Created load with deadhead:", {
         id: load.id,
         deadheadMiles: load.deadheadMiles,
@@ -1300,7 +1300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create activity for new load
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `New load created`,
         description: `${load.type} load for ${load.miles} miles at $${load.pay}`,
         type: "info"  
@@ -1326,13 +1326,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertLoadSchema.partial().parse(req.body);
       console.log(`[PUT /api/loads/${loadId}] Validation successful:`, JSON.stringify(validatedData, null, 2));
       
-      const updatedLoad = await storage.updateLoad(loadId, validatedData);
+      const updatedLoad = await supabaseStorage.updateLoad(loadId, validatedData);
       if (!updatedLoad) {
         return res.status(404).json({ message: "Load not found" });
       }
       
       // Create activity for load update
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load updated`,
         description: `${updatedLoad.type} load updated - ${updatedLoad.originCity}, ${updatedLoad.originState} → ${updatedLoad.destinationCity}, ${updatedLoad.destinationState}`,
         type: "info"
@@ -1353,7 +1353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/loads/:loadId/stops", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { loadId } = req.params;
-      const stops = await storage.getLoadStops(loadId);
+      const stops = await supabaseStorage.getLoadStops(loadId);
       res.json(stops);
     } catch (error) {
       console.error("Error fetching load stops:", error);
@@ -1372,10 +1372,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: `stop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       };
       
-      const stop = await storage.createLoadStop(stopData);
+      const stop = await supabaseStorage.createLoadStop(stopData);
       console.log(`[POST /api/loads/${loadId}/stops] Successfully created stop:`, stop);
       
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load stop added`,
         description: `${stop.stopType} stop added: ${stop.city}, ${stop.state}`,
         type: "info"
@@ -1393,12 +1393,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       console.log(`[PUT /api/load-stops/${id}] Updating stop:`, JSON.stringify(req.body, null, 2));
       
-      const updatedStop = await storage.updateLoadStop(id, req.body);
+      const updatedStop = await supabaseStorage.updateLoadStop(id, req.body);
       if (!updatedStop) {
         return res.status(404).json({ message: "Load stop not found" });
       }
 
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load stop updated`,
         description: `${updatedStop.stopType} stop updated: ${updatedStop.city}, ${updatedStop.state}`,
         type: "info"
@@ -1416,12 +1416,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       console.log(`[DELETE /api/load-stops/${id}] Deleting stop`);
       
-      const deleted = await storage.deleteLoadStop(id);
+      const deleted = await supabaseStorage.deleteLoadStop(id);
       if (!deleted) {
         return res.status(404).json({ message: "Load stop not found" });
       }
 
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load stop removed`,
         description: `Load stop deleted from multi-stop load`,
         type: "info"
@@ -1450,7 +1450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       
       // All users (including founders) only see their own fuel purchases for data isolation
-      const purchases = await storage.getFuelPurchasesByUser(effectiveUserId, loadId as string, truckId as string);
+      const purchases = await supabaseStorage.getFuelPurchasesByUser(effectiveUserId, loadId as string, truckId as string);
       res.json(purchases);
     } catch (error) {
       console.error("Error fetching fuel purchases:", error);
@@ -1477,7 +1477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify the truck belongs to the authenticated user
-      const truck = await storage.getTruck(truckId);
+      const truck = await supabaseStorage.getTruck(truckId);
       if (!truck || truck.userId !== userId) {
         return res.status(403).json({ error: "Access denied: Truck not found or not owned by user" });
       }
@@ -1490,14 +1490,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("[POST /api/fuel-purchases] Processed data:", JSON.stringify(processedData, null, 2));
       
-      const purchase = await storage.createFuelPurchase(processedData);
+      const purchase = await supabaseStorage.createFuelPurchase(processedData);
       console.log("[POST /api/fuel-purchases] Successfully created fuel purchase:", purchase);
       
       // Note: Fuel purchases are tracked separately from weekly cost breakdowns
       // Weekly cost breakdown remains manual for driver entry
       
       // Create activity for fuel purchase
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Fuel purchase recorded`,
         description: `${gallons.toFixed(1)} gallons at $${pricePerGallon.toFixed(2)}/gal for $${totalCost.toFixed(2)}`,
         type: "info",
@@ -1520,14 +1520,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the fuel purchase before deleting to know which truck to update
-      const fuelPurchases = await storage.getFuelPurchasesByUser(userId);
+      const fuelPurchases = await supabaseStorage.getFuelPurchasesByUser(userId);
       const purchaseToDelete = fuelPurchases.find(p => p.id === req.params.id);
       
       if (!purchaseToDelete) {
         return res.status(404).json({ message: "Fuel purchase not found or access denied" });
       }
       
-      const deleted = await storage.deleteFuelPurchase(req.params.id);
+      const deleted = await supabaseStorage.deleteFuelPurchase(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Fuel purchase not found" });
       }
@@ -1559,13 +1559,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Verify the fuel purchase belongs to the authenticated user
-      const existingPurchases = await storage.getFuelPurchasesByUser(userId);
+      const existingPurchases = await supabaseStorage.getFuelPurchasesByUser(userId);
       const existingPurchase = existingPurchases.find(p => p.id === req.params.id);
       if (!existingPurchase) {
         return res.status(404).json({ message: "Fuel purchase not found or access denied" });
       }
 
-      const updated = await storage.updateFuelPurchase(req.params.id, processedData);
+      const updated = await supabaseStorage.updateFuelPurchase(req.params.id, processedData);
       if (!updated) {
         return res.status(404).json({ message: "Fuel purchase not found" });
       }
@@ -1573,7 +1573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[PUT /api/fuel-purchases/${req.params.id}] Successfully updated fuel purchase:`, updated);
       
       // Create activity for fuel purchase update
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Fuel purchase updated`,
         description: `Updated fuel purchase: ${updated.gallons?.toFixed(1)} gallons at $${updated.pricePerGallon?.toFixed(2)}/gal for $${updated.totalCost?.toFixed(2)}`,
         type: "info",
@@ -1591,7 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/fuel-purchases/:id/attach", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { loadId } = req.body;
-      const updated = await storage.updateFuelPurchase(req.params.id, { loadId });
+      const updated = await supabaseStorage.updateFuelPurchase(req.params.id, { loadId });
       if (!updated) {
         return res.status(404).json({ message: "Fuel purchase not found" });
       }
@@ -1633,12 +1633,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the current load before updating to check previous status
-      const currentLoad = await storage.getLoad(loadId);
+      const currentLoad = await supabaseStorage.getLoad(loadId);
       if (!currentLoad) {
         return res.status(404).json({ message: "Load not found" });
       }
       
-      const updatedLoad = await storage.updateLoad(loadId, { status });
+      const updatedLoad = await supabaseStorage.updateLoad(loadId, { status });
       if (!updatedLoad) {
         return res.status(404).json({ message: "Load not found" });
       }
@@ -1652,7 +1652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create activity for status change
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load status changed`,
         description: `Load ${updatedLoad.type} status changed to ${status}`,
         type: "info"
@@ -1669,13 +1669,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/loads/:id", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const loadId = req.params.id;
-      const updatedLoad = await storage.updateLoad(loadId, req.body);
+      const updatedLoad = await supabaseStorage.updateLoad(loadId, req.body);
       if (!updatedLoad) {
         return res.status(404).json({ message: "Load not found" });
       }
       
       // Create activity for load update
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load updated`,
         description: `${updatedLoad.type} load updated - ${updatedLoad.originCity}, ${updatedLoad.originState} → ${updatedLoad.destinationCity}, ${updatedLoad.destinationState}`,
         type: "info"
@@ -1695,12 +1695,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[DELETE /api/loads/${loadId}] Attempting to delete load`);
       
       // Get the load before deleting for activity logging and truck updates
-      const loadToDelete = await storage.getLoad(loadId);
+      const loadToDelete = await supabaseStorage.getLoad(loadId);
       if (!loadToDelete) {
         return res.status(404).json({ message: "Load not found" });
       }
       
-      const deleted = await storage.deleteLoad(loadId);
+      const deleted = await supabaseStorage.deleteLoad(loadId);
       if (!deleted) {
         return res.status(404).json({ message: "Load not found" });
       }
@@ -1708,12 +1708,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Auto-update truck total miles if load was assigned to a truck
       if (loadToDelete.truckId) {
         console.log(`[DELETE /api/loads/${loadId}] Recalculating truck miles after deletion...`);
-        await storage.updateTruckTotalMiles(loadToDelete.truckId);
+        await supabaseStorage.updateTruckTotalMiles(loadToDelete.truckId);
         console.log(`[DELETE /api/loads/${loadId}] Truck miles automatically updated`);
       }
       
       // Create activity for load deletion
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Load deleted`,
         description: `${loadToDelete.type} load deleted - ${loadToDelete.originCity}, ${loadToDelete.originState} → ${loadToDelete.destinationState}, ${loadToDelete.destinationState}`,
         type: "warning"
@@ -1730,7 +1730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Load categories breakdown
   app.get("/api/load-categories", isAuthenticated, async (req: any, res) => {
     try {
-      const loads = await storage.getLoads();
+      const loads = await supabaseStorage.getLoads();
       
       const categories = {
         dryVan: loads.filter(l => l.type === "Dry Van").length,
@@ -1756,7 +1756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activities endpoint
   app.get("/api/activities", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
-      const activities = await storage.getActivities();
+      const activities = await supabaseStorage.getActivities();
       res.json(activities.slice(0, 10)); // Return last 10 activities
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch activities" });
@@ -1798,7 +1798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveUserId = demoUserId && req.isFounderAccess ? demoUserId : authenticatedUserId;
       
       // Fetch drivers for the effective user (authenticated user or demo user)
-      const drivers = await storage.getDriversByUser(effectiveUserId);
+      const drivers = await supabaseStorage.getDriversByUser(effectiveUserId);
       res.json(drivers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch drivers" });
@@ -1816,9 +1816,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId: userId // Ensure driver is associated with the authenticated user
       });
-      const driver = await storage.createDriver(validatedData);
+      const driver = await supabaseStorage.createDriver(validatedData);
       
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `New driver added`,
         description: `${driver.name} (${driver.cdlNumber}) joined the fleet`,
         type: "info",
@@ -1844,7 +1844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[PUT /api/drivers/${driverId}] Request:`, JSON.stringify(req.body, null, 2));
       
       // Verify the driver belongs to the authenticated user (unless founder)
-      const existingDriver = await storage.getDriver(driverId);
+      const existingDriver = await supabaseStorage.getDriver(driverId);
       if (!existingDriver) {
         return res.status(404).json({ error: "Driver not found" });
       }
@@ -1858,13 +1858,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertDriverSchema.partial().parse(req.body);
       console.log(`[PUT /api/drivers/${driverId}] Validation successful:`, validatedData);
       
-      const updatedDriver = await storage.updateDriver(driverId, validatedData);
+      const updatedDriver = await supabaseStorage.updateDriver(driverId, validatedData);
       if (!updatedDriver) {
         return res.status(404).json({ error: "Driver not found" });
       }
       
       // Create activity for driver update
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Driver updated`,
         description: `${updatedDriver.name} (${updatedDriver.cdlNumber}) profile updated`,
         type: "info",
@@ -1893,7 +1893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get driver details before deletion for activity log
-      const driver = await storage.getDriver(driverId);
+      const driver = await supabaseStorage.getDriver(driverId);
       if (!driver) {
         return res.status(404).json({ error: "Driver not found" });
       }
@@ -1904,18 +1904,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if driver is currently assigned to any trucks and unassign them automatically
-      const trucks = await storage.getTrucksByUser(userId);
+      const trucks = await supabaseStorage.getTrucksByUser(userId);
       const assignedTrucks = trucks.filter(truck => truck.currentDriverId === driverId);
       
       // Automatically unassign driver from trucks before deletion
       if (assignedTrucks.length > 0) {
         console.log(`[DELETE /api/drivers/${driverId}] Auto-unassigning driver from ${assignedTrucks.length} truck(s)`);
         for (const truck of assignedTrucks) {
-          await storage.updateTruck(truck.id, { currentDriverId: null });
+          await supabaseStorage.updateTruck(truck.id, { currentDriverId: null });
         }
       }
       
-      const deleted = await storage.deleteDriver(driverId);
+      const deleted = await supabaseStorage.deleteDriver(driverId);
       if (!deleted) {
         return res.status(404).json({ error: "Driver not found" });
       }
@@ -1925,7 +1925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${driver.name} (${driver.cdlNumber}) has been removed from the system and automatically unassigned from ${assignedTrucks.length} truck(s)`
         : `${driver.name} (${driver.cdlNumber}) has been removed from the system`;
       
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `Driver removed from fleet`,
         description: activityDescription,
         type: "warning"
@@ -1943,7 +1943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/hos-logs", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { driverId, truckId } = req.query;
-      const logs = await storage.getHosLogs(
+      const logs = await supabaseStorage.getHosLogs(
         driverId as string, 
         truckId as string
       );
@@ -1956,11 +1956,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/hos-logs", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const validatedData = insertHosLogSchema.parse(req.body);
-      const log = await storage.createHosLog(validatedData);
+      const log = await supabaseStorage.createHosLog(validatedData);
       
       // Check for violations and create activity
       if (validatedData.violations && validatedData.violations.length > 0) {
-        await storage.createActivity({
+        await supabaseStorage.createActivity({
           title: `HOS violation detected`,
           description: `Driver has ${validatedData.violations.length} violation(s)`,
           type: "hos_violation",
@@ -1985,13 +1985,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Duty status is required" });
       }
       
-      const updatedLog = await storage.updateHosLog(hosLogId, { dutyStatus });
+      const updatedLog = await supabaseStorage.updateHosLog(hosLogId, { dutyStatus });
       if (!updatedLog) {
         return res.status(404).json({ message: "HOS log not found" });
       }
       
       // Create activity for status change
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `HOS status changed`,
         description: `Driver status changed to ${dutyStatus.replace('_', ' ').toLowerCase()}`,
         type: "info",
@@ -2009,7 +2009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/hos-status/:driverId", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { driverId } = req.params;
-      const status = await storage.getLatestHosStatus(driverId);
+      const status = await supabaseStorage.getLatestHosStatus(driverId);
       
       if (!status) {
         return res.status(404).json({ error: "No HOS data found for driver" });
@@ -2030,8 +2030,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveUserId = demo_user_id || req.user.id;
       
       const loads = equipmentType ? 
-        await storage.getAvailableLoads(equipmentType as string, effectiveUserId) :
-        await storage.getAvailableLoads(undefined, effectiveUserId);
+        await supabaseStorage.getAvailableLoads(equipmentType as string, effectiveUserId) :
+        await supabaseStorage.getAvailableLoads(undefined, effectiveUserId);
       res.json(loads);
     } catch (error) {
       console.error('[Load Board API] Error:', error);
@@ -2042,9 +2042,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/load-board", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const validatedData = insertLoadBoardSchema.parse(req.body);
-      const item = await storage.createLoadBoardItem(validatedData);
+      const item = await supabaseStorage.createLoadBoardItem(validatedData);
       
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `New load opportunity`,
         description: `${item.originCity}, ${item.originState} → ${item.destinationCity}, ${item.destinationState} | $${item.ratePerMile}/mi`,
         type: "info"
@@ -2065,7 +2065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         loadData.externalId = `MANUAL-${Date.now()}`;
       }
       
-      const newLoad = await storage.createLoadBoardItem({
+      const newLoad = await supabaseStorage.createLoadBoardItem({
         loadBoardSource: loadData.loadBoardSource || "Manual Entry",
         externalId: loadData.externalId,
         equipmentType: loadData.equipmentType,
@@ -2086,7 +2086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create activity for manual load entry
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: "Manual load added",
         description: `Load ${newLoad.externalId} manually added to load board`,
         type: "load_added"
@@ -2108,14 +2108,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Status is required" });
       }
       
-      const item = await storage.updateLoadBoardStatus(id, status);
+      const item = await supabaseStorage.updateLoadBoardStatus(id, status);
       
       if (!item) {
         return res.status(404).json({ error: "Load not found" });
       }
       
       if (status === "assigned") {
-        await storage.createActivity({
+        await supabaseStorage.createActivity({
           title: `Load assigned`,
           description: `Load ${item.externalId} from ${item.loadBoardSource} has been assigned`,
           type: "load_assigned"
@@ -2132,7 +2132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/fleet-metrics", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { fleetSize } = req.query;
-      const metrics = await storage.getFleetMetrics(fleetSize as string);
+      const metrics = await supabaseStorage.getFleetMetrics(fleetSize as string);
       res.json(metrics);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch fleet metrics" });
@@ -2152,9 +2152,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use demo user ID if provided and user is founder, otherwise use authenticated user
       const effectiveUserId = demoUserId && req.isFounderAccess ? demoUserId : authenticatedUserId;
       
-      const trucks = await storage.getTrucksByUser(effectiveUserId);
-      const drivers = await storage.getDriversByUser ? await storage.getDriversByUser(effectiveUserId) : [];
-      const loads = await storage.getLoadsByUser(effectiveUserId);
+      const trucks = await supabaseStorage.getTrucksByUser(effectiveUserId);
+      const drivers = await supabaseStorage.getDriversByUser ? await supabaseStorage.getDriversByUser(effectiveUserId) : [];
+      const loads = await supabaseStorage.getLoadsByUser(effectiveUserId);
       
       // Determine fleet size category
       const truckCount = trucks.length;
@@ -2173,7 +2173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activeTrucksWithCPM = trucks.filter(t => t.isActive === 1);
       let totalCPM = 0;
       for (const truck of activeTrucksWithCPM) {
-        const latestBreakdown = await storage.getLatestTruckCostBreakdown(truck.id);
+        const latestBreakdown = await supabaseStorage.getLatestTruckCostBreakdown(truck.id);
         if (latestBreakdown && latestBreakdown.costPerMile > 0) {
           totalCPM += latestBreakdown.costPerMile;
         } else {
@@ -2230,13 +2230,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveUserId = demoUserId || authenticatedUserId;
       
       // Fetch user-specific drivers and trucks
-      const drivers = await storage.getDriversByUser(effectiveUserId);
-      const trucks = await storage.getTrucksByUser(effectiveUserId);
+      const drivers = await supabaseStorage.getDriversByUser(effectiveUserId);
+      const trucks = await supabaseStorage.getTrucksByUser(effectiveUserId);
       
       // Get latest HOS status for each active driver
       const complianceData = await Promise.all(
         drivers.filter(d => d.isActive === 1).map(async (driver) => {
-          const latestStatus = await storage.getLatestHosStatus(driver.id);
+          const latestStatus = await supabaseStorage.getLatestHosStatus(driver.id);
           return {
             driverId: driver.id,
             driverName: driver.name,
@@ -2276,7 +2276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trucks/:id/cost-breakdowns", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const breakdowns = await storage.getTruckCostBreakdowns(id);
+      const breakdowns = await supabaseStorage.getTruckCostBreakdowns(id);
       res.json(breakdowns);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch cost breakdowns" });
@@ -2286,7 +2286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trucks/:id/cost-breakdown/latest", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const breakdown = await storage.getLatestTruckCostBreakdown(id);
+      const breakdown = await supabaseStorage.getLatestTruckCostBreakdown(id);
       
       if (!breakdown) {
         return res.status(404).json({ error: "No cost breakdown found for this truck" });
@@ -2306,7 +2306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         truckId: id
       });
       
-      const breakdown = await storage.createTruckCostBreakdown(validatedData);
+      const breakdown = await supabaseStorage.createTruckCostBreakdown(validatedData);
       res.json(breakdown);
     } catch (error) {
       console.error('Cost breakdown creation error:', error);
@@ -2327,7 +2327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertTruckCostBreakdownSchema.partial().parse(processedData);
       
-      const breakdown = await storage.updateTruckCostBreakdown(id, validatedData);
+      const breakdown = await supabaseStorage.updateTruckCostBreakdown(id, validatedData);
       
       if (!breakdown) {
         return res.status(404).json({ error: "Cost breakdown not found" });
@@ -2343,7 +2343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/cost-breakdowns/:id", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteTruckCostBreakdown(id);
+      const success = await supabaseStorage.deleteTruckCostBreakdown(id);
       
       if (!success) {
         return res.status(404).json({ error: "Cost breakdown not found" });
@@ -2359,7 +2359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/load-plans", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { truckId, driverId } = req.query;
-      const plans = await storage.getLoadPlans(
+      const plans = await supabaseStorage.getLoadPlans(
         truckId as string, 
         driverId as string
       );
@@ -2367,7 +2367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Include legs for each plan
       const plansWithLegs = await Promise.all(
         plans.map(async (plan) => {
-          const legs = await storage.getLoadPlanLegs(plan.id);
+          const legs = await supabaseStorage.getLoadPlanLegs(plan.id);
           return { ...plan, legs };
         })
       );
@@ -2381,13 +2381,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/load-plans/:id", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const plan = await storage.getLoadPlan(id);
+      const plan = await supabaseStorage.getLoadPlan(id);
       
       if (!plan) {
         return res.status(404).json({ error: "Load plan not found" });
       }
       
-      const legs = await storage.getLoadPlanLegs(id);
+      const legs = await supabaseStorage.getLoadPlanLegs(id);
       res.json({ ...plan, legs });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch load plan" });
@@ -2397,10 +2397,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/load-plans", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const validatedData = insertLoadPlanSchema.parse(req.body);
-      const plan = await storage.createLoadPlan(validatedData);
+      const plan = await supabaseStorage.createLoadPlan(validatedData);
       
       // Create activity for new load plan
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: `New load plan created`,
         description: `${plan.planName} - ${plan.totalMiles} miles planned`,
         type: "info",
@@ -2419,7 +2419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const validatedData = insertLoadPlanSchema.partial().parse(req.body);
       
-      const plan = await storage.updateLoadPlan(id, validatedData);
+      const plan = await supabaseStorage.updateLoadPlan(id, validatedData);
       
       if (!plan) {
         return res.status(404).json({ error: "Load plan not found" });
@@ -2434,7 +2434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/load-plans/:id", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const deleted = await storage.deleteLoadPlan(id);
+      const deleted = await supabaseStorage.deleteLoadPlan(id);
       
       if (!deleted) {
         return res.status(404).json({ error: "Load plan not found" });
@@ -2450,7 +2450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/load-plans/:planId/legs", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { planId } = req.params;
-      const legs = await storage.getLoadPlanLegs(planId);
+      const legs = await supabaseStorage.getLoadPlanLegs(planId);
       res.json(legs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch load plan legs" });
@@ -2465,10 +2465,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         loadPlanId: planId
       });
       
-      const leg = await storage.createLoadPlanLeg(validatedData);
+      const leg = await supabaseStorage.createLoadPlanLeg(validatedData);
       
       // Update load plan totals
-      const legs = await storage.getLoadPlanLegs(planId);
+      const legs = await supabaseStorage.getLoadPlanLegs(planId);
       const totalMiles = legs.reduce((sum, l) => sum + l.miles, 0);
       const totalRevenue = legs.reduce((sum, l) => sum + l.rate, 0);
       
@@ -2476,7 +2476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const avgCostPerMile = 1.5; // This could be calculated from truck breakdown
       const totalProfit = totalRevenue - (totalMiles * avgCostPerMile);
       
-      await storage.updateLoadPlan(planId, {
+      await supabaseStorage.updateLoadPlan(planId, {
         totalMiles,
         totalRevenue,
         totalProfit
@@ -2493,7 +2493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { legId } = req.params;
       const validatedData = insertLoadPlanLegSchema.partial().parse(req.body);
       
-      const leg = await storage.updateLoadPlanLeg(legId, validatedData);
+      const leg = await supabaseStorage.updateLoadPlanLeg(legId, validatedData);
       
       if (!leg) {
         return res.status(404).json({ error: "Load plan leg not found" });
@@ -2508,7 +2508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/load-plans/:planId/legs/:legId", isAuthenticated, enforceDataIsolation, async (req: any, res) => {
     try {
       const { legId } = req.params;
-      const deleted = await storage.deleteLoadPlanLeg(legId);
+      const deleted = await supabaseStorage.deleteLoadPlanLeg(legId);
       
       if (!deleted) {
         return res.status(404).json({ error: "Load plan leg not found" });
@@ -2632,10 +2632,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
-      const analytics = await storage.getUserAnalytics(userId);
+      const analytics = await supabaseStorage.getUserAnalytics(userId);
       if (!analytics) {
         // Create initial analytics record for new user
-        const newAnalytics = await storage.createUserAnalytics({
+        const newAnalytics = await supabaseStorage.createUserAnalytics({
           userId: userId,
           sessionId: `session-${Date.now()}`,
           sessionStartTime: new Date(),
@@ -2665,7 +2665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/user-metrics/:userId', isAuthenticated, enforceUserMetricsPrivacy, async (req: any, res) => {
     try {
       const requestedUserId = req.params.userId;
-      const analytics = await storage.getUserAnalytics(requestedUserId);
+      const analytics = await supabaseStorage.getUserAnalytics(requestedUserId);
       
       if (!analytics) {
         return res.status(404).json({ error: "User metrics not found" });
@@ -2681,7 +2681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all user analytics (founder only)
   app.get('/api/all-user-metrics', isAuthenticated, requireFounderAccess, async (req: any, res) => {
     try {
-      const allAnalytics = await storage.getAllUserAnalytics();
+      const allAnalytics = await supabaseStorage.getAllUserAnalytics();
       res.json(allAnalytics);
     } catch (error) {
       console.error("Error fetching all user metrics:", error);
@@ -2700,12 +2700,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { isPrivate, allowAnalytics } = req.body;
       
       // Get current analytics
-      const currentAnalytics = await storage.getUserAnalytics(userId);
+      const currentAnalytics = await supabaseStorage.getUserAnalytics(userId);
       if (!currentAnalytics) {
         return res.status(404).json({ error: "User metrics not found" });
       }
 
-      const updatedAnalytics = await storage.updateUserAnalytics(currentAnalytics.id, {
+      const updatedAnalytics = await supabaseStorage.updateUserAnalytics(currentAnalytics.id, {
         isPrivate: isPrivate !== undefined ? (isPrivate ? 1 : 0) : currentAnalytics.isPrivate,
         allowAnalytics: allowAnalytics !== undefined ? (allowAnalytics ? 1 : 0) : currentAnalytics.allowAnalytics
       });
@@ -2728,7 +2728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Can only set founder status for yourself" });
       }
 
-      const updatedUser = await storage.updateUser(targetUserId, { isFounder: 1 });
+      const updatedUser = await supabaseStorage.updateUser(targetUserId, { isFounder: 1 });
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -2754,21 +2754,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       // Check if user has owner/founder privileges
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await supabaseStorage.getUser(userId);
       if (!currentUser?.isFounder) {
         return res.status(403).json({ error: 'Access denied - Owner privileges required' });
       }
 
       // Get all users and their comprehensive data
-      const allUsers = await storage.getAllUsers();
+      const allUsers = await supabaseStorage.getAllUsers();
       
       // Calculate system-wide business metrics
       const systemWideMetrics = await Promise.all(
         allUsers.map(async (user) => {
           const [trucks, loads, drivers] = await Promise.all([
-            storage.getTrucksForUser(user.id),
-            storage.getLoadsForUser(user.id),
-            storage.getDriversForUser(user.id)
+            supabaseStorage.getTrucksForUser(user.id),
+            supabaseStorage.getLoadsForUser(user.id),
+            supabaseStorage.getDriversForUser(user.id)
           ]);
 
           // Calculate financial metrics
@@ -2868,7 +2868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get all trucks across all users for accurate equipment type count
       const allTrucksForEquipmentCount = await Promise.all(
-        allUsers.map(user => storage.getTrucksForUser(user.id))
+        allUsers.map(user => supabaseStorage.getTrucksForUser(user.id))
       );
       const flatTrucksList = allTrucksForEquipmentCount.flat();
       
@@ -2914,7 +2914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { reason } = req.body;
       
       // Get current user
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await supabaseStorage.getUser(userId);
       if (!currentUser) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -2927,7 +2927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Log the self-deletion activity for audit purposes
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: 'Account Self-Deletion',
         description: `User ${currentUser.email || currentUser.id} voluntarily deleted their account${reason ? `: ${reason}` : ''}`,
         type: 'warning'
@@ -2935,25 +2935,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Delete all user-related data
       // 1. Delete all user's trucks (and associated data)
-      const userTrucks = await storage.getTrucksByUser(userId);
+      const userTrucks = await supabaseStorage.getTrucksByUser(userId);
       for (const truck of userTrucks) {
-        await storage.deleteTruck(truck.id);
+        await supabaseStorage.deleteTruck(truck.id);
       }
 
       // 2. Delete all user's loads
-      const userLoads = await storage.getLoadsByUser(userId);
+      const userLoads = await supabaseStorage.getLoadsByUser(userId);
       for (const load of userLoads) {
-        await storage.deleteLoad(load.id);
+        await supabaseStorage.deleteLoad(load.id);
       }
 
       // 3. Delete all user's drivers
-      const userDrivers = await storage.getDriversByUser(userId);
+      const userDrivers = await supabaseStorage.getDriversByUser(userId);
       for (const driver of userDrivers) {
-        await storage.deleteDriver(driver.id);
+        await supabaseStorage.deleteDriver(driver.id);
       }
 
       // 4. Delete the user account itself (set as terminated, keep for audit)
-      await storage.updateUser(userId, {
+      await supabaseStorage.updateUser(userId, {
         isAdmin: 0, // Revoke access
         firstName: null,
         lastName: null,
@@ -2982,7 +2982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetUserId = req.params.userId;
       
       // Check if current user has founder privileges
-      const currentUser = await storage.getUser(currentUserId);
+      const currentUser = await supabaseStorage.getUser(currentUserId);
       if (!currentUser?.isFounder) {
         return res.status(403).json({ error: 'Access denied - Owner privileges required' });
       }
@@ -2993,19 +2993,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get target user details
-      const targetUser = await storage.getUser(targetUserId);
+      const targetUser = await supabaseStorage.getUser(targetUserId);
       if (!targetUser) {
         return res.status(404).json({ error: 'User not found' });
       }
 
       // Update user to inactive status (using existing schema)
-      const updatedUser = await storage.updateUser(targetUserId, {
+      const updatedUser = await supabaseStorage.updateUser(targetUserId, {
         isAdmin: 0, // Revoke admin privileges as termination
         updatedAt: new Date()
       });
 
       // Log the termination activity
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: 'User Access Terminated',
         type: 'warning',
         description: `Terminated user access for ${targetUser.email}. Reason: ${req.body.reason || 'No reason provided'}`
@@ -3032,25 +3032,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetUserId = req.params.userId;
       
       // Check if current user has founder privileges
-      const currentUser = await storage.getUser(currentUserId);
+      const currentUser = await supabaseStorage.getUser(currentUserId);
       if (!currentUser?.isFounder) {
         return res.status(403).json({ error: 'Access denied - Owner privileges required' });
       }
 
       // Get target user details
-      const targetUser = await storage.getUser(targetUserId);
+      const targetUser = await supabaseStorage.getUser(targetUserId);
       if (!targetUser) {
         return res.status(404).json({ error: 'User not found' });
       }
 
       // Reactivate user (using existing schema)  
-      const updatedUser = await storage.updateUser(targetUserId, {
+      const updatedUser = await supabaseStorage.updateUser(targetUserId, {
         isAdmin: 1, // Restore admin privileges as reactivation
         updatedAt: new Date()
       });
 
       // Log the reactivation activity
-      await storage.createActivity({
+      await supabaseStorage.createActivity({
         title: 'User Access Reactivated',
         type: 'info',
         description: `Reactivated user access for ${targetUser.email}`
@@ -3075,15 +3075,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/system/demo', async (req, res) => {
     try {
       // Get all user profiles in the system
-      const allUsers = await storage.getAllUsers();
+      const allUsers = await supabaseStorage.getAllUsers();
       
       // Get comprehensive data for each user
       const systemDemo = await Promise.all(
         allUsers.map(async (user) => {
           const [trucks, loads, drivers] = await Promise.all([
-            storage.getTrucksForUser(user.id),
-            storage.getLoadsForUser(user.id),
-            storage.getDriversForUser(user.id)
+            supabaseStorage.getTrucksForUser(user.id),
+            supabaseStorage.getLoadsForUser(user.id),
+            supabaseStorage.getDriversForUser(user.id)
           ]);
 
           // Calculate fleet metrics for each user

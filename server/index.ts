@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import dotenv from 'dotenv';
+import { setupAuth } from "./supabase-auth";
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +54,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Setup Supabase authentication
+  await setupAuth(app);
+  
   // Health check endpoint for deployment monitoring
   app.get('/api/health', (req, res) => {
     res.status(200).json({

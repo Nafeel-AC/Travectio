@@ -43,14 +43,14 @@ npm run dev
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ES modules
 - **API Design**: RESTful endpoints with JSON responses
-- **Authentication**: OpenID Connect with Passport.js
-- **Session Management**: PostgreSQL-backed sessions
+- **Authentication**: Supabase Auth with JWT tokens
+- **Session Management**: Supabase-backed sessions
 
-### Database (PostgreSQL)
-- **Provider**: Neon Database (serverless PostgreSQL)
-- **ORM**: Drizzle ORM with schema-first approach
+### Database (Supabase)
+- **Provider**: Supabase (PostgreSQL with real-time features)
+- **Client**: Supabase JavaScript client
 - **Tables**: 21 core tables for complete fleet management
-- **Migrations**: Schema push via Drizzle Kit
+- **Real-time**: Built-in real-time subscriptions
 
 ### Key Features
 - **Multi-tenant Architecture**: Complete data isolation between customers
@@ -84,10 +84,12 @@ See `shared/schema.ts` for the complete database schema with all 21 tables, rela
 
 ### Environment Variables
 ```bash
-# Database (Required)
-DATABASE_URL=postgresql://user:password@host:port/database
+# Supabase (Required)
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-# Authentication (Required)
+# Session Configuration (Required)
 SESSION_SECRET=your-secure-session-secret
 
 # Application
@@ -97,7 +99,6 @@ PORT=5000
 # Replit Integration (Auto-configured)
 REPL_ID=auto-generated
 REPLIT_DOMAINS=your-domain.replit.app
-ISSUER_URL=https://replit.com/oidc
 ```
 
 ### Optional Integrations
@@ -174,7 +175,7 @@ ELD_API_SECRET=your-secret
 ```bash
 npm run dev          # Start development server
 npm run check        # TypeScript type checking
-npm run db:push      # Push schema changes
+npm run supabase:test # Test Supabase connection
 ```
 
 ### Production
@@ -213,9 +214,8 @@ npm start           # Start production server
 ### Local Development Setup
 1. Clone repository
 2. Install dependencies: `npm install`
-3. Configure environment variables
-4. Initialize database: `npm run db:push`
-5. Start development server: `npm run dev`
+3. Configure Supabase environment variables
+4. Start development server: `npm run dev`
 
 ### Code Structure
 ```

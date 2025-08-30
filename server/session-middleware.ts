@@ -61,7 +61,7 @@ export const sessionMiddleware: RequestHandler = async (req: any, res, next) => 
  */
 export const createSessionOnLogin = async (userId: string, req: any): Promise<string> => {
   try {
-    const user = await require("./storage").storage.getUser(userId);
+    const user = await require("./supabase-storage").supabaseStorage.getUser(userId);
     const isAdmin = user?.isAdmin || false;
     
     const sessionToken = await SessionManager.createSession(

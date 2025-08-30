@@ -1,11 +1,11 @@
-import { IStorage } from "./storage";
+import { supabaseStorage } from "./supabase-storage";
 
 export class DualModeService {
-  constructor(private storage: IStorage) {}
+  constructor() {}
 
   // HOS Data Entry - Auto-detect mode based on truck configuration
   async processHOSEntry(truckId: string, manualData?: any, elogData?: any) {
-    const truck = await this.storage.getTruck(truckId);
+    const truck = await supabaseStorage.getTruck(truckId);
     if (!truck) throw new Error("Truck not found");
 
     let hosRecord;
@@ -42,7 +42,7 @@ export class DualModeService {
     }
 
     // Store HOS record (same storage regardless of source)
-    const savedRecord = await this.storage.createHOSLog(hosRecord);
+    const savedRecord = await supabaseStorage.createHOSLog(hosRecord);
     
     // Update truck's compliance status using existing formulas
     await this.updateComplianceMetrics(truckId, savedRecord);
@@ -52,7 +52,7 @@ export class DualModeService {
 
   // Load Entry - Auto-detect mode based on truck configuration
   async processLoadEntry(truckId: string, manualData?: any, loadBoardData?: any) {
-    const truck = await this.storage.getTruck(truckId);
+    const truck = await supabaseStorage.getTruck(truckId);
     if (!truck) throw new Error("Truck not found");
 
     let loadRecord;
@@ -70,7 +70,7 @@ export class DualModeService {
       );
 
       // Get truck's last location for deadhead calculation
-      const lastLocation = await this.storage.getTruckLastKnownLocation(truckId);
+      const lastLocation = await supabaseStorage.getTruckLastKnownLocation(truckId);
       const deadheadMiles = lastLocation 
         ? await this.calculateMilesFromCities(
             lastLocation.city,
@@ -149,10 +149,10 @@ export class DualModeService {
     loadRecord.isProfitable = profit > 0 ? 1 : 0;
 
     // Store load record (same storage regardless of source)
-    const savedLoad = await this.storage.createLoad(loadRecord);
+          const savedLoad = await supabaseStorage.createLoad(loadRecord);
     
     // Update truck total miles using existing method
-    await this.storage.updateTruckTotalMiles(truckId);
+          await supabaseStorage.updateTruckTotalMiles(truckId);
     
     return savedLoad;
   }
@@ -190,14 +190,14 @@ export class DualModeService {
 
   // Helper: Get truck cost per mile using existing calculations
   private async getTruckCostPerMile(truckId: string): Promise<number> {
-    const latestBreakdown = await this.storage.getLatestTruckCostBreakdown(truckId);
+    const latestBreakdown = await supabaseStorage.getLatestTruckCostBreakdown(truckId);
     if (latestBreakdown && latestBreakdown.costPerMile > 0) {
       // Use real weekly data when available for accurate CPM
       return latestBreakdown.costPerMile;
     }
     
     // Fallback to truck's calculated cost per mile using 3,000 mile baseline
-    const truck = await this.storage.getTruck(truckId);
+    const truck = await supabaseStorage.getTruck(truckId);
     if (truck) {
       // Fixed and variable costs are weekly, divide by 3,000 mile standard
       const standardWeeklyMiles = 3000;
@@ -219,7 +219,7 @@ export class DualModeService {
 
   // Sync status checker for UI
   async getSyncStatus(truckId: string) {
-    const truck = await this.storage.getTruck(truckId);
+    const truck = await supabaseStorage.getTruck(truckId);
     if (!truck) return null;
 
     return {

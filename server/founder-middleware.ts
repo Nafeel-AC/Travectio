@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { storage } from "./storage";
+import { supabaseStorage } from "./supabase-storage";
 
 // Founder email - only this user has complete system access
 const FOUNDER_EMAIL = "rrivera@travectiosolutions.com";
@@ -16,7 +16,7 @@ export const isFounder: RequestHandler = async (req, res, next) => {
     }
 
     const userId = user.claims.sub;
-    const dbUser = await storage.getUser(userId);
+    const dbUser = await supabaseStorage.getUser(userId);
 
     if (!dbUser) {
       return res.status(401).json({ message: "User not found" });
@@ -49,7 +49,7 @@ export const enforceDataIsolation: RequestHandler = async (req, res, next) => {
     }
 
     const userId = user.claims.sub;
-    const dbUser = await storage.getUser(userId);
+    const dbUser = await supabaseStorage.getUser(userId);
 
     if (!dbUser) {
       return res.status(401).json({ message: "User not found" });
@@ -87,12 +87,12 @@ export const enforceDataIsolation: RequestHandler = async (req, res, next) => {
 export async function ensureFounderSetup() {
   try {
     // Find the founder user by email
-    const allUsers = await storage.getAllUsers();
+    const allUsers = await supabaseStorage.getAllUsers();
     const founderUser = allUsers.find(user => user.email === FOUNDER_EMAIL);
 
     if (founderUser && !founderUser.isFounder) {
       console.log(`🔧 Setting founder status for ${FOUNDER_EMAIL}`);
-      await storage.updateUser(founderUser.id, { 
+      await supabaseStorage.updateUser(founderUser.id, { 
         isFounder: 1,
         isAdmin: 1, // Founders are also admins
         isActive: 1

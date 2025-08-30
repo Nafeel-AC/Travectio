@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+import { supabaseStorage } from "./supabase-storage";
 import type { 
   InsertDataInputTracking, 
   InsertUserAnalytics, 
@@ -38,7 +38,7 @@ export class AnalyticsService {
     };
 
     try {
-      await storage.trackDataInput(trackingData);
+      await supabaseStorage.trackDataInput(trackingData);
       // console.log(`[Analytics] Tracked data input: ${params.inputType} ${params.inputSubType} by user ${params.userId}`);
     } catch (error) {
       console.error(`[Analytics] Failed to track data input:`, error);
@@ -70,7 +70,7 @@ export class AnalyticsService {
     };
 
     try {
-      await storage.trackFeatureUsage(featureData);
+      await supabaseStorage.trackFeatureUsage(featureData);
       // console.log(`[Analytics] Tracked feature usage: ${params.featureName} by user ${params.userId}`);
     } catch (error) {
       console.error(`[Analytics] Failed to track feature usage:`, error);
@@ -116,7 +116,7 @@ export class AnalyticsService {
     };
 
     try {
-      await storage.trackUserSession(sessionData);
+      await supabaseStorage.trackUserSession(sessionData);
       // console.log(`[Analytics] Tracked user session: ${params.sessionId} for user ${params.userId}`);
     } catch (error) {
       console.error(`[Analytics] Failed to track user session:`, error);
@@ -127,11 +127,11 @@ export class AnalyticsService {
   static async generateSystemMetrics(metricDate: Date = new Date()) {
     try {
       // Get all users
-      const allUsers = await storage.getAllUsers();
-      const allTrucks = await storage.getTrucks();
-      const allLoads = await storage.getLoads();
-      const allDrivers = await storage.getDrivers();
-      const allFuelPurchases = await storage.getFuelPurchases();
+          const allUsers = await supabaseStorage.getAllUsers();
+    const allTrucks = await supabaseStorage.getTrucks();
+    const allLoads = await supabaseStorage.getLoads();
+    const allDrivers = await supabaseStorage.getDrivers();
+    const allFuelPurchases = await supabaseStorage.getFuelPurchases();
 
       // Calculate system-wide metrics
       const totalRevenueTracked = allLoads.reduce((sum, load) => sum + (load.pay || 0), 0);
@@ -168,7 +168,7 @@ export class AnalyticsService {
         systemErrors: 0, // Would track from error logging
       };
 
-      await storage.recordSystemMetrics(systemMetrics);
+      await supabaseStorage.recordSystemMetrics(systemMetrics);
       // console.log(`[Analytics] Generated system metrics for ${metricDate.toDateString()}`);
       
       return systemMetrics;
@@ -183,21 +183,21 @@ export class AnalyticsService {
     try {
       const dashboardData = {
         // System overview
-        systemMetrics: await storage.getLatestSystemMetrics(),
+        systemMetrics: await supabaseStorage.getLatestSystemMetrics(),
         
         // User-specific analytics (if userId provided)
-        userAnalytics: userId ? await storage.getUserAnalytics(userId) : null,
-        userFeatureUsage: userId ? await storage.getUserFeatureUsage(userId) : null,
-        userDataInputs: userId ? await storage.getUserDataInputs(userId) : null,
+        userAnalytics: userId ? await supabaseStorage.getUserAnalytics(userId) : null,
+        userFeatureUsage: userId ? await supabaseStorage.getUserFeatureUsage(userId) : null,
+        userDataInputs: userId ? await supabaseStorage.getUserDataInputs(userId) : null,
 
         // System-wide feature usage
-        topFeatures: await storage.getTopFeatures(),
+        topFeatures: await supabaseStorage.getTopFeatures(),
         
         // Data input trends
-        dataInputTrends: await storage.getDataInputTrends(),
+        dataInputTrends: await supabaseStorage.getDataInputTrends(),
         
         // Business impact metrics
-        businessImpactMetrics: await storage.getBusinessImpactMetrics(),
+        businessImpactMetrics: await supabaseStorage.getBusinessImpactMetrics(),
       };
 
       // console.log(`[Analytics] Generated analytics dashboard ${userId ? `for user ${userId}` : 'system-wide'}`;
@@ -215,10 +215,10 @@ export class AnalyticsService {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
       return {
-        activeUsersToday: await storage.getActiveUsersCount(todayStart),
-        dataInputsToday: await storage.getDataInputsCount(todayStart),
-        featuresUsedToday: await storage.getFeaturesUsedCount(todayStart),
-        systemHealthScore: await storage.getSystemHealthScore(),
+        activeUsersToday: await supabaseStorage.getActiveUsersCount(todayStart),
+        dataInputsToday: await supabaseStorage.getDataInputsCount(todayStart),
+        featuresUsedToday: await supabaseStorage.getFeaturesUsedCount(todayStart),
+        systemHealthScore: await supabaseStorage.getSystemHealthScore(),
         timestamp: now,
       };
     } catch (error) {
