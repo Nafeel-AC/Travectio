@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Travectio MVP - CPM Load Checker</title>
+  <style>
+    body { font-family: Arial; margin: 40px; max-width: 600px; }
+    label { display: block; margin-top: 10px; }
+    input { padding: 6px; width: 100%; }
+    button { margin-top: 15px; padding: 10px 20px; font-size: 16px; }
+    .result { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Travectio - Load Profitability Checker</h2>
+
+  <label>Weekly Fixed Costs ($):</label>
+  <input type="number" id="fixedCosts" placeholder="e.g., 1200">
+
+  <label>Weekly Variable Costs ($):</label>
+  <input type="number" id="variableCosts" placeholder="e.g., 1800">
+
+  <label>Weekly Miles Driven:</label>
+  <input type="number" id="weeklyMiles" placeholder="e.g., 2500">
+
+  <hr>
+
+  <h3>Load Info</h3>
+  <label>Load Pay ($):</label>
+  <input type="number" id="loadPay" placeholder="e.g., 1100">
+
+  <label>Load Miles:</label>
+  <input type="number" id="loadMiles" placeholder="e.g., 500">
+
+  <button onclick="checkProfitability()">Check Profitability</button>
+
+  <div class="result" id="output"></div>
+
+  <script>
+    function checkProfitability() {
+      const fixed = parseFloat(document.getElementById('fixedCosts').value);
+      const variable = parseFloat(document.getElementById('variableCosts').value);
+      const miles = parseFloat(document.getElementById('weeklyMiles').value);
+      const loadPay = parseFloat(document.getElementById('loadPay').value);
+      const loadMiles = parseFloat(document.getElementById('loadMiles').value);
+
+      if (fixed && variable && miles && loadPay && loadMiles) {
+        const totalCost = fixed + variable;
+        const cpm = totalCost / miles;
+        const loadCpm = loadPay / loadMiles;
+        const profit = (loadPay - (loadMiles * cpm)).toFixed(2);
+
+        const output = document.getElementById('output');
+        output.innerHTML = `
+          Cost Per Mile: $${cpm.toFixed(2)} <br>
+          Load RPM: $${loadCpm.toFixed(2)} <br>
+          Estimated Profit: $${profit} <br><br>
+          <span style="color: ${loadCpm > cpm ? 'green' : 'red'}">
+            ${loadCpm > cpm ? '✅ PROFITABLE' : '❌ NOT PROFITABLE'}
+          </span>
+        `;
+      } else {
+        alert("Please fill in all fields.");
+      }
+    }
+  </script>
+</body>
+</html>

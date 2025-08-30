@@ -1,0 +1,250 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DriverEditForm } from "./driver-edit-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  User, 
+  Phone, 
+  Mail, 
+  CreditCard, 
+  Edit, 
+  Trash2, 
+  AlertTriangle,
+  CheckCircle,
+  Calendar,
+  Loader2
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+
+interface Driver {
+  id: string;
+  name: string;
+  cdlNumber: string;
+  phone?: string;
+  email?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface DriverManagementCardProps {
+  driver: Driver;
+  assignedTrucks?: number;
+}
+
+export function DriverManagementCard({ driver, assignedTrucks = 0 }: DriverManagementCardProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const deleteDriverMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/drivers/${driver.id}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to delete driver: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
+      toast({
+        title: "Driver Deleted",
+        description: `${driver.name} has been removed from the system.`,
+      });
+      setShowDeleteDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Deletion Failed",
+        description: error.message || "Failed to delete driver. They may be assigned to active trucks.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = () => {
+    deleteDriverMutation.mutate();
+  };
+
+  return (
+    <>
+      <Card className="bg-slate-800 border-slate-700 hover:border-slate-600 transition-colors">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <div className="p-2 bg-blue-600/20 rounded-lg">
+                <User className="w-4 h-4 text-blue-400" />
+              </div>
+              {driver.name}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge className={driver.isActive 
+                ? "bg-green-600/20 text-green-200 border-green-600/30" 
+                : "bg-red-600/20 text-red-200 border-red-600/30"
+              }>
+                {driver.isActive ? (
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                ) : (
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                )}
+                {driver.isActive ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {/* Driver Details */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <CreditCard className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-300">CDL:</span>
+              <span className="text-white font-medium">{driver.cdlNumber}</span>
+            </div>
+            
+            {driver.phone && (
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-300">Phone:</span>
+                <span className="text-white">{driver.phone}</span>
+              </div>
+            )}
+            
+            {driver.email && (
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-300">Email:</span>
+                <span className="text-white">{driver.email}</span>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-300">Added:</span>
+              <span className="text-white">
+                {formatDistanceToNow(new Date(driver.createdAt), { addSuffix: true })}
+              </span>
+            </div>
+          </div>
+
+          {/* Assignment Info */}
+          {assignedTrucks > 0 && (
+            <div className="p-3 bg-blue-600/10 rounded-lg border border-blue-600/20">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                <span className="text-blue-200 text-sm">
+                  Assigned to {assignedTrucks} truck{assignedTrucks !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+            <div className="flex items-center gap-3 w-full">
+              <Button
+                onClick={() => setShowEditDialog(true)}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium min-w-[80px] flex-1"
+              >
+                <Edit className="w-4 h-4 mr-1" />
+                Edit Driver
+              </Button>
+              
+              <Button
+                onClick={() => setShowDeleteDialog(true)}
+                size="sm"
+                variant="destructive"
+                disabled={assignedTrucks > 0}
+                className="min-w-[80px] flex-1"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </div>
+          </div>
+          
+          {assignedTrucks > 0 && (
+            <div className="mt-2">
+              <Badge variant="secondary" className="bg-slate-600 text-slate-300 text-xs">
+                Cannot delete - assigned to trucks
+              </Badge>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Driver Information</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Update {driver.name}'s profile information and status.
+            </DialogDescription>
+          </DialogHeader>
+          <DriverEditForm
+            driver={driver}
+            compact={true}
+            onSave={() => setShowEditDialog(false)}
+            onCancel={() => setShowEditDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              Delete Driver
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              Are you sure you want to delete <strong className="text-white">{driver.name}</strong>? 
+              This action cannot be undone and will remove all driver records from the system.
+              
+              {assignedTrucks > 0 && (
+                <div className="mt-3 p-3 bg-red-600/10 rounded-lg border border-red-600/20">
+                  <p className="text-red-200 text-sm font-medium">
+                    This driver is currently assigned to {assignedTrucks} truck{assignedTrucks !== 1 ? 's' : ''}. 
+                    Please reassign or remove them from trucks before deletion.
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-600 text-slate-300 hover:bg-slate-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteDriverMutation.isPending || assignedTrucks > 0}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteDriverMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Delete Driver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+export default DriverManagementCard;
