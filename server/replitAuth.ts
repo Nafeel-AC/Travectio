@@ -2,6 +2,12 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import { supabase } from "./supabase";
 import { storage } from "./storage";
+import connectPgSimple from 'connect-pg-simple';
+import pkg from 'pg';
+const { Pool } = pkg;
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Supabase authentication configuration
 console.log('[Auth] Using Supabase authentication system');
@@ -15,6 +21,29 @@ export function getSession() {
   
   console.log(`[Session Config] Environment: ${process.env.NODE_ENV}, Secure cookies: ${useSecureCookies}`);
   
+  const databaseUrl = process.env.DATABASE_URL;
+
+  // Use Postgres-backed session store when DATABASE_URL is available
+  if (databaseUrl) {
+    const PgSession = connectPgSimple(session as any);
+    const pool = new Pool({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } });
+
+    return session({
+      store: new PgSession({ pool }),
+      secret: process.env.SESSION_SECRET!,
+      resave: false,
+      saveUninitialized: false,
+      name: 'connect.sid',
+      cookie: {
+        httpOnly: true,
+        secure: useSecureCookies,
+        maxAge: sessionTtl,
+        sameSite: 'lax',
+      },
+    });
+  }
+
+  // Fallback to default (in-memory) session store for local/dev environments
   return session({
     secret: process.env.SESSION_SECRET!,
     resave: false,
