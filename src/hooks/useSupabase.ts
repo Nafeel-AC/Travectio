@@ -22,14 +22,38 @@ import {
 // ============================================================================
 
 export const useAuth = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Helper to ensure user row exists in users table
+  const ensureUserRow = useCallback(async (authUser: any) => {
+    if (!authUser) return;
+    // Check if user exists in users table
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', authUser.id)
+      .single();
+    if (!data) {
+      // Insert user row
+          await supabase.from('users').insert({
+            id: authUser.id,
+            email: authUser.email,
+            firstName: authUser.user_metadata?.firstName || null,
+            lastName: authUser.user_metadata?.lastName || null,
+            profileImageUrl: authUser.user_metadata?.avatar_url || null,
+            phone: authUser.phone || null,
+            // You can add more fields if you collect them at signup
+          });
+    }
+  }, []);
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        setUser(session.user);
+        setUser(session.user as any);
+        await ensureUserRow(session.user);
       }
       setLoading(false);
     });
@@ -37,9 +61,10 @@ export const useAuth = () => {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUser(session.user);
+        setUser(session.user as any);
+        await ensureUserRow(session.user);
       } else {
         setUser(null);
       }
@@ -47,7 +72,7 @@ export const useAuth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [ensureUserRow]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -112,7 +137,7 @@ export const useAuth = () => {
 // ============================================================================
 
 export const useTrucks = () => {
-  const [trucks, setTrucks] = useState([]);
+  const [trucks, setTrucks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchTrucks = useCallback(async () => {
@@ -130,7 +155,7 @@ export const useTrucks = () => {
   const createTruck = useCallback(async (truckData: any) => {
     try {
       const newTruck = await TruckService.createTruck(truckData);
-      setTrucks(prev => [newTruck, ...prev]);
+      setTrucks((prev: any[]) => [newTruck, ...prev]);
       return newTruck;
     } catch (error) {
       throw error;
@@ -140,7 +165,7 @@ export const useTrucks = () => {
   const updateTruck = useCallback(async (id: string, updates: any) => {
     try {
       const updatedTruck = await TruckService.updateTruck(id, updates);
-      setTrucks(prev => prev.map(truck => 
+      setTrucks((prev: any[]) => prev.map(truck => 
         truck.id === id ? updatedTruck : truck
       ));
       return updatedTruck;
@@ -152,7 +177,7 @@ export const useTrucks = () => {
   const deleteTruck = useCallback(async (id: string) => {
     try {
       await TruckService.deleteTruck(id);
-      setTrucks(prev => prev.filter(truck => truck.id !== id));
+      setTrucks((prev: any[]) => prev.filter(truck => truck.id !== id));
       return true;
     } catch (error) {
       throw error;
@@ -183,7 +208,7 @@ export const useTrucks = () => {
 };
 
 export const useTruckCostBreakdown = (truckId: string) => {
-  const [breakdowns, setBreakdowns] = useState([]);
+  const [breakdowns, setBreakdowns] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchBreakdowns = useCallback(async () => {
@@ -250,7 +275,7 @@ export const useTruckCostBreakdown = (truckId: string) => {
 // ============================================================================
 
 export const useLoads = () => {
-  const [loads, setLoads] = useState([]);
+  const [loads, setLoads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchLoads = useCallback(async () => {
@@ -321,7 +346,7 @@ export const useLoads = () => {
 };
 
 export const useLoadStops = (loadId: string) => {
-  const [stops, setStops] = useState([]);
+  const [stops, setStops] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchStops = useCallback(async () => {
@@ -388,7 +413,7 @@ export const useLoadStops = (loadId: string) => {
 // ============================================================================
 
 export const useFuelPurchases = (loadId?: string, truckId?: string) => {
-  const [purchases, setPurchases] = useState([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchPurchases = useCallback(async () => {
@@ -463,7 +488,7 @@ export const useFuelPurchases = (loadId?: string, truckId?: string) => {
 // ============================================================================
 
 export const useDrivers = () => {
-  const [drivers, setDrivers] = useState([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchDrivers = useCallback(async () => {
@@ -529,7 +554,7 @@ export const useDrivers = () => {
 // ============================================================================
 
 export const useHosLogs = (driverId?: string, truckId?: string) => {
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchLogs = useCallback(async () => {
@@ -580,7 +605,7 @@ export const useHosLogs = (driverId?: string, truckId?: string) => {
 // ============================================================================
 
 export const useLoadBoard = () => {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchItems = useCallback(async () => {
@@ -672,7 +697,7 @@ export const useFleetMetrics = () => {
 // ============================================================================
 
 export const useLoadPlans = (truckId?: string, driverId?: string) => {
-  const [plans, setPlans] = useState([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchPlans = useCallback(async () => {
@@ -734,7 +759,7 @@ export const useLoadPlans = (truckId?: string, driverId?: string) => {
 };
 
 export const useLoadPlanLegs = (planId: string) => {
-  const [legs, setLegs] = useState([]);
+  const [legs, setLegs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchLegs = useCallback(async () => {
@@ -850,7 +875,7 @@ export const useAnalytics = () => {
 // ============================================================================
 
 export const useActivities = () => {
-  const [activities, setActivities] = useState([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchActivities = useCallback(async () => {
@@ -954,7 +979,7 @@ export const useOwnerDashboard = () => {
 // ============================================================================
 
 export const useUserManagement = () => {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {

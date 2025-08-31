@@ -15,7 +15,7 @@ import TruckCostBreakdown from "@/pages/truck-cost-breakdown";
 import NotFound from "@/pages/not-found";
 import HOSManagement from "@/pages/hos-management";
 import LoadManagement from "@/pages/load-management";
-import FuelManagement from "@/pages/fuel-management";  
+import FuelManagement from "@/pages/fuel-management";
 import UserManagement from "@/pages/user-management";
 import SessionManagement from "@/pages/session-management";
 import FleetAnalytics from "@/pages/fleet-analytics";
@@ -67,15 +67,24 @@ function Router() {
         <Route path="/truck-demo" component={TruckDemo} />
         <Route path="/add-truck" component={GuidedTruckAddition} />
         <Route path="/truck/:id" component={TruckProfile} />
-        <Route path="/trucks/:truckId/cost-breakdown" component={TruckCostBreakdown} />
+        <Route
+          path="/trucks/:truckId/cost-breakdown"
+          component={TruckCostBreakdown}
+        />
         <Route path="/hos-management" component={HOSManagement} />
         <Route path="/load-management" component={LoadManagement} />
         <Route path="/load-matcher" component={LoadMatcher} />
         <Route path="/fuel-management" component={FuelManagement} />
         <Route path="/user-management" component={UserManagement} />
         <Route path="/session-management" component={SessionManagement} />
-        <Route path="/integration-management" component={IntegrationManagement} />
-        <Route path="/integration-onboarding" component={IntegrationOnboarding} />
+        <Route
+          path="/integration-management"
+          component={IntegrationManagement}
+        />
+        <Route
+          path="/integration-onboarding"
+          component={IntegrationOnboarding}
+        />
         <Route path="/api-credentials-guide" component={APICredentialsGuide} />
         <Route path="/owner-dashboard" component={OwnerDashboard} />
         <Route path="/user-guide" component={UserGuide} />
@@ -92,12 +101,12 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <DemoProvider>
           {/* <AntiPollingWrapper> */}
-            <TimeFilterProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </TimeFilterProvider>
+          <TimeFilterProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </TimeFilterProvider>
           {/* </AntiPollingWrapper> */}
         </DemoProvider>
       </QueryClientProvider>

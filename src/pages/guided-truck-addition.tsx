@@ -1,27 +1,49 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useTrucks } from "@/hooks/useSupabase";
+import { useAuth } from "@/hooks/useSupabase";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Info, ArrowRight, ArrowLeft, CheckCircle, Zap, Smartphone } from "lucide-react";
+import {
+  Truck,
+  Info,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle,
+  Zap,
+  Smartphone,
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { NavigationLayout } from "@/components/global-navigation";
 import { TruckCostGuide } from "@/components/truck-cost-guide";
 
 export default function GuidedTruckAddition() {
-  const { addTruck } = useTrucks();
+  const { createTruck, loading } = useTrucks();
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4; // Updated to include cost input step
   const [showCostGuide, setShowCostGuide] = useState(true);
-  
+
   // Basic truck information
   const [truckInfo, setTruckInfo] = useState({
     name: "",
@@ -29,7 +51,7 @@ export default function GuidedTruckAddition() {
     licensePlate: "",
     eldDeviceId: "",
     equipmentType: "Dry Van",
-    driverName: ""
+    // driverName removed
   });
 
   // Integration preferences
@@ -37,7 +59,7 @@ export default function GuidedTruckAddition() {
     loadBoardIntegration: "manual", // "integrated" or "manual"
     elogsIntegration: "manual", // "integrated" or "manual"
     preferredLoadBoard: "", // DAT, Truckstop, 123Loadboard
-    elogsProvider: "" // Samsara, KeepTruckin, etc.
+    elogsProvider: "", // Samsara, KeepTruckin, etc.
   });
 
   // Cost information
@@ -49,7 +71,7 @@ export default function GuidedTruckAddition() {
     driverPayPerMile: "",
     fuel: "",
     maintenance: "",
-    otherVariableCosts: ""
+    otherVariableCosts: "",
   });
 
   const handleSubmit = async () => {
@@ -67,6 +89,7 @@ export default function GuidedTruckAddition() {
     const totalWeeklyCosts = totalFixedCosts + totalVariableCosts;
     const costPerMile = calculateCostTotals().costPerMile;
 
+    // Prepare truck data without costBreakdown
     const truckData = {
       ...truckInfo,
       ...integrationOptions,
@@ -74,47 +97,69 @@ export default function GuidedTruckAddition() {
       variableCosts: totalVariableCosts,
       totalMiles: 0,
       isActive: 1,
-      costBreakdown: {
-        // Map simple inputs to detailed cost breakdown
-        truckPayment: parseFloat(costInfo.truckPayment) || 0,
-        trailerPayment: parseFloat(costInfo.trailerPayment) || 0,
-        elogSubscription: 0,
-        liabilityInsurance: parseFloat(costInfo.insurance) || 0,
-        physicalInsurance: 0,
-        cargoInsurance: 0,
-        trailerInterchange: 0,
-        bobtailInsurance: 0,
-        nonTruckingLiability: 0,
-        basePlateDeduction: 0,
-        companyPhone: parseFloat(costInfo.otherFixedCosts) || 0,
-        driverPay: ((parseFloat(costInfo.driverPayPerMile) || 0) / 100) * 3000,
-        fuel: parseFloat(costInfo.fuel) || 0,
-        maintenance: parseFloat(costInfo.maintenance) || 0,
-        iftaTaxes: 0,
-        tolls: 0,
-        dwellTime: 0,
-        reeferFuel: 0,
-        truckParking: parseFloat(costInfo.otherVariableCosts) || 0,
-        milesThisWeek: 3000,
-        totalFixedCosts: totalFixedCosts,
-        totalVariableCosts: totalVariableCosts,
-        totalWeeklyCosts: totalWeeklyCosts,
-        costPerMile: costPerMile,
-        weekStarting: new Date().toISOString()
-      }
+      userId: user?.id,
+    };
+
+    // Prepare cost breakdown data for truck_cost_breakdown table
+    const costBreakdownData = {
+      truckPayment: parseFloat(costInfo.truckPayment) || 0,
+      trailerPayment: parseFloat(costInfo.trailerPayment) || 0,
+      elogSubscription: 0,
+      liabilityInsurance: parseFloat(costInfo.insurance) || 0,
+      physicalInsurance: 0,
+      cargoInsurance: 0,
+      trailerInterchange: 0,
+      bobtailInsurance: 0,
+      nonTruckingLiability: 0,
+      basePlateDeduction: 0,
+      companyPhone: parseFloat(costInfo.otherFixedCosts) || 0,
+      driverPay: ((parseFloat(costInfo.driverPayPerMile) || 0) / 100) * 3000,
+      fuel: parseFloat(costInfo.fuel) || 0,
+      maintenance: parseFloat(costInfo.maintenance) || 0,
+      iftaTaxes: 0,
+      tolls: 0,
+      dwellTime: 0,
+      reeferFuel: 0,
+      truckParking: parseFloat(costInfo.otherVariableCosts) || 0,
+      milesThisWeek: 3000,
+      totalFixedCosts: totalFixedCosts,
+      totalVariableCosts: totalVariableCosts,
+      totalWeeklyCosts: totalWeeklyCosts,
+      costPerMile: costPerMile,
+      weekStarting: new Date().toISOString().slice(0, 10),
+      weekEnding: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10), // 7-day week
     };
 
     try {
-      await addTruck(truckData);
+      // 1. Create the truck
+      const newTruck = await createTruck(truckData);
+
+      // 2. Add cost breakdown to truck_cost_breakdown table
+      if (newTruck && newTruck.id) {
+        // You may need to import and use the appropriate hook/service for this
+        // Example: await createBreakdown(newTruck.id, costBreakdownData);
+        // For now, we'll use fetch to call your API endpoint if you have one
+        await fetch("/api/truck-cost-breakdown", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ truckId: newTruck.id, ...costBreakdownData }),
+        });
+      }
+
       toast({
         title: "Truck Added Successfully!",
-        description: "Your truck has been added to the fleet with all cost details.",
+        description:
+          "Your truck has been added to the fleet with all cost details.",
       });
       setLocation("/truck-demo");
     } catch (error: any) {
       toast({
         title: "Failed to Add Truck",
-        description: error.message || "There was an error adding the truck. Please try again.",
+        description:
+          error.message ||
+          "There was an error adding the truck. Please try again.",
         variant: "destructive",
       });
     }
@@ -125,23 +170,25 @@ export default function GuidedTruckAddition() {
     const trailerPayment = parseFloat(costInfo.trailerPayment) || 0;
     const insurance = parseFloat(costInfo.insurance) || 0;
     const otherFixedCosts = parseFloat(costInfo.otherFixedCosts) || 0;
-    
+
     const driverPayPerMile = parseFloat(costInfo.driverPayPerMile) || 0;
     const driverPayWeekly = (driverPayPerMile / 100) * 3000; // Calculate weekly pay from cents per mile
     const fuel = parseFloat(costInfo.fuel) || 0;
     const maintenance = parseFloat(costInfo.maintenance) || 0;
     const otherVariableCosts = parseFloat(costInfo.otherVariableCosts) || 0;
-    
-    const totalFixedCosts = truckPayment + trailerPayment + insurance + otherFixedCosts;
-    const totalVariableCosts = driverPayWeekly + fuel + maintenance + otherVariableCosts;
+
+    const totalFixedCosts =
+      truckPayment + trailerPayment + insurance + otherFixedCosts;
+    const totalVariableCosts =
+      driverPayWeekly + fuel + maintenance + otherVariableCosts;
     const totalWeeklyCosts = totalFixedCosts + totalVariableCosts;
     const costPerMile = totalWeeklyCosts / 3000; // Based on 3000 miles per week standard
-    
+
     return {
       totalFixedCosts,
       totalVariableCosts,
       totalWeeklyCosts,
-      costPerMile
+      costPerMile,
     };
   };
 
@@ -173,33 +220,47 @@ export default function GuidedTruckAddition() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="truckName" className="text-white text-sm font-medium">
+                <Label
+                  htmlFor="truckName"
+                  className="text-white text-sm font-medium"
+                >
                   What would you like to call this truck? *
                 </Label>
                 <Input
                   id="truckName"
                   value={truckInfo.name}
-                  onChange={(e) => setTruckInfo(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setTruckInfo((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   className="bg-slate-700 border-slate-600 text-white"
                   placeholder="e.g., Truck #001, Big Blue, etc."
                 />
-                <p className="text-xs text-slate-500">This is just a friendly name to identify your truck</p>
+                <p className="text-xs text-slate-500">
+                  This is just a friendly name to identify your truck
+                </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="equipmentType" className="text-white text-sm font-medium">
+                <Label
+                  htmlFor="equipmentType"
+                  className="text-white text-sm font-medium"
+                >
                   What type of trailer do you pull?
                 </Label>
                 <Select
                   value={truckInfo.equipmentType}
-                  onValueChange={(value) => setTruckInfo(prev => ({ ...prev, equipmentType: value }))}
+                  onValueChange={(value) =>
+                    setTruckInfo((prev) => ({ ...prev, equipmentType: value }))
+                  }
                 >
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-600">
                     <SelectItem value="Dry Van">Dry Van</SelectItem>
-                    <SelectItem value="Reefer">Reefer (Refrigerated)</SelectItem>
+                    <SelectItem value="Reefer">
+                      Reefer (Refrigerated)
+                    </SelectItem>
                     <SelectItem value="Flatbed">Flatbed</SelectItem>
                     <SelectItem value="Step Deck">Step Deck</SelectItem>
                     <SelectItem value="Double Drop">Double Drop</SelectItem>
@@ -208,40 +269,47 @@ export default function GuidedTruckAddition() {
                     <SelectItem value="Lowboy">Lowboy</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-slate-500">This helps match you with the right loads</p>
+                <p className="text-xs text-slate-500">
+                  This helps match you with the right loads
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="driverName" className="text-white text-sm font-medium">
-                  Driver Name (Optional)
-                </Label>
-                <Input
-                  id="driverName"
-                  value={truckInfo.driverName}
-                  onChange={(e) => setTruckInfo(prev => ({ ...prev, driverName: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white"
-                  placeholder="e.g., John Smith"
-                />
-                <p className="text-xs text-slate-500">Name of the primary driver for this truck</p>
-              </div>
+              {/* Driver Name input removed. If you want to assign a driver, use currentDriverId and a driver selector. */}
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="vin" className="text-white text-sm font-medium">VIN (Optional)</Label>
+                  <Label
+                    htmlFor="vin"
+                    className="text-white text-sm font-medium"
+                  >
+                    VIN (Optional)
+                  </Label>
                   <Input
                     id="vin"
                     value={truckInfo.vin}
-                    onChange={(e) => setTruckInfo(prev => ({ ...prev, vin: e.target.value }))}
+                    onChange={(e) =>
+                      setTruckInfo((prev) => ({ ...prev, vin: e.target.value }))
+                    }
                     className="bg-slate-700 border-slate-600 text-white"
                     placeholder="17-character VIN number"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="licensePlate" className="text-white text-sm font-medium">License Plate (Optional)</Label>
+                  <Label
+                    htmlFor="licensePlate"
+                    className="text-white text-sm font-medium"
+                  >
+                    License Plate (Optional)
+                  </Label>
                   <Input
                     id="licensePlate"
                     value={truckInfo.licensePlate}
-                    onChange={(e) => setTruckInfo(prev => ({ ...prev, licensePlate: e.target.value }))}
+                    onChange={(e) =>
+                      setTruckInfo((prev) => ({
+                        ...prev,
+                        licensePlate: e.target.value,
+                      }))
+                    }
                     className="bg-slate-700 border-slate-600 text-white"
                     placeholder="e.g., ABC-123"
                   />
@@ -266,65 +334,99 @@ export default function GuidedTruckAddition() {
             <CardContent className="space-y-6">
               <div className="bg-blue-900/20 p-4 rounded-lg">
                 <p className="text-blue-200 text-sm">
-                  <strong>Load Board Integration</strong><br/>
-                  Choose how you want to find loads - integrate with popular load boards for automatic matching, 
-                  or input loads manually when you find them.
+                  <strong>Load Board Integration</strong>
+                  <br />
+                  Choose how you want to find loads - integrate with popular
+                  load boards for automatic matching, or input loads manually
+                  when you find them.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-3">
-                  <Label className="text-white text-sm font-medium">Load Management Method</Label>
+                  <Label className="text-white text-sm font-medium">
+                    Load Management Method
+                  </Label>
                   <div className="grid grid-cols-1 gap-3">
-                    <div 
+                    <div
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        integrationOptions.loadBoardIntegration === 'integrated' 
-                          ? 'border-blue-500 bg-blue-900/20' 
-                          : 'border-slate-600 hover:border-slate-500'
+                        integrationOptions.loadBoardIntegration === "integrated"
+                          ? "border-blue-500 bg-blue-900/20"
+                          : "border-slate-600 hover:border-slate-500"
                       }`}
-                      onClick={() => setIntegrationOptions(prev => ({ ...prev, loadBoardIntegration: 'integrated' }))}
+                      onClick={() =>
+                        setIntegrationOptions((prev) => ({
+                          ...prev,
+                          loadBoardIntegration: "integrated",
+                        }))
+                      }
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          integrationOptions.loadBoardIntegration === 'integrated' 
-                            ? 'border-blue-500 bg-blue-500' 
-                            : 'border-slate-400'
-                        }`} />
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 ${
+                            integrationOptions.loadBoardIntegration ===
+                            "integrated"
+                              ? "border-blue-500 bg-blue-500"
+                              : "border-slate-400"
+                          }`}
+                        />
                         <div>
-                          <h3 className="text-white font-medium">Integrated Load Board</h3>
-                          <p className="text-slate-400 text-sm">Automatically pull loads from major load boards</p>
+                          <h3 className="text-white font-medium">
+                            Integrated Load Board
+                          </h3>
+                          <p className="text-slate-400 text-sm">
+                            Automatically pull loads from major load boards
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <div 
+                    <div
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        integrationOptions.loadBoardIntegration === 'manual' 
-                          ? 'border-blue-500 bg-blue-900/20' 
-                          : 'border-slate-600 hover:border-slate-500'
+                        integrationOptions.loadBoardIntegration === "manual"
+                          ? "border-blue-500 bg-blue-900/20"
+                          : "border-slate-600 hover:border-slate-500"
                       }`}
-                      onClick={() => setIntegrationOptions(prev => ({ ...prev, loadBoardIntegration: 'manual' }))}
+                      onClick={() =>
+                        setIntegrationOptions((prev) => ({
+                          ...prev,
+                          loadBoardIntegration: "manual",
+                        }))
+                      }
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          integrationOptions.loadBoardIntegration === 'manual' 
-                            ? 'border-blue-500 bg-blue-500' 
-                            : 'border-slate-400'
-                        }`} />
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 ${
+                            integrationOptions.loadBoardIntegration === "manual"
+                              ? "border-blue-500 bg-blue-500"
+                              : "border-slate-400"
+                          }`}
+                        />
                         <div>
-                          <h3 className="text-white font-medium">Manual Load Entry</h3>
-                          <p className="text-slate-400 text-sm">I'll input loads manually as I find them</p>
+                          <h3 className="text-white font-medium">
+                            Manual Load Entry
+                          </h3>
+                          <p className="text-slate-400 text-sm">
+                            I'll input loads manually as I find them
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {integrationOptions.loadBoardIntegration === 'integrated' && (
+                {integrationOptions.loadBoardIntegration === "integrated" && (
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Preferred Load Board</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Preferred Load Board
+                    </Label>
                     <Select
                       value={integrationOptions.preferredLoadBoard}
-                      onValueChange={(value) => setIntegrationOptions(prev => ({ ...prev, preferredLoadBoard: value }))}
+                      onValueChange={(value) =>
+                        setIntegrationOptions((prev) => ({
+                          ...prev,
+                          preferredLoadBoard: value,
+                        }))
+                      }
                     >
                       <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                         <SelectValue placeholder="Select your preferred load board" />
@@ -332,11 +434,17 @@ export default function GuidedTruckAddition() {
                       <SelectContent className="bg-slate-700 border-slate-600">
                         <SelectItem value="DAT">DAT Load Board</SelectItem>
                         <SelectItem value="Truckstop">Truckstop.com</SelectItem>
-                        <SelectItem value="123Loadboard">123Loadboard</SelectItem>
-                        <SelectItem value="SuperDispatch">Super Dispatch</SelectItem>
+                        <SelectItem value="123Loadboard">
+                          123Loadboard
+                        </SelectItem>
+                        <SelectItem value="SuperDispatch">
+                          Super Dispatch
+                        </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-slate-500">You'll need API credentials for integration</p>
+                    <p className="text-xs text-slate-500">
+                      You'll need API credentials for integration
+                    </p>
                   </div>
                 )}
               </div>
@@ -353,130 +461,212 @@ export default function GuidedTruckAddition() {
                 Step 3: Weekly Cost Breakdown
               </CardTitle>
               <CardDescription className="text-slate-400">
-                Enter your weekly operating costs for accurate profitability tracking
+                Enter your weekly operating costs for accurate profitability
+                tracking
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-blue-900/20 p-4 rounded-lg">
                 <p className="text-blue-200 text-sm">
-                  <strong>Cost Per Mile Calculation</strong><br/>
-                  These costs will be used to calculate your cost per mile and help determine 
-                  load profitability. Based on industry standard of 3,000 miles per week.
+                  <strong>Cost Per Mile Calculation</strong>
+                  <br />
+                  These costs will be used to calculate your cost per mile and
+                  help determine load profitability. Based on industry standard
+                  of 3,000 miles per week.
                 </p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-white font-medium text-lg mb-3">Fixed Costs (Weekly)</h3>
-                  
+                  <h3 className="text-white font-medium text-lg mb-3">
+                    Fixed Costs (Weekly)
+                  </h3>
+
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Truck Payment</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Truck Payment
+                    </Label>
                     <Input
                       value={costInfo.truckPayment}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, truckPayment: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          truckPayment: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="800"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">Weekly truck payment or lease</p>
+                    <p className="text-xs text-slate-500">
+                      Weekly truck payment or lease
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Trailer Payment</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Trailer Payment
+                    </Label>
                     <Input
                       value={costInfo.trailerPayment}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, trailerPayment: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          trailerPayment: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="200"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">Weekly trailer payment or lease</p>
+                    <p className="text-xs text-slate-500">
+                      Weekly trailer payment or lease
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Insurance (Total Weekly)</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Insurance (Total Weekly)
+                    </Label>
                     <Input
                       value={costInfo.insurance}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, insurance: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          insurance: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="300"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">All insurance costs per week</p>
+                    <p className="text-xs text-slate-500">
+                      All insurance costs per week
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Other Fixed Costs</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Other Fixed Costs
+                    </Label>
                     <Input
                       value={costInfo.otherFixedCosts}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, otherFixedCosts: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          otherFixedCosts: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="150"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">ELD subscription, phone, etc.</p>
+                    <p className="text-xs text-slate-500">
+                      ELD subscription, phone, etc.
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-white font-medium text-lg mb-3">Variable Costs (Weekly)</h3>
-                  
+                  <h3 className="text-white font-medium text-lg mb-3">
+                    Variable Costs (Weekly)
+                  </h3>
+
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Driver Pay (cents per mile)</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Driver Pay (cents per mile)
+                    </Label>
                     <Input
                       value={costInfo.driverPayPerMile}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, driverPayPerMile: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          driverPayPerMile: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="65"
                       type="number"
                       step="0.1"
                     />
                     <p className="text-xs text-slate-500">
-                      Weekly: ${(((parseFloat(costInfo.driverPayPerMile) || 0) / 100) * 3000).toFixed(2)} @ 3,000 miles
+                      Weekly: $
+                      {(
+                        ((parseFloat(costInfo.driverPayPerMile) || 0) / 100) *
+                        3000
+                      ).toFixed(2)}{" "}
+                      @ 3,000 miles
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Fuel (Weekly)</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Fuel (Weekly)
+                    </Label>
                     <Input
                       value={costInfo.fuel}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, fuel: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          fuel: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="1200"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">Typical: $1,000-$1,500/week</p>
+                    <p className="text-xs text-slate-500">
+                      Typical: $1,000-$1,500/week
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Maintenance (Weekly)</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Maintenance (Weekly)
+                    </Label>
                     <Input
                       value={costInfo.maintenance}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, maintenance: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          maintenance: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="200"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">Repairs, parts, scheduled maintenance</p>
+                    <p className="text-xs text-slate-500">
+                      Repairs, parts, scheduled maintenance
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">Other Variable Costs</Label>
+                    <Label className="text-white text-sm font-medium">
+                      Other Variable Costs
+                    </Label>
                     <Input
                       value={costInfo.otherVariableCosts}
-                      onChange={(e) => setCostInfo(prev => ({ ...prev, otherVariableCosts: e.target.value }))}
+                      onChange={(e) =>
+                        setCostInfo((prev) => ({
+                          ...prev,
+                          otherVariableCosts: e.target.value,
+                        }))
+                      }
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="150"
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-slate-500">Permits, tolls, parking, etc.</p>
+                    <p className="text-xs text-slate-500">
+                      Permits, tolls, parking, etc.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -491,9 +681,12 @@ export default function GuidedTruckAddition() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-400 text-sm">Total Variable Costs</p>
+                    <p className="text-slate-400 text-sm">
+                      Total Variable Costs
+                    </p>
                     <p className="text-white font-bold text-xl">
-                      ${calculateCostTotals().totalVariableCosts.toFixed(2)}/week
+                      ${calculateCostTotals().totalVariableCosts.toFixed(2)}
+                      /week
                     </p>
                   </div>
                   <div>
@@ -517,85 +710,123 @@ export default function GuidedTruckAddition() {
                 Step 4: ELogs Integration
               </CardTitle>
               <CardDescription className="text-slate-400">
-                How would you like to track Hours of Service (HOS) for this truck?
+                How would you like to track Hours of Service (HOS) for this
+                truck?
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-green-900/20 p-4 rounded-lg">
                 <p className="text-green-200 text-sm">
-                  <strong>Electronic Logs Integration</strong><br/>
-                  Electronic Logging Devices (ELDs) are required for DOT compliance. Choose to integrate 
-                  automatically or enter HOS data manually.
+                  <strong>Electronic Logs Integration</strong>
+                  <br />
+                  Electronic Logging Devices (ELDs) are required for DOT
+                  compliance. Choose to integrate automatically or enter HOS
+                  data manually.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-3">
-                  <Label className="text-white text-sm font-medium">HOS Management Method</Label>
+                  <Label className="text-white text-sm font-medium">
+                    HOS Management Method
+                  </Label>
                   <div className="grid grid-cols-1 gap-3">
-                    <div 
+                    <div
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        integrationOptions.elogsIntegration === 'integrated' 
-                          ? 'border-green-500 bg-green-900/20' 
-                          : 'border-slate-600 hover:border-slate-500'
+                        integrationOptions.elogsIntegration === "integrated"
+                          ? "border-green-500 bg-green-900/20"
+                          : "border-slate-600 hover:border-slate-500"
                       }`}
-                      onClick={() => setIntegrationOptions(prev => ({ ...prev, elogsIntegration: 'integrated' }))}
+                      onClick={() =>
+                        setIntegrationOptions((prev) => ({
+                          ...prev,
+                          elogsIntegration: "integrated",
+                        }))
+                      }
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          integrationOptions.elogsIntegration === 'integrated' 
-                            ? 'border-green-500 bg-green-500' 
-                            : 'border-slate-400'
-                        }`} />
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 ${
+                            integrationOptions.elogsIntegration === "integrated"
+                              ? "border-green-500 bg-green-500"
+                              : "border-slate-400"
+                          }`}
+                        />
                         <div>
-                          <h3 className="text-white font-medium">Integrated ELD System</h3>
-                          <p className="text-slate-400 text-sm">Automatically sync with your ELD provider</p>
+                          <h3 className="text-white font-medium">
+                            Integrated ELD System
+                          </h3>
+                          <p className="text-slate-400 text-sm">
+                            Automatically sync with your ELD provider
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <div 
+                    <div
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        integrationOptions.elogsIntegration === 'manual' 
-                          ? 'border-green-500 bg-green-900/20' 
-                          : 'border-slate-600 hover:border-slate-500'
+                        integrationOptions.elogsIntegration === "manual"
+                          ? "border-green-500 bg-green-900/20"
+                          : "border-slate-600 hover:border-slate-500"
                       }`}
-                      onClick={() => setIntegrationOptions(prev => ({ ...prev, elogsIntegration: 'manual' }))}
+                      onClick={() =>
+                        setIntegrationOptions((prev) => ({
+                          ...prev,
+                          elogsIntegration: "manual",
+                        }))
+                      }
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          integrationOptions.elogsIntegration === 'manual' 
-                            ? 'border-green-500 bg-green-500' 
-                            : 'border-slate-400'
-                        }`} />
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 ${
+                            integrationOptions.elogsIntegration === "manual"
+                              ? "border-green-500 bg-green-500"
+                              : "border-slate-400"
+                          }`}
+                        />
                         <div>
-                          <h3 className="text-white font-medium">Manual HOS Entry</h3>
-                          <p className="text-slate-400 text-sm">I'll input HOS data manually</p>
+                          <h3 className="text-white font-medium">
+                            Manual HOS Entry
+                          </h3>
+                          <p className="text-slate-400 text-sm">
+                            I'll input HOS data manually
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {integrationOptions.elogsIntegration === 'integrated' && (
+                {integrationOptions.elogsIntegration === "integrated" && (
                   <div className="space-y-2">
-                    <Label className="text-white text-sm font-medium">ELD Provider</Label>
+                    <Label className="text-white text-sm font-medium">
+                      ELD Provider
+                    </Label>
                     <Select
                       value={integrationOptions.elogsProvider}
-                      onValueChange={(value) => setIntegrationOptions(prev => ({ ...prev, elogsProvider: value }))}
+                      onValueChange={(value) =>
+                        setIntegrationOptions((prev) => ({
+                          ...prev,
+                          elogsProvider: value,
+                        }))
+                      }
                     >
                       <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                         <SelectValue placeholder="Select your ELD provider" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-700 border-slate-600">
                         <SelectItem value="Samsara">Samsara</SelectItem>
-                        <SelectItem value="KeepTruckin">KeepTruckin (Motive)</SelectItem>
+                        <SelectItem value="KeepTruckin">
+                          KeepTruckin (Motive)
+                        </SelectItem>
                         <SelectItem value="Garmin">Garmin eLog</SelectItem>
                         <SelectItem value="BigRoad">BigRoad</SelectItem>
                         <SelectItem value="FleetUp">FleetUp</SelectItem>
                         <SelectItem value="VDO">VDO RoadLog</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-slate-500">You'll need API credentials for integration</p>
+                    <p className="text-xs text-slate-500">
+                      You'll need API credentials for integration
+                    </p>
                   </div>
                 )}
               </div>
@@ -606,8 +837,9 @@ export default function GuidedTruckAddition() {
                   <div>
                     <p className="text-white font-medium">Setup Complete</p>
                     <p className="text-slate-400 text-sm">
-                      Your truck will be added to the fleet with complete cost breakdown and integration preferences. 
-                      You'll be directed to the truck profile to view all details.
+                      Your truck will be added to the fleet with complete cost
+                      breakdown and integration preferences. You'll be directed
+                      to the truck profile to view all details.
                     </p>
                   </div>
                 </div>
@@ -631,11 +863,12 @@ export default function GuidedTruckAddition() {
           setShowCostGuide(false);
           toast({
             title: "Cost Guide Complete",
-            description: "Now proceeding with truck setup. Remember to enter accurate cost data!",
+            description:
+              "Now proceeding with truck setup. Remember to enter accurate cost data!",
           });
         }}
       />
-      
+
       <div className="min-h-screen bg-slate-950 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
@@ -649,9 +882,12 @@ export default function GuidedTruckAddition() {
             </Button>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Add New Truck</h1>
+                <h1 className="text-3xl font-bold text-white mb-2">
+                  Add New Truck
+                </h1>
                 <p className="text-slate-400">
-                  Let's add your truck to the fleet and set up integration preferences
+                  Let's add your truck to the fleet and set up integration
+                  preferences
                 </p>
               </div>
               <Button
@@ -674,7 +910,10 @@ export default function GuidedTruckAddition() {
                 {Math.round((currentStep / totalSteps) * 100)}% Complete
               </span>
             </div>
-            <Progress value={(currentStep / totalSteps) * 100} className="h-2" />
+            <Progress
+              value={(currentStep / totalSteps) * 100}
+              className="h-2"
+            />
           </div>
 
           {renderStep()}
@@ -701,11 +940,11 @@ export default function GuidedTruckAddition() {
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={addTruck.isLoading}
+                disabled={loading}
                 className="bg-green-600 hover:bg-green-700 text-white relative z-[10001] pointer-events-auto"
-                style={{ position: 'relative', zIndex: 10001 }}
+                style={{ position: "relative", zIndex: 10001 }}
               >
-                {addTruck.isLoading ? (
+                {loading ? (
                   "Adding Truck..."
                 ) : (
                   <>

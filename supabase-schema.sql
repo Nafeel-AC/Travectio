@@ -432,27 +432,22 @@ CREATE POLICY "Users can view own profile" ON users
 CREATE POLICY "Users can update own profile" ON users
     FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Founder can view all users" ON users
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users u 
-            WHERE u.id = auth.uid() 
-            AND u."isFounder" = 1
-        )
-    );
-
 -- Trucks table policies
+-- Only allow users to view their own trucks
 CREATE POLICY "Users can view own trucks" ON trucks
-    FOR ALL USING (auth.uid() = "userId");
+    FOR SELECT USING (auth.uid() = "userId");
 
-CREATE POLICY "Founder can view all trucks" ON trucks
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users u 
-            WHERE u.id = auth.uid() 
-            AND u."isFounder" = 1
-        )
-    );
+-- Only allow users to insert their own trucks
+CREATE POLICY "Users can insert own trucks" ON trucks
+    FOR INSERT WITH CHECK (auth.uid() = "userId");
+
+-- Only allow users to update their own trucks
+CREATE POLICY "Users can update own trucks" ON trucks
+    FOR UPDATE USING (auth.uid() = "userId");
+
+-- Only allow users to delete their own trucks
+CREATE POLICY "Users can delete own trucks" ON trucks
+    FOR DELETE USING (auth.uid() = "userId");
 
 -- Drivers table policies
 CREATE POLICY "Users can view own drivers" ON drivers
