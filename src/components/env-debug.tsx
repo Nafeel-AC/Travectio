@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export default function EnvDebug() {
   const [connectionResult, setConnectionResult] = useState<string>('');
@@ -25,44 +26,57 @@ export default function EnvDebug() {
         throw new Error('Missing Supabase environment variables');
       }
       
-      // Test the Supabase client
-      const { data, error } = await supabase.from('users').select('count').limit(1);
+      // Test basic Supabase client creation
+      const testClient = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+      
+      // Test a simple query to verify the connection
+      const { data, error } = await testClient.from('users').select('count').limit(1);
       
       if (error) {
         if (error.code === 'PGRST116') {
           setConnectionResult('✅ Connected to Supabase! (Table "users" not found - this is normal for new projects)');
+        } else if (error.code === 'JWT_EXPIRED') {
+          setConnectionResult('❌ API key has expired. Please refresh your Supabase API keys.');
+        } else if (error.code === 'JWT_INVALID') {
+          setConnectionResult('❌ Invalid API key format. Please check your VITE_SUPABASE_ANON_KEY.');
         } else {
-          setConnectionResult(`⚠️ Connected but error: ${error.message}`);
+          setConnectionResult(`⚠️ Connected but error: ${error.message} (Code: ${error.code})`);
         }
       } else {
         setConnectionResult('✅ Connected to Supabase successfully!');
       }
     } catch (error: any) {
-      setConnectionResult(`❌ Connection failed: ${error.message}`);
+      if (error.message.includes('fetch')) {
+        setConnectionResult('❌ Network error - check your internet connection and Supabase URL');
+      } else if (error.message.includes('JWT')) {
+        setConnectionResult('❌ JWT/API key error - verify your Supabase anon key');
+      } else {
+        setConnectionResult(`❌ Connection failed: ${error.message}`);
+      }
     } finally {
       setIsTesting(false);
     }
   };
 
   const checkEnvFile = () => {
-    const expectedUrl = 'https://fyybjmtuplfhruuhbtpv.supabase.co';
-    const expectedKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5eWJqbXR1cGxmaHJ1dWhidHB2IiwidG9rZW4iOiJhbm9uIiwiaWF0IjoxNzU2NjM4Nzk0LCJleHAiOjIwNzIyMTQ3OTR9.eozY3nelff2JEDeKtoiY5OjrfcufFRYeafqteb-U6c';
-    
     const actualUrl = import.meta.env.VITE_SUPABASE_URL;
     const actualKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
     let result = '';
     
-    if (actualUrl === expectedUrl) {
-      result += '✅ URL matches expected value\n';
+    if (actualUrl && actualUrl.includes('supabase.co')) {
+      result += '✅ URL format looks correct\n';
     } else {
-      result += `❌ URL mismatch. Expected: ${expectedUrl}, Got: ${actualUrl}\n`;
+      result += `❌ URL format issue: ${actualUrl}\n`;
     }
     
-    if (actualKey === expectedKey) {
-      result += '✅ Key matches expected value\n';
+    if (actualKey && actualKey.length > 100) {
+      result += '✅ Key format looks correct (JWT token)\n';
     } else {
-      result += `❌ Key mismatch. Expected: ${expectedKey.substring(0, 20)}..., Got: ${actualKey ? actualKey.substring(0, 20) + '...' : 'MISSING'}\n`;
+      result += `❌ Key format issue: ${actualKey ? 'Too short or invalid format' : 'MISSING'}\n`;
     }
     
     setConnectionResult(result);
