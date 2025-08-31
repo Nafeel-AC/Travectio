@@ -1,282 +1,169 @@
-# Travectio Fleet Management System
-
-> **Enterprise-grade fleet management platform for trucking companies with real-time analytics, multi-tenant architecture, and comprehensive operational tools.**
-
-[![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)](https://github.com/Travectio/Travectio--Backend)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3-blue)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20-green)](https://nodejs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)](https://www.postgresql.org/)
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/Travectio/Travectio--Backend.git
-cd Travectio--Backend
-
-# Install dependencies
-npm install
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your database credentials
-
-# Initialize database
-npm run db:push
-
-# Start development server
-npm run dev
-```
-
-## 🏗️ Architecture Overview
-
-### Frontend (React TypeScript)
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development and production builds
-- **UI Components**: Shadcn/ui built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom dark theme
-- **State Management**: TanStack Query for server state
-- **Routing**: Wouter for lightweight client-side routing
-
-### Backend (Node.js Express)
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript with ES modules
-- **API Design**: RESTful endpoints with JSON responses
-- **Authentication**: Supabase Auth with JWT tokens
-- **Session Management**: Supabase-backed sessions
-
-### Database (Supabase)
-- **Provider**: Supabase (PostgreSQL with real-time features)
-- **Client**: Supabase JavaScript client
-- **Tables**: 21 core tables for complete fleet management
-- **Real-time**: Built-in real-time subscriptions
-
-### Key Features
-- **Multi-tenant Architecture**: Complete data isolation between customers
-- **Fleet Management**: Truck, driver, and load tracking
-- **Cost Analysis**: Industry-standard CPM calculations
-- **Real-time Analytics**: Performance metrics and profitability analysis
-- **Mobile Responsive**: Touch-friendly interfaces with offline sync
-- **Load Board Integration**: Multi-provider support (DAT, Truckstop, etc.)
-- **ELD Integration**: Hours of Service tracking across providers
-
-## 📊 Database Schema
-
-### Core Tables
-```
-users                    # Authentication and role management
-trucks                   # Fleet vehicles and configurations
-drivers                  # Driver information and assignments
-loads                    # Freight tracking and delivery data
-hos_logs                 # Hours of Service compliance
-fuel_purchases           # Expense tracking
-truck_cost_breakdown     # Detailed cost analysis
-user_analytics          # Privacy-controlled metrics
-fleet_metrics           # Performance analytics
-sessions                # Authentication sessions
-```
-
-### Complete Schema
-See `shared/schema.ts` for the complete database schema with all 21 tables, relationships, and type definitions.
-
-## 🔧 Configuration
-
-### Environment Variables
-```bash
-# Supabase (Required)
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-# Session Configuration (Required)
-SESSION_SECRET=your-secure-session-secret
-
-# Application
-NODE_ENV=development
-PORT=5000
-
-# Replit Integration (Auto-configured)
-REPL_ID=auto-generated
-REPLIT_DOMAINS=your-domain.replit.app
-```
-
-### Optional Integrations
-```bash
-# DAT Load Board
-DAT_API_KEY=your-api-key
-DAT_APP_ID=your-app-id
-DAT_USER_ID=your-user-id
-
-# ELD Providers
-ELD_PROVIDER=samsara
-ELD_API_KEY=your-api-key
-ELD_API_SECRET=your-secret
-```
-
-## 🎯 Core Functionality
-
-### Fleet Management
-- **Truck Management**: Add, edit, delete trucks with cost breakdowns
-- **Driver Assignment**: Assign drivers to trucks with role management
-- **Equipment Types**: Support for Dry Van, Reefer, Flatbed configurations
-- **Cost Tracking**: Fixed and variable cost analysis with CPM calculations
-
-### Load Operations
-- **Load Tracking**: Complete load lifecycle management
-- **Profitability Analysis**: Real-time profit/loss calculations
-- **Route Optimization**: Distance calculations with deadhead miles
-- **Load Board Integration**: Automated load matching across providers
-
-### Analytics & Reporting
-- **Fleet Analytics**: Performance metrics and trend analysis
-- **Cost Analysis**: Industry-standard cost-per-mile calculations
-- **User Metrics**: Privacy-controlled analytics dashboard
-- **Session Tracking**: Comprehensive audit logging
-
-### Multi-tenant Features
-- **Data Isolation**: Complete separation between customer accounts
-- **Role-based Access**: Founder, admin, and customer access levels
-- **Demo Mode**: Sample data for client demonstrations
-- **Account Switching**: Customer support capabilities
-
-## 🔐 Authentication & Security
-
-### Multi-tenant Architecture
-- **Founder Account**: Complete system access and user management
-- **Customer Accounts**: Isolated access to individual fleet data
-- **Demo Account**: Sample data for demonstrations
-
-### Security Features
-- OpenID Connect authentication
-- PostgreSQL-backed session storage
-- Role-based access control
-- Audit logging for compliance
-- Session timeout protection
-
-## 📱 User Interface
-
-### Design System
-- **Modern Dark Theme**: Professional appearance with consistent styling
-- **Responsive Design**: Mobile-first approach with touch-friendly interfaces
-- **Component Library**: Unified design system with Shadcn/ui
-- **Navigation**: Intuitive sidebar with descriptive labels and icons
-
-### Key Pages
-- **Dashboard**: Fleet overview with key metrics
-- **Fleet Overview**: Complete truck and driver management
-- **Load Management**: Load tracking and profitability analysis
-- **Analytics**: Performance metrics and trend analysis
-- **User Management**: Admin-only user oversight (founder access)
-
-## 🚀 Deployment
-
-### Development
-```bash
-npm run dev          # Start development server
-npm run check        # TypeScript type checking
-npm run supabase:test # Test Supabase connection
-```
-
-### Production
-```bash
-npm run build        # Build for production
-npm start           # Start production server
-```
-
-### Hosting Options
-- **Replit Deployments**: One-click deployment with auto-scaling
-- **Vercel**: Frontend deployment with serverless functions
-- **Railway**: Full-stack deployment with PostgreSQL
-- **Render**: Container-based deployment
-
-## 📚 Documentation
-
-### Available Documentation
-- [`TRANSFER_PREPARATION_GUIDE.md`](./TRANSFER_PREPARATION_GUIDE.md) - Complete setup and transfer guide
-- [`GITHUB_TRANSFER_README.md`](./GITHUB_TRANSFER_README.md) - Quick setup instructions
-- [`FILE_STRUCTURE.md`](./FILE_STRUCTURE.md) - Project organization guide
-- [`replit.md`](./replit.md) - Comprehensive project documentation
-- [`export_data.sql`](./export_data.sql) - Database backup script
-
-### Technical Reports
-- [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Deployment strategies
-- [`RENDER_DEPLOYMENT.md`](./RENDER_DEPLOYMENT.md) - Render-specific deployment
-- Multiple incident reports documenting system improvements
-
-## 🔧 Development
-
-### Prerequisites
-- Node.js 20+
-- PostgreSQL database
-- npm or yarn
-
-### Local Development Setup
-1. Clone repository
-2. Install dependencies: `npm install`
-3. Configure Supabase environment variables
-4. Start development server: `npm run dev`
-
-### Code Structure
-```
-client/              # React frontend
-├── src/
-│   ├── components/  # Reusable UI components
-│   ├── pages/       # Application pages
-│   ├── hooks/       # Custom React hooks
-│   └── utils/       # Helper functions
-
-server/              # Express backend
-├── auth-service.ts  # Authentication logic
-├── routes.ts        # API endpoints
-├── storage.ts       # Database operations
-└── index.ts         # Server entry point
-
-shared/              # Common types and schemas
-├── schema.ts        # Database schema (Drizzle)
-└── types.ts         # TypeScript interfaces
-```
-
-## 🤝 Contributing
-
-### Development Workflow
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with proper testing
-4. Submit a pull request
-5. Code review and approval process
-
-### Security Guidelines
-- Never commit `.env` files or secrets
-- Use separate databases for development/production
-- Follow authentication best practices
-- Implement proper error handling
-
-## 📊 System Status
-
-### Current Data
-- **21 Database Tables**: Complete operational schema
-- **Multi-tenant Ready**: Production-grade data isolation
-- **Performance Optimized**: Query caching and infinite loop prevention
-- **Mobile Responsive**: Complete touch-friendly interface
-
-### Recent Improvements
-- ✅ Fleet Analytics infinite loop resolution
-- ✅ Cost calculation accuracy (industry-standard CPM)
-- ✅ Account switching persistence
-- ✅ Performance optimization with aggressive caching
-
-## 📄 License
-
-This project is proprietary software developed for Travectio Solutions.
-
-## 📞 Support
-
-For technical support or questions:
-- Review documentation in this repository
-- Check the comprehensive transfer guide
-- Refer to `replit.md` for detailed project context
+Here’s the updated **README.md** reflecting that **Supabase Auth** is used instead of OpenID:
 
 ---
 
-**Travectio Fleet Management System** - Empowering trucking companies with real-time decision-making tools and operational efficiency.
+# Travectio Fleet Management System
+
+## 📌 Overview
+
+Travectio is an **Enterprise SaaS Fleet Management Platform** designed for trucking companies to manage operations, track loads, analyze profitability, and ensure compliance with industry regulations. It supports **multi-tenant architecture**, **real-time analytics**, and **integrations with ELD and load boards**.
+
+---
+
+## ✅ Key Features
+
+### **1. Authentication & Authorization**
+
+* **Supabase Auth** for secure authentication
+* Email/password login and magic links
+* Role-based access control (Founder, Customer, Demo users)
+* Multi-tenant support with row-level security (RLS)
+* Session management and token-based authentication
+
+---
+
+### **2. Fleet Management**
+
+* Truck registration with equipment details
+* Track **fixed and variable operational costs**
+* **Real-time cost-per-mile calculation**
+* Truck editing and deletion
+* Maintain **truck operational history**
+* Driver assignment to trucks
+
+---
+
+### **3. Load Management**
+
+* Record load details (**origin, destination, cargo**)
+* **Automatic load profitability calculation**
+* Track **deadhead miles and costs**
+* Load editing and history maintenance
+* **Distance calculation using geographic coordinates**
+* Route optimization for efficiency
+
+---
+
+### **4. Analytics & Reporting**
+
+* **Real-time operational dashboards**
+* Fleet-wide performance metrics
+* Time-based filters (**weekly, monthly, quarterly, yearly**)
+* Track **revenue, costs, and profit margins**
+* **Cross-tab data synchronization**
+* Export analytics data
+
+---
+
+### **5. Load Board Integration**
+
+* Integrate with major load boards:
+
+  * DAT Power
+  * Truckstop.com
+  * 123Loadboard
+  * SuperDispatch
+* Unified load search interface
+* **Per-truck load board preferences**
+
+---
+
+### **6. ELD Integration**
+
+* Connect with major ELD providers:
+
+  * Samsara
+  * KeepTruckin/Motive
+  * Garmin
+* Track **HOS (Hours of Service) compliance**
+* Monitor **driver duty status**
+* Per-truck ELD configuration
+
+---
+
+### **7. User Interface**
+
+* **Responsive and mobile-friendly**
+* Dark mode support
+* Sidebar navigation
+* Real-time data updates
+* **Offline functionality with sync**
+* Customizable dashboards
+
+---
+
+### **8. Security**
+
+* **Supabase authentication with Row-Level Security**
+* **Encrypted data at rest and in transit (HTTPS/TLS)**
+* Role-based access control (RBAC)
+* API key & secret protection
+* Data privacy compliance (GDPR-like)
+* **Audit logs for all admin actions**
+
+---
+
+### **9. Performance & Scalability**
+
+* Page load time under 3 seconds
+* API response under 1 second
+* Supports **50+ concurrent users**
+* Scales to **1000+ vehicles per customer**
+* Cloud auto-scaling with horizontal scaling
+
+---
+
+### **10. Integrations**
+
+* **Load Board APIs**
+* **ELD Provider APIs**
+* **OpenAI API** (for intelligent features)
+* Handles **rate-limiting and error recovery**
+
+---
+
+### **11. Technical Stack**
+
+* **Frontend:** React 18.3.1, TypeScript, Tailwind CSS, React Query, Vite
+* **Backend:** Node.js 20.19.3, Express.js, TypeScript
+* **Database & Auth:** Supabase (PostgreSQL backend, Auth, Realtime, Storage)
+
+---
+
+### **12. Compliance**
+
+* FMCSA Hours of Service regulations
+* DOT Commercial Vehicle Safety Standards
+* ELD mandate compliance
+* CDL tracking & vehicle inspection records
+* Data privacy & security standards
+
+---
+
+## 🛠 Installation & Setup
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/your-repo/travectio.git
+   cd travectio
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+
+   * `VITE_SUPABASE_URL`
+   * `VITE_SUPABASE_ANON_KEY`
+   * `OPENAI_API_KEY`
+   * Any other required secrets
+
+4. **Run development server**
+
+   ```bash
+   npm run dev
+   ```
