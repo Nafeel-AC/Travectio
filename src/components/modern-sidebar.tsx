@@ -53,6 +53,12 @@ const navigationItems: NavigationItem[] = [
     icon: Route
   },
   {
+    href: "/truck-profiles",
+    label: "Truck Profiles",
+    description: "View and manage truck details",
+    icon: Truck
+  },
+  {
     href: "/load-matcher",
     label: "Load Matcher",
     description: "AI-powered load recommendations",

@@ -263,16 +263,19 @@ export default function LoadCalculator() {
               <SelectContent className="bg-[var(--dark-card)] border-gray-600">
                 {trucks.map((truck: any) => {
                   // Calculate CPM for display - use operational CPM if available, otherwise calculate from costs
-                  let displayCPM = truck.costPerMile;
+                  let displayCPM = truck.costPerMile || 0;
                   if (displayCPM === 0 && truck.fixedCosts && truck.variableCosts) {
                     // Calculate CPM based on fixed/variable costs and standard weekly mileage
                     const weeklyMileage = truck.totalMiles > 0 ? truck.totalMiles : 3000; // Use operational miles or standard
                     displayCPM = (truck.fixedCosts + truck.variableCosts) / weeklyMileage;
                   }
                   
+                  // Ensure displayCPM is a valid number before calling toFixed
+                  const formattedCPM = (displayCPM && !isNaN(displayCPM)) ? displayCPM.toFixed(2) : '0.00';
+                  
                   return (
                     <SelectItem key={truck.id} value={truck.id} className="text-white hover:bg-[var(--dark-elevated)]">
-                      {truck.name} - ${displayCPM.toFixed(2)}/mi {truck.totalMiles === 0 ? '(calculated)' : ''}
+                      {truck.name} - ${formattedCPM}/mi {truck.totalMiles === 0 ? '(calculated)' : ''}
                     </SelectItem>
                   );
                 })}

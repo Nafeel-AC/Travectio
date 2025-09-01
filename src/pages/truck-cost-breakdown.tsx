@@ -152,13 +152,21 @@ export default function TruckCostBreakdown() {
       const existingBreakdowns = await TruckService.getTruckCostBreakdown(truckIdFromParams);
       const latestBreakdown = existingBreakdowns?.[0];
       
+      let result;
       if (latestBreakdown) {
         // Update existing breakdown
-        return await TruckService.updateCostBreakdown(latestBreakdown.id, costData.costBreakdown);
+        result = await TruckService.updateCostBreakdown(latestBreakdown.id, costData.costBreakdown);
       } else {
         // Create new breakdown
-        return await TruckService.createCostBreakdown(truckIdFromParams, costData.costBreakdown);
+        result = await TruckService.createCostBreakdown(truckIdFromParams, costData.costBreakdown);
       }
+      
+      // Also update the truck's cost per mile
+      await TruckService.updateTruck(truckIdFromParams, {
+        costPerMile: costData.costBreakdown.costPerMile
+      });
+      
+      return result;
     },
     onSuccess: () => {
       toast({

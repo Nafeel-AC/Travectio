@@ -93,12 +93,12 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
     updateTruckMutation.mutate(editedTruck);
   };
 
-  const handleFieldChange = (field: string, value: string) => {
+  const handleFieldChange = (field: string, value: string | null) => {
     // Handle currentDriverId specially - convert empty string to null for UUID field
     if (field === 'currentDriverId') {
-      setEditedTruck(prev => ({ ...prev, [field]: value === '' ? null : value }));
+      setEditedTruck(prev => ({ ...prev, [field]: value === '' || value === null ? null : value }));
     } else {
-      setEditedTruck(prev => ({ ...prev, [field]: value }));
+      setEditedTruck(prev => ({ ...prev, [field]: value || '' }));
     }
   };
 
@@ -182,7 +182,7 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
               <Label htmlFor="driver-assignment" className="text-white">Assigned Driver</Label>
               <DriverAssignmentSelect
                 selectedDriverId={editedTruck.currentDriverId}
-                onDriverChange={(driverId) => handleFieldChange('currentDriverId', driverId || '')}
+                onDriverChange={(driverId) => handleFieldChange('currentDriverId', driverId)}
               />
             </div>
           </div>

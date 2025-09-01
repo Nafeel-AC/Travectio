@@ -307,6 +307,44 @@ class TruckService {
 
   // Delete truck
   static async deleteTruck(id: string) {
+    // First, delete all related records
+    // Delete cost breakdowns
+    await supabase
+      .from('truck_cost_breakdown')
+      .delete()
+      .eq('truckId', id);
+
+    // Delete fuel purchases
+    await supabase
+      .from('fuel_purchases')
+      .delete()
+      .eq('truckId', id);
+
+    // Delete loads
+    await supabase
+      .from('loads')
+      .delete()
+      .eq('truckId', id);
+
+    // Delete HOS logs
+    await supabase
+      .from('hos_logs')
+      .delete()
+      .eq('truckId', id);
+
+    // Update activities to remove truck reference
+    await supabase
+      .from('activities')
+      .update({ relatedTruckId: null })
+      .eq('relatedTruckId', id);
+
+    // Update drivers to remove truck assignment
+    await supabase
+      .from('drivers')
+      .update({ currentTruckId: null })
+      .eq('currentTruckId', id);
+
+    // Finally, delete the truck
     const { error } = await supabase
       .from('trucks')
       .delete()
@@ -400,6 +438,42 @@ class TruckService {
       .eq('id', id);
 
     if (error) throw new Error(error.message);
+    return true;
+  }
+
+  // Update cost per mile for all trucks based on their latest cost breakdown
+  static async updateAllTrucksCostPerMile() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Get all trucks for the current user
+    const { data: trucks, error: trucksError } = await supabase
+      .from('trucks')
+      .select('id, name')
+      .eq('userId', user.id);
+
+    if (trucksError) throw new Error(trucksError.message);
+
+    // For each truck, get the latest cost breakdown and update the truck's costPerMile
+    for (const truck of trucks || []) {
+      const { data: costBreakdowns } = await supabase
+        .from('truck_cost_breakdown')
+        .select('costPerMile')
+        .eq('truckId', truck.id)
+        .order('createdAt', { ascending: false })
+        .limit(1);
+
+      if (costBreakdowns && costBreakdowns.length > 0) {
+        const costPerMile = costBreakdowns[0].costPerMile;
+        if (costPerMile !== null && costPerMile !== undefined) {
+          await supabase
+            .from('trucks')
+            .update({ costPerMile })
+            .eq('id', truck.id);
+        }
+      }
+    }
+
     return true;
   }
 }

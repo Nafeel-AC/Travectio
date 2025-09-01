@@ -7,7 +7,8 @@ import {
   User,
   Users,
   X,
-  Fuel
+  Fuel,
+  Truck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ const getNavigation = (isAdmin: boolean) => {
     { name: "Dashboard", href: "/", icon: Home, current: true },
     { name: "HOS Management", href: "/hos-management", icon: Clock, current: false },
     { name: "Load Management", href: "/load-management", icon: Package, current: false },
+    { name: "Truck Profiles", href: "/truck-profiles", icon: Truck, current: false },
     { name: "Fuel Management", href: "/fuel-management", icon: Fuel, current: false },
     { name: "Add Truck", href: "/add-truck", icon: Plus, current: false },
   ];

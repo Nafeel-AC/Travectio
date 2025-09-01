@@ -61,7 +61,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <span className="text-sm text-gray-300 cursor-pointer hover:text-white" onClick={() => window.location.href = '/profile'}>
                 {(user as any)?.firstName ? `${(user as any).firstName} ${(user as any).lastName}` : (user as any)?.email || 'Fleet Manager'}
               </span>
-              <span className="text-xs text-gray-500">{(user as any).title || 'View Profile'}</span>
+              <span className="text-xs text-gray-500">{(user as any)?.title || 'View Profile'}</span>
             </div>
             
             <Button

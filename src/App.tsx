@@ -11,6 +11,7 @@ import Profile from "@/pages/profile";
 
 import GuidedTruckAddition from "@/pages/guided-truck-addition";
 import TruckProfile from "@/pages/truck-profile";
+import TruckProfiles from "@/pages/truck-profiles";
 import TruckCostBreakdown from "@/pages/truck-cost-breakdown";
 import NotFound from "@/pages/not-found";
 import HOSManagement from "@/pages/hos-management";
@@ -70,6 +71,7 @@ function Router() {
         <Route path="/profile" component={Profile} />
 
         <Route path="/add-truck" component={GuidedTruckAddition} />
+        <Route path="/truck-profiles" component={TruckProfiles} />
         <Route path="/truck/:id" component={TruckProfile} />
         <Route
           path="/trucks/:truckId/cost-breakdown"

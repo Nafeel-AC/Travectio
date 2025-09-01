@@ -88,8 +88,12 @@ export default function TruckProfile() {
       const totalWeeklyCosts = totalFixedCosts + totalVariableCosts;
       const costPerMile = totalWeeklyCosts / standardWeeklyMiles;
 
+      // Remove driverPayPerMile and add driverPay (weekly amount)
+      const { driverPayPerMile, ...costsWithoutDriverPay } = updatedCosts;
+      
       const updateData = {
-        ...updatedCosts,
+        ...costsWithoutDriverPay,
+        driverPay: driverPayWeekly, // Convert to weekly amount
         totalFixedCosts,
         totalVariableCosts,
         totalWeeklyCosts,
@@ -99,10 +103,11 @@ export default function TruckProfile() {
       // Update cost breakdown
       await TruckService.updateCostBreakdown(costBreakdown.id, updateData);
 
-      // Also update the truck's summary costs
+      // Also update the truck's summary costs and cost per mile
       await TruckService.updateTruck(id!, {
         fixedCosts: totalFixedCosts,
-        variableCosts: totalVariableCosts
+        variableCosts: totalVariableCosts,
+        costPerMile: costPerMile
       });
 
       return updateData;
@@ -182,7 +187,7 @@ export default function TruckProfile() {
         licensePlate: truck.licensePlate || '',
         eldDeviceId: truck.eldDeviceId || '',
         equipmentType: truck.equipmentType,
-        currentDriverId: truck.currentDriverId || '',
+        currentDriverId: truck.currentDriverId || null,
       });
       setIsEditingTruckInfo(true);
     }
@@ -197,8 +202,13 @@ export default function TruckProfile() {
     updateTruckMutation.mutate(editedTruckInfo);
   };
 
-  const handleTruckInfoChange = (field: string, value: string) => {
-    setEditedTruckInfo((prev: any) => ({ ...prev, [field]: value }));
+  const handleTruckInfoChange = (field: string, value: string | null) => {
+    // Handle currentDriverId specially - convert empty string to null for UUID field
+    if (field === 'currentDriverId') {
+      setEditedTruckInfo((prev: any) => ({ ...prev, [field]: value === '' || value === null ? null : value }));
+    } else {
+      setEditedTruckInfo((prev: any) => ({ ...prev, [field]: value || '' }));
+    }
   };
 
   if (isLoading) {
@@ -496,7 +506,7 @@ export default function TruckProfile() {
                   {isEditingTruckInfo ? (
                     <div className="mt-1">
                       <DriverAssignmentSelect
-                        selectedDriverId={editedTruckInfo.currentDriverId || ''}
+                        selectedDriverId={editedTruckInfo.currentDriverId}
                         onDriverChange={(driverId) => handleTruckInfoChange('currentDriverId', driverId)}
                       />
                     </div>
