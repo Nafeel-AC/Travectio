@@ -15,6 +15,7 @@ export function useDemoApi() {
   // Invalidate all queries when demo mode changes
   useEffect(() => {
     // Demo mode changed, invalidating queries
+    console.log('[useDemoApi] Demo mode changed, invalidating queries');
     queryClient.invalidateQueries();
   }, [isDemoMode, queryClient]);
 

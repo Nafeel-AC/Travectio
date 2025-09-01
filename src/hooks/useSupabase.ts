@@ -49,29 +49,60 @@ export const useAuth = () => {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+
+    console.log('[useAuth] Starting authentication check...');
+
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (!mounted) return;
+      
+      console.log('[useAuth] Initial session check:', { session: !!session, error: !!error });
+      
+      if (error) {
+        console.error('[useAuth] Session error:', error);
+      }
+      
       if (session?.user) {
+        console.log('[useAuth] User found:', session.user.email);
         setUser(session.user as any);
-        await ensureUserRow(session.user);
+        // Don't await ensureUserRow here to prevent blocking
+        ensureUserRow(session.user).catch(console.error);
+      } else {
+        console.log('[useAuth] No user found in session');
       }
       setLoading(false);
+    }).catch(error => {
+      console.error('[useAuth] Error getting session:', error);
+      if (mounted) {
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
+      console.log('[useAuth] Auth state change:', event, { user: !!session?.user });
+      
       if (session?.user) {
+        console.log('[useAuth] Setting user:', session.user.email);
         setUser(session.user as any);
-        await ensureUserRow(session.user);
+        // Don't await ensureUserRow here to prevent blocking
+        ensureUserRow(session.user).catch(console.error);
       } else {
+        console.log('[useAuth] Clearing user');
         setUser(null);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [ensureUserRow]);
 
   const login = useCallback(async (email: string, password: string) => {
