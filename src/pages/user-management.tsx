@@ -3,11 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { User, Mail, Calendar, Building, Trash2, Crown } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  User,
+  Mail,
+  Calendar,
+  Building,
+  Trash2,
+  Crown,
+  Shield,
+} from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useUserManagement } from "@/hooks/useSupabase";
+import { useFounderAccess } from "@/hooks/useFounderAccess";
 
 interface UserData {
   id: string;
@@ -24,17 +43,13 @@ interface UserData {
 
 export default function UserManagement() {
   // Use new Supabase hook instead of old fetch API
-  const { 
-    users, 
-    isLoading, 
-    error, 
-    deleteUser, 
-    updateUser 
-  } = useUserManagement();
-  
+  const { users, isLoading, error, deleteUser, updateUser } =
+    useUserManagement();
+
+  const { isFounder, isAdmin } = useFounderAccess();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       return await deleteUser(userId);
@@ -45,7 +60,8 @@ export default function UserManagement() {
       queryClient.refetchQueries({ queryKey: ["users"] });
       toast({
         title: "User deleted",
-        description: "User and all associated data has been permanently deleted.",
+        description:
+          "User and all associated data has been permanently deleted.",
       });
     },
     onError: (error: any) => {
@@ -61,7 +77,8 @@ export default function UserManagement() {
       } else {
         toast({
           title: "Delete failed",
-          description: error.message || "Failed to delete user. Please try again.",
+          description:
+            error.message || "Failed to delete user. Please try again.",
           variant: "destructive",
         });
       }
@@ -74,7 +91,7 @@ export default function UserManagement() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white">User Management</h1>
         </div>
-        
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(3)].map((_, i) => (
             <Card key={i} className="bg-slate-800 border-slate-700">
@@ -97,9 +114,11 @@ export default function UserManagement() {
   }
 
   if (error) {
-    const errorMessage = (error as any)?.message || 'Unknown error';
-    const isAccessDenied = errorMessage.includes('403') || errorMessage.includes('Admin access required');
-    
+    const errorMessage = (error as any)?.message || "Unknown error";
+    const isAccessDenied =
+      errorMessage.includes("403") ||
+      errorMessage.includes("Admin access required");
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -108,10 +127,9 @@ export default function UserManagement() {
         <Card className="bg-red-900/20 border-red-800">
           <CardContent className="pt-6">
             <p className="text-red-400">
-              {isAccessDenied 
+              {isAccessDenied
                 ? "Access denied. Administrator privileges required to view user management."
-                : "Failed to load users. Please try again later."
-              }
+                : "Failed to load users. Please try again later."}
             </p>
           </CardContent>
         </Card>
@@ -128,9 +146,32 @@ export default function UserManagement() {
             View all users who have accessed the system
           </p>
         </div>
-        
-        <div className="text-sm text-slate-400">
-          <Badge variant="secondary" className="bg-blue-900/20 text-blue-400 border-blue-800">
+
+        <div className="flex items-center gap-3">
+          <Badge
+            variant="outline"
+            className={`px-3 py-1 ${
+              isFounder
+                ? "border-purple-600 text-purple-600"
+                : "border-amber-600 text-amber-600"
+            }`}
+          >
+            {isFounder ? (
+              <>
+                <Crown className="h-4 w-4 mr-1" />
+                Founder Access
+              </>
+            ) : (
+              <>
+                <Shield className="h-4 w-4 mr-1" />
+                Admin Access
+              </>
+            )}
+          </Badge>
+          <Badge
+            variant="secondary"
+            className="bg-blue-900/20 text-blue-400 border-blue-800"
+          >
             {users?.length || 0} registered users
           </Badge>
         </div>
@@ -146,7 +187,10 @@ export default function UserManagement() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {users.map((user) => (
-            <Card key={user.id} className="bg-slate-800 border-slate-700 hover:border-slate-600 transition-colors">
+            <Card
+              key={user.id}
+              className="bg-slate-800 border-slate-700 hover:border-slate-600 transition-colors"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
@@ -154,48 +198,53 @@ export default function UserManagement() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-lg text-white truncate">
-                      {user.firstName && user.lastName 
+                      {user.firstName && user.lastName
                         ? `${user.firstName} ${user.lastName}`
-                        : user.email ? user.email.split('@')[0] : 'Deleted User'
-                      }
+                        : user.email
+                        ? user.email.split("@")[0]
+                        : "Deleted User"}
                     </CardTitle>
                     {user.title && (
-                      <p className="text-sm text-slate-400 truncate">{user.title}</p>
+                      <p className="text-sm text-slate-400 truncate">
+                        {user.title}
+                      </p>
                     )}
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-slate-300">
                   <Mail className="h-4 w-4 text-slate-500" />
-                  <span className="truncate">{user.email || 'Email removed'}</span>
+                  <span className="truncate">
+                    {user.email || "Email removed"}
+                  </span>
                 </div>
-                
+
                 {user.company && (
                   <div className="flex items-center gap-2 text-sm text-slate-300">
                     <Building className="h-4 w-4 text-slate-500" />
                     <span className="truncate">{user.company}</span>
                   </div>
                 )}
-                
+
                 <div className="flex items-center gap-2 text-sm text-slate-400">
                   <Calendar className="h-4 w-4 text-slate-500" />
                   <span>
                     Joined {format(new Date(user.createdAt), "MMM d, yyyy")}
                   </span>
                 </div>
-                
+
                 <div className="pt-2 flex flex-wrap gap-2">
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="bg-green-900/20 text-green-400 border-green-800 text-xs"
                   >
                     Active User
                   </Badge>
                   {user.isFounder && (
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="bg-purple-900/20 text-purple-400 border-purple-800 text-xs flex items-center gap-1"
                     >
                       <Crown className="h-3 w-3" />
@@ -203,15 +252,15 @@ export default function UserManagement() {
                     </Badge>
                   )}
                   {user.isAdmin && !user.isFounder && (
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="bg-amber-900/20 text-amber-400 border-amber-800 text-xs"
                     >
                       Administrator
                     </Badge>
                   )}
                 </div>
-                
+
                 {/* Delete button - only show for non-founder users */}
                 {!user.isFounder && (
                   <div className="pt-3 border-t border-slate-700 mt-3">
@@ -233,8 +282,16 @@ export default function UserManagement() {
                             Delete User Account
                           </AlertDialogTitle>
                           <AlertDialogDescription className="text-slate-400">
-                            This will permanently delete <strong>{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email ? user.email.split('@')[0] : 'this user'}</strong> 
-                            and all their associated data including trucks, loads, and drivers. This action cannot be undone.
+                            This will permanently delete{" "}
+                            <strong>
+                              {user.firstName && user.lastName
+                                ? `${user.firstName} ${user.lastName}`
+                                : user.email
+                                ? user.email.split("@")[0]
+                                : "this user"}
+                            </strong>
+                            and all their associated data including trucks,
+                            loads, and drivers. This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -246,7 +303,9 @@ export default function UserManagement() {
                             className="bg-red-600 hover:bg-red-700 text-white"
                             disabled={deleteUserMutation.isPending}
                           >
-                            {deleteUserMutation.isPending ? "Deleting..." : "Delete User"}
+                            {deleteUserMutation.isPending
+                              ? "Deleting..."
+                              : "Delete User"}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -258,9 +317,10 @@ export default function UserManagement() {
           ))}
         </div>
       )}
-      
+
       <div className="text-xs text-slate-500 text-center pt-4">
-        User data is displayed based on authentication records and registration information.
+        User data is displayed based on authentication records and registration
+        information.
       </div>
     </div>
   );

@@ -1,20 +1,48 @@
 import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  TrendingUp, Users, Truck, DollarSign, Activity, BarChart3, PieChart, 
-  Target, UserX, UserCheck, Shield, AlertTriangle, Crown, CheckCircle, 
-  X, RefreshCw, TrendingDown 
+import {
+  TrendingUp,
+  Users,
+  Truck,
+  DollarSign,
+  Activity,
+  BarChart3,
+  PieChart,
+  Target,
+  UserX,
+  UserCheck,
+  Shield,
+  AlertTriangle,
+  Crown,
+  CheckCircle,
+  X,
+  RefreshCw,
+  TrendingDown,
 } from "lucide-react";
 import { useOwnerDashboard, useUserManagement } from "@/hooks/useSupabase";
+import { useFounderAccess } from "@/hooks/useFounderAccess";
 
 interface UserMetrics {
   userId: string;
@@ -99,6 +127,7 @@ export default function OwnerDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { terminateUser, reactivateUser } = useUserManagement();
+  const { isFounder, isAdmin } = useFounderAccess();
 
   // Mock data for now since we're migrating from Express to Supabase
   const dashboardData = {
@@ -110,26 +139,26 @@ export default function OwnerDashboard() {
         totalMiles: 500000,
         totalTrucks: 150,
         totalLoads: 800,
-        avgSystemRevenuePerMile: 2.50,
+        avgSystemRevenuePerMile: 2.5,
         topPerformers: {
           byRevenue: [],
           byEfficiency: [],
-          byUtilization: []
-        }
+          byUtilization: [],
+        },
       },
       marketIntelligence: {
-        loadBoardAdoption: { "DAT": 15, "Truckstop": 8, "LoadBoard": 2 },
-        eldProviderAdoption: { "Samsara": 12, "Geotab": 8, "Omnitracs": 5 },
-        equipmentTypeDistribution: { "Dry Van": 80, "Reefer": 45, "Flatbed": 25 }
+        loadBoardAdoption: { DAT: 15, Truckstop: 8, LoadBoard: 2 },
+        eldProviderAdoption: { Samsara: 12, Geotab: 8, Omnitracs: 5 },
+        equipmentTypeDistribution: { "Dry Van": 80, Reefer: 45, Flatbed: 25 },
       },
       userMetrics: [],
       scalabilityStatus: {
         currentUsers: 25,
         maxCapacity: 100,
         utilizationPercentage: 25,
-        growthCapacity: 75
-      }
-    }
+        growthCapacity: 75,
+      },
+    },
   };
 
   const handleTerminateUser = async (userId: string) => {
@@ -144,7 +173,8 @@ export default function OwnerDashboard() {
     } catch (error: any) {
       toast({
         title: "Failed to Terminate User",
-        description: error.message || "There was an error terminating the user.",
+        description:
+          error.message || "There was an error terminating the user.",
         variant: "destructive",
       });
     }
@@ -162,7 +192,8 @@ export default function OwnerDashboard() {
     } catch (error: any) {
       toast({
         title: "Failed to Reactivate User",
-        description: error.message || "There was an error reactivating the user.",
+        description:
+          error.message || "There was an error reactivating the user.",
         variant: "destructive",
       });
     }
@@ -186,7 +217,8 @@ export default function OwnerDashboard() {
     );
   }
 
-  const { systemTotals, marketIntelligence, userMetrics, scalabilityStatus } = dashboardData.dashboardData;
+  const { systemTotals, marketIntelligence, userMetrics, scalabilityStatus } =
+    dashboardData.dashboardData;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -194,12 +226,36 @@ export default function OwnerDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Owner Dashboard</h1>
-          <p className="text-gray-600 mt-1">Complete system oversight and business intelligence</p>
+          <p className="text-gray-600 mt-1">
+            Complete system oversight and business intelligence
+          </p>
         </div>
-        <Badge variant="outline" className="px-3 py-1">
-          <Activity className="h-4 w-4 mr-1" />
-          Live Data
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge
+            variant="outline"
+            className={`px-3 py-1 ${
+              isFounder
+                ? "border-purple-600 text-purple-600"
+                : "border-amber-600 text-amber-600"
+            }`}
+          >
+            {isFounder ? (
+              <>
+                <Crown className="h-4 w-4 mr-1" />
+                Founder Access
+              </>
+            ) : (
+              <>
+                <Shield className="h-4 w-4 mr-1" />
+                Admin Access
+              </>
+            )}
+          </Badge>
+          <Badge variant="outline" className="px-3 py-1">
+            <Activity className="h-4 w-4 mr-1" />
+            Live Data
+          </Badge>
+        </div>
       </div>
 
       {/* System Overview Cards */}
@@ -210,7 +266,9 @@ export default function OwnerDashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${systemTotals.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              ${systemTotals.totalRevenue.toLocaleString()}
+            </div>
             <p className="text-xs text-muted-foreground">
               ${systemTotals.avgSystemRevenuePerMile}/mile system average
             </p>
@@ -225,7 +283,8 @@ export default function OwnerDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{systemTotals.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
-              {scalabilityStatus.utilizationPercentage.toFixed(1)}% system capacity
+              {scalabilityStatus.utilizationPercentage.toFixed(1)}% system
+              capacity
             </p>
           </CardContent>
         </Card>
@@ -265,28 +324,34 @@ export default function OwnerDashboard() {
               <PieChart className="h-5 w-5 mr-2" />
               Integration Adoption
             </CardTitle>
-            <CardDescription>Load board and ELD integration trends</CardDescription>
+            <CardDescription>
+              Load board and ELD integration trends
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <h4 className="font-medium mb-2">Load Boards</h4>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(marketIntelligence.loadBoardAdoption).map(([board, count]) => (
-                  <Badge key={board} variant="outline">
-                    {board}: {count}
-                  </Badge>
-                ))}
+                {Object.entries(marketIntelligence.loadBoardAdoption).map(
+                  ([board, count]) => (
+                    <Badge key={board} variant="outline">
+                      {board}: {count}
+                    </Badge>
+                  )
+                )}
               </div>
             </div>
             <Separator />
             <div>
               <h4 className="font-medium mb-2">ELD Providers</h4>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(marketIntelligence.eldProviderAdoption).map(([provider, count]) => (
-                  <Badge key={provider} variant="outline">
-                    {provider}: {count}
-                  </Badge>
-                ))}
+                {Object.entries(marketIntelligence.eldProviderAdoption).map(
+                  ([provider, count]) => (
+                    <Badge key={provider} variant="outline">
+                      {provider}: {count}
+                    </Badge>
+                  )
+                )}
               </div>
             </div>
           </CardContent>
@@ -295,24 +360,33 @@ export default function OwnerDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Equipment Distribution</CardTitle>
-            <CardDescription>Fleet composition across all users</CardDescription>
+            <CardDescription>
+              Fleet composition across all users
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(marketIntelligence.equipmentTypeDistribution).map(([type, count]) => (
-                <div key={type} className="flex items-center justify-between">
-                  <span className="font-medium">{type}</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="bg-blue-200 rounded-full h-2 w-16 relative">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${(count as number / systemTotals.totalTrucks) * 100}%` }}
-                      />
+              {Object.entries(marketIntelligence.equipmentTypeDistribution).map(
+                ([type, count]) => (
+                  <div key={type} className="flex items-center justify-between">
+                    <span className="font-medium">{type}</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-blue-200 rounded-full h-2 w-16 relative">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{
+                            width: `${
+                              ((count as number) / systemTotals.totalTrucks) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600">{count}</span>
                     </div>
-                    <span className="text-sm text-gray-600">{count}</span>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </CardContent>
         </Card>
@@ -327,13 +401,18 @@ export default function OwnerDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Current Usage</p>
-              <p className="text-2xl font-bold">{scalabilityStatus.currentUsers}/{scalabilityStatus.maxCapacity} users</p>
+              <p className="text-2xl font-bold">
+                {scalabilityStatus.currentUsers}/{scalabilityStatus.maxCapacity}{" "}
+                users
+              </p>
             </div>
             <div className="w-64">
               <div className="bg-gray-200 rounded-full h-4 relative">
-                <div 
+                <div
                   className="bg-green-600 h-4 rounded-full transition-all duration-300"
-                  style={{ width: `${scalabilityStatus.utilizationPercentage}%` }}
+                  style={{
+                    width: `${scalabilityStatus.utilizationPercentage}%`,
+                  }}
                 />
               </div>
               <p className="text-sm text-gray-600 mt-1">
