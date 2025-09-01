@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Clock, MapPin, AlertTriangle, CheckCircle, Timer, Car, Bed, Coffee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { DriverService, TruckService, HOSService } from "@/lib/supabase-client";
 
 const dutyStatusOptions = [
   { value: "OFF_DUTY", label: "Off Duty", icon: Coffee, color: "bg-slate-600", description: "Driver is off duty and not available for work" },
@@ -44,28 +43,25 @@ export default function EnhancedHOSEntry() {
   const [selectedDutyStatus, setSelectedDutyStatus] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { useDemoQuery } = useDemoApi();
-  const { data: drivers = [] } = useDemoQuery(
-    ["enhanced-hos-entry-drivers"],
-    "/api/drivers",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  
+  // Use Supabase services instead of demo API
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => DriverService.getDrivers(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: trucks = [] } = useDemoQuery(
-    ["enhanced-hos-entry-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const form = useForm<HOSEntryForm>({
     resolver: zodResolver(hosEntrySchema),
@@ -80,7 +76,22 @@ export default function EnhancedHOSEntry() {
   });
 
   const createHOSMutation = useMutation({
-    mutationFn: (data: HOSEntryForm) => apiRequest("/api/hos-logs", "POST", data),
+    mutationFn: async (data: HOSEntryForm) => {
+      // Convert form data to match HOS log schema
+      const hosLogData = {
+        driverId: data.driverId,
+        truckId: data.truckId,
+        dutyStatus: data.dutyStatus,
+        timestamp: data.timestamp.toISOString(),
+        location: data.address,
+        notes: data.annotations || null,
+        violations: [],
+        driveTimeRemaining: data.driveTimeRemaining,
+        onDutyRemaining: data.onDutyRemaining,
+        cycleHoursRemaining: data.cycleHoursRemaining,
+      };
+      return HOSService.createHosLog(hosLogData);
+    },
     onSuccess: () => {
       toast({
         title: "HOS Entry Created",
@@ -88,8 +99,7 @@ export default function EnhancedHOSEntry() {
       });
       form.reset();
       setSelectedDutyStatus("");
-      queryClient.invalidateQueries({ queryKey: ["/api/hos-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      queryClient.invalidateQueries({ queryKey: ["hos-logs"] });
     },
     onError: (error: Error) => {
       toast({

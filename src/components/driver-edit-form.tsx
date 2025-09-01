@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useDrivers } from "@/hooks/useSupabase";
 import { 
   User, 
   Phone, 
@@ -50,17 +50,27 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { updateDriver } = useDrivers();
 
   const updateDriverMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest(`/api/drivers/${driver.id}`, {
-        method: "PUT",
-        body: JSON.stringify(data)
-      });
+      // Split name into firstName and lastName
+      const nameParts = data.name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      // Convert boolean isActive to integer for database
+      const driverData = {
+        ...data,
+        firstName,
+        lastName,
+        isActive: data.isActive ? 1 : 0
+      };
+      return updateDriver(driver.id, driverData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
       toast({
         title: "Driver Updated",
         description: `${formData.name}'s information has been updated successfully.`,
@@ -81,6 +91,12 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
     
     if (!formData.name.trim()) {
       newErrors.name = "Driver name is required";
+    } else {
+      // Check if we have both first and last name
+      const nameParts = formData.name.trim().split(' ');
+      if (nameParts.length < 2) {
+        newErrors.name = "Please enter both first and last name";
+      }
     }
     
     if (!formData.cdlNumber.trim()) {

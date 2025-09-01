@@ -18,6 +18,7 @@ import { useTimeFilter } from "@/lib/time-filter-context";
 // import { TimeAnalyticsDashboard } from "@/components/time-analytics-dashboard"; // Temporarily disabled due to infinite loop
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { NavigationLayout } from "@/components/global-navigation";
 import { useStableQuery } from "@/hooks/use-stable-query";
 import { CheckCircle, Truck, AlertTriangle, Info, Clock, Package, BarChart3, TrendingUp, DollarSign, Calendar, Plus, BookOpen, Fuel } from "lucide-react";
@@ -32,8 +33,22 @@ export default function EnhancedDashboard() {
   const [, setLocation] = useLocation();
 
   // Use new Supabase hooks instead of old fetch API calls
-  const { data: activities = [] } = useActivities();
-  const { data: loadCategories } = useLoadBoard();
+  const { activities = [] } = useActivities();
+  const { items: loadBoardItems = [] } = useLoadBoard();
+  
+  // Calculate load categories from load board items
+  const loadCategories = {
+    categories: {
+      dryVan: loadBoardItems.filter((item: any) => item.equipmentType === 'Dry Van').length,
+      reefer: loadBoardItems.filter((item: any) => item.equipmentType === 'Reefer').length,
+      flatbed: loadBoardItems.filter((item: any) => item.equipmentType === 'Flatbed').length
+    },
+    profitability: {
+      dryVan: 75, // Default profitability percentages
+      reefer: 80,
+      flatbed: 65
+    }
+  };
 
   const getActivityIcon = (type: string) => {
     switch (type) {

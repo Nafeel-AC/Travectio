@@ -13,13 +13,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
-import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { calculateDistance, calculateDistanceBetweenCities } from "@shared/distance-utils";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
-import { useTrucks } from "@/hooks/useSupabase";
+import { LoadService, TruckService } from "@/lib/supabase-client";
 
 const loadEntrySchema = z.object({
   truckId: z.string().optional(),
@@ -100,29 +98,49 @@ export default function ManualLoadEntry({ editMode = false, loadData, onClose }:
   const [lastCalculatedDeadhead, setLastCalculatedDeadhead] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { useDemoQuery } = useDemoApi();
-  const { getTruckLastKnownLocation } = useTrucks();
   
-  const { data: trucks = [] } = useDemoQuery(
-    ["/api/trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
+  // ✅ FIXED: Use Supabase services instead of demo API
+  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // ✅ FIXED: Use Supabase services instead of demo API
+  const { data: loads = [], isLoading: loadsLoading, error: loadsError } = useQuery({
+    queryKey: ['loads'],
+    queryFn: () => LoadService.getLoads(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // ✅ FIXED: Helper function to get truck's last delivery location
+  const getTruckLastKnownLocation = (truckId: string) => {
+    const truckLoads = (loads as any[]).filter((load: any) => 
+      load.truckId === truckId && load.status === 'delivered'
+    );
+    
+    if (truckLoads.length === 0) {
+      return null;
     }
-  );
-  const { data: loads = [] } = useDemoQuery(
-    ["/api/loads"],
-    "/api/loads",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+    
+    // Get the most recent delivered load
+    const mostRecent = truckLoads.sort((a: any, b: any) => {
+      const dateA = new Date(a.deliveryDate || a.createdAt || '').getTime();
+      const dateB = new Date(b.deliveryDate || b.createdAt || '').getTime();
+      return dateB - dateA; // Most recent first
+    })[0];
+    
+    return {
+      city: mostRecent.destinationCity || "",
+      state: mostRecent.destinationState || ""
+    };
+  };
 
   // Find the most recent delivery to use as previous delivery location
   const getMostRecentDelivery = () => {
@@ -182,11 +200,10 @@ export default function ManualLoadEntry({ editMode = false, loadData, onClose }:
     }
   });
 
+  // ✅ FIXED: Use Supabase services for mutations
   const createLoadMutation = useMutation({
     mutationFn: async (data: LoadEntryForm) => {
       const totalMilesWithDeadhead = data.miles + (data.deadheadMiles || 0);
-      
-
       
       const loadDataForSubmit = {
         ...data,
@@ -197,14 +214,13 @@ export default function ManualLoadEntry({ editMode = false, loadData, onClose }:
         status: "pending",
         ratePerMile: data.pay / data.miles, // Revenue per loaded mile
         totalMilesWithDeadhead, // Total miles including deadhead
-
         profit: 0 // Will be calculated on server
       };
       
       if (editMode && loadData?.id) {
-        return await apiRequest(`/api/loads/${loadData.id}`, "PUT", loadDataForSubmit);
+        return await LoadService.updateLoad(loadData.id, loadDataForSubmit);
       } else {
-        return await apiRequest("/api/loads", "POST", loadDataForSubmit);
+        return await LoadService.createLoad(loadDataForSubmit);
       }
     },
     ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization

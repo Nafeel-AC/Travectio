@@ -349,30 +349,7 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
         </DialogContent>
       </Dialog>
 
-      {/* Onboarding Progress Indicator - Shows until complete */}
-      {progress < 100 && !isOpen && (
-        <Card className="fixed bottom-20 right-4 z-40 bg-slate-800 border-slate-700 w-80 shadow-lg">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white text-sm font-medium">Setup Progress</span>
-              <span className="text-slate-300 text-xs">{Math.round(progress)}%</span>
-            </div>
-            <Progress value={progress} className="h-2 mb-3" />
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400 text-xs">
-                {getCompletedStepsCount()} of {onboardingSteps.length} steps complete
-              </span>
-              <Button
-                onClick={() => setIsOpen(true)}
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-xs"
-              >
-                Continue Setup
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </>
   );
 }

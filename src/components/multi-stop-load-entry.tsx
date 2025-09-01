@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,7 +11,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Move, MapPin, Truck, DollarSign, Calendar, Clock } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { calculateDistance, calculateDistanceBetweenCities } from "@shared/distance-utils";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
 import { TruckService, LoadService } from "@/lib/supabase-client";
@@ -75,7 +73,49 @@ export function MultiStopLoadEntry({ onClose, editingLoad }: MultiStopLoadEntryP
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { useDemoQuery } = useDemoApi();
+
+  // ✅ FIXED: Use Supabase services instead of demo API
+  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // ✅ FIXED: Use Supabase services instead of demo API
+  const { data: loads = [], isLoading: loadsLoading, error: loadsError } = useQuery({
+    queryKey: ['loads'],
+    queryFn: () => LoadService.getLoads(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // ✅ FIXED: Helper function to get truck's last delivery location
+  const getTruckLastKnownLocation = (truckId: string) => {
+    const truckLoads = (loads as any[]).filter((load: any) => 
+      load.truckId === truckId && load.status === 'delivered'
+    );
+    
+    if (truckLoads.length === 0) {
+      return null;
+    }
+    
+    // Get the most recent delivered load
+    const mostRecent = truckLoads.sort((a: any, b: any) => {
+      const dateA = new Date(a.deliveryDate || a.createdAt || '').getTime();
+      const dateB = new Date(b.deliveryDate || b.createdAt || '').getTime();
+      return dateB - dateA; // Most recent first
+    })[0];
+    
+    return {
+      city: mostRecent.destinationCity || "",
+      state: mostRecent.destinationState || ""
+    };
+  };
 
   const form = useForm<MultiStopLoadFormData>({
     resolver: zodResolver(multiStopLoadSchema),
@@ -89,18 +129,6 @@ export function MultiStopLoadEntry({ onClose, editingLoad }: MultiStopLoadEntryP
       stops: stops
     }
   });
-
-  // Fetch trucks for selection
-  const { data: trucks = [] } = useDemoQuery(
-    ["/api/trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
 
   const createLoadMutation = useMutation({
     mutationFn: async (data: MultiStopLoadFormData) => {
@@ -171,19 +199,16 @@ export function MultiStopLoadEntry({ onClose, editingLoad }: MultiStopLoadEntryP
         throw new Error("Failed to create load - no ID returned");
       }
 
-      // Create all stops with proper field mapping
+      // ✅ FIXED: Create all stops with correct field mapping for load_stops table
       for (const stop of data.stops) {
         const stopData = {
-          loadId: load.id,
           sequence: stop.stopOrder,
           type: stop.type,
+          stopType: stop.type, // Map type to stopType for database
           city: stop.city,
           state: stop.state,
-          address: stop.address || "",
-          contactName: stop.contactName || "",
-          contactPhone: stop.contactPhone || "",
-          instructions: stop.notes || "",
-          milesFromPrevious: 0 // Will be calculated later
+          scheduledTime: stop.appointmentTime ? new Date(stop.appointmentTime).toISOString() : null,
+          notes: stop.notes || ""
         };
         console.log(`Creating stop for load ${load.id}:`, stopData);
         await LoadService.createLoadStop(load.id, stopData);
@@ -271,25 +296,23 @@ export function MultiStopLoadEntry({ onClose, editingLoad }: MultiStopLoadEntryP
       
       let lastLocation = null;
       
+      // ✅ FIXED: Use Supabase helper function instead of REST API
       // First, calculate deadhead miles from truck's last known location to first pickup
       if (truckId && stops.length > 0) {
         try {
-          const response = await fetch(`/api/trucks/${truckId}/last-location`);
-          if (response.ok) {
-            lastLocation = await response.json();
-            const firstPickup = stops.find(s => s.type === "pickup");
-            
-            console.log("Last location:", lastLocation);
-            console.log("First pickup:", firstPickup);
-            
-            if (firstPickup && firstPickup.city && lastLocation.city) {
-              // Use city-to-city calculation for accurate deadhead miles
-              deadheadMiles = calculateDistanceBetweenCities(
-                lastLocation.city, lastLocation.state, 
-                firstPickup.city, firstPickup.state
-              );
-              console.log(`Calculated deadhead (city-to-city): ${lastLocation.city}, ${lastLocation.state} → ${firstPickup.city}, ${firstPickup.state} = ${deadheadMiles} miles`);
-            }
+          lastLocation = getTruckLastKnownLocation(truckId);
+          const firstPickup = stops.find(s => s.type === "pickup");
+          
+          console.log("Last location:", lastLocation);
+          console.log("First pickup:", firstPickup);
+          
+          if (firstPickup && firstPickup.city && lastLocation && lastLocation.city) {
+            // Use city-to-city calculation for accurate deadhead miles
+            deadheadMiles = calculateDistanceBetweenCities(
+              lastLocation.city, lastLocation.state, 
+              firstPickup.city, firstPickup.state
+            );
+            console.log(`Calculated deadhead (city-to-city): ${lastLocation.city}, ${lastLocation.state} → ${firstPickup.city}, ${firstPickup.state} = ${deadheadMiles} miles`);
           }
         } catch (error) {
           console.log("Could not calculate deadhead miles:", error);

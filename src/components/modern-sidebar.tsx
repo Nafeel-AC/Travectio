@@ -41,6 +41,12 @@ const navigationItems: NavigationItem[] = [
     icon: Home
   },
   {
+    href: "/drivers",
+    label: "Driver Management",
+    description: "Manage fleet drivers and assignments",
+    icon: Users
+  },
+  {
     href: "/hos-management", 
     label: "HOS Management",
     description: "Driver hours and compliance",

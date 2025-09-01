@@ -1,21 +1,36 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { DollarSign, Package, Truck, PieChart, TrendingUp, TrendingDown, Fuel, Calculator } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { FleetMetricsService } from "@/lib/supabase-client";
 
 export default function MetricsCards() {
-  // TODO: Implement proper metrics service
+  // ✅ FIXED: Use real Supabase service instead of placeholder
   const { data: metrics = {}, isLoading } = useQuery({
     queryKey: ['metrics'],
-    queryFn: () => Promise.resolve({
-      costPerMile: 0,
-      totalLoads: 0,
-      activeTrucks: 0,
-      utilization: 0
-    }), // Placeholder
+    queryFn: async () => {
+      const fleetSummary = await FleetMetricsService.getFleetSummary();
+      const fleetMetrics = await FleetMetricsService.getFleetMetrics();
+      
+      console.log('Metrics Cards Debug - Fleet Summary:', fleetSummary);
+      
+      // Calculate metrics from real data
+      const result = {
+        costPerMile: fleetSummary.avgCostPerMile || 0,
+        totalLoads: fleetSummary.totalLoads || 0,
+        totalTrucks: fleetSummary.totalTrucks || 0,
+        activeTrucks: fleetSummary.activeTrucks || 0,
+        utilization: fleetSummary.utilizationRate || 0,
+        totalRevenue: fleetSummary.totalRevenue || 0,
+        profitMargin: fleetSummary.profitMargin || 0
+      };
+      
+      console.log('Metrics Cards Debug - Calculated Result:', result);
+      return result;
+    },
     staleTime: 1000 * 60 * 10, // 10 minutes
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Check if we have any actual data
@@ -42,7 +57,7 @@ export default function MetricsCards() {
     },
     {
       title: "Active Trucks",
-      value: (metrics as any)?.activeTrucks?.toString() || "0",
+      value: `${(metrics as any)?.activeTrucks || 0}/${(metrics as any)?.totalTrucks || 0}`,
       icon: Truck,
       change: hasData ? (metrics as any)?.activeTrucksChange : null,
       changeText: "from last week"

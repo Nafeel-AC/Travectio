@@ -21,8 +21,7 @@ import { useAuth } from "@/hooks/useSupabase";
 import WelcomeOnboarding from "./welcome-onboarding";
 import LoadCalculator from "./load-calculator";
 import IntegrationSetupCard from "./integration-setup-card";
-import { useQuery } from "@tanstack/react-query";
-import { TruckService } from "@/lib/supabase-client";
+import { useFleetMetrics, useTrucks, useLoads } from "@/hooks/useSupabase";
 
 interface MetricCardProps {
   title: string;
@@ -67,60 +66,26 @@ function MetricCard({ title, value, change, description, icon: Icon, trend = 'ne
 
 export default function UnifiedDashboard() {
   const { user } = useAuth();
-  // TODO: Implement proper services for metrics, fleet summary, and loads
-  const { data: metrics = {}, isLoading: metricsLoading } = useQuery({
-    queryKey: ['metrics'],
-    queryFn: () => Promise.resolve({
-      costPerMile: 0,
-      totalLoads: 0,
-      activeTrucks: 0,
-      utilization: 0
-    }), // Placeholder
-    enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 minutes caching instead of 0
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
+  
+  // Use real Supabase hooks instead of placeholder data
+  const { metrics, summary: fleetSummary, loading: metricsLoading } = useFleetMetrics();
+  const { trucks, loading: trucksLoading } = useTrucks();
+  const { loads, loading: loadsLoading } = useLoads();
 
-  const { data: fleetSummary = {}, isLoading: fleetLoading } = useQuery({
-    queryKey: ['fleet-summary'],
-    queryFn: () => Promise.resolve({
-      totalTrucks: 0,
-      activeTrucks: 0,
-      totalMiles: 0,
-      totalRevenue: 0
-    }), // Placeholder
-    enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 minutes caching
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
-  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 minutes caching instead of 0
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
-  const { data: loads = [], isLoading: loadsLoading } = useQuery({
-    queryKey: ['loads'],
-    queryFn: () => Promise.resolve([]), // Placeholder
-    enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 minutes caching
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+  // Debug logging to see what data we're getting
+  console.log('UnifiedDashboard Debug:', {
+    metrics,
+    fleetSummary,
+    trucks: trucks?.length,
+    loads: loads?.length,
+    metricsLoading,
+    trucksLoading,
+    loadsLoading
   });
 
   // For new users, show welcome onboarding if they have no trucks and no loads
   const isFirstTime = !((trucks as any[])?.length) && !((loads as any[])?.length);
-  const isLoading = metricsLoading || fleetLoading || trucksLoading || loadsLoading;
+  const isLoading = metricsLoading || trucksLoading || loadsLoading;
   
 
   if (isLoading) {

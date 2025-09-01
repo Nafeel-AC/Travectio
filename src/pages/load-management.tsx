@@ -11,9 +11,8 @@ import { MultiStopLoadEntry } from "@/components/multi-stop-load-entry";
 import { TruckProfileDisplay } from "@/components/truck-profile-display";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { LoadService, TruckService } from "@/lib/supabase-client";
 
 const statusColors = {
   "pending": "bg-yellow-600",
@@ -45,27 +44,44 @@ export default function LoadManagement() {
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { useDemoQuery } = useDemoApi();
+
+  // Fetch trucks using proper Supabase service
+  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // Fetch loads using proper Supabase service
+  const { data: loads = [], isLoading: loadsLoading, error: loadsError, refetch: refetchLoads } = useQuery({
+    queryKey: ['loads'],
+    queryFn: () => LoadService.getLoads(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
 
   // Mutation for updating load status
   const updateLoadStatusMutation = useMutation({
     mutationFn: async ({ loadId, status }: { loadId: string; status: string }) => {
-      return apiRequest(`/api/loads/${loadId}/status`, "PATCH", { status });
+      return LoadService.updateLoad(loadId, { status });
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/loads"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      queryClient.invalidateQueries({ queryKey: ['loads'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
       toast({
         title: "Status Updated",
         description: `Load status changed to ${statusLabels[variables.status as keyof typeof statusLabels]}`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Update Failed",
-        description: "Could not update load status. Please try again.",
+        description: error.message || "Could not update load status. Please try again.",
         variant: "destructive",
       });
     }
@@ -74,23 +90,20 @@ export default function LoadManagement() {
   // Mutation for deleting load
   const deleteLoadMutation = useMutation({
     mutationFn: async (loadId: string) => {
-      return apiRequest(`/api/loads/${loadId}`, "DELETE");
+      return LoadService.deleteLoad(loadId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/loads"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/load-categories"] });
+      queryClient.invalidateQueries({ queryKey: ['loads'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
       toast({
         title: "Load Deleted",
         description: "Load has been successfully deleted and all numbers updated.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Delete Failed",
-        description: "Could not delete load. Please try again.",
+        description: error.message || "Could not delete load. Please try again.",
         variant: "destructive",
       });
     }
@@ -106,28 +119,6 @@ export default function LoadManagement() {
       updateLoadStatusMutation.mutate({ loadId, status: newStatus });
     }
   };
-
-  const { data: trucks = [], isLoading: trucksLoading } = useDemoQuery(
-    ["load-management-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
-
-  const { data: loads = [], isLoading: loadsLoading } = useDemoQuery(
-    ["load-management-loads"],
-    "/api/loads",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
 
   // Ensure loads is always an array to prevent filter errors
   const safeLoads = Array.isArray(loads) ? loads : [];
@@ -149,7 +140,7 @@ export default function LoadManagement() {
   });
 
   // CRITICAL: Use truck's total miles (includes deadhead) for consistency across all interfaces
-  const trucksTotal = trucks.reduce((sum: number, truck: any) => sum + truck.totalMiles, 0);
+  const trucksTotal = trucks.reduce((sum: number, truck: any) => sum + (truck.totalMiles || 0), 0);
   
   const loadStats = {
     total: safeLoads.length,
@@ -161,6 +152,26 @@ export default function LoadManagement() {
   };
 
   const avgRatePerMile = loadStats.totalMiles > 0 ? (loadStats.totalRevenue / loadStats.totalMiles).toFixed(2) : "0.00";
+
+  // Show error messages if any queries failed
+  if (trucksError || loadsError) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-4">
+            <h3 className="text-red-200 font-semibold mb-2">Error Loading Data</h3>
+            {trucksError && (
+              <p className="text-red-300 text-sm mb-1">Trucks: {trucksError.message}</p>
+            )}
+            {loadsError && (
+              <p className="text-red-300 text-sm mb-1">Loads: {loadsError.message}</p>
+            )}
+            <p className="text-red-400 text-xs mt-2">Please check your connection and try refreshing the page.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
@@ -191,6 +202,20 @@ export default function LoadManagement() {
               <Route className="h-4 w-4 mr-2" />
               {showMultiStopForm ? "Hide Form" : "Multi-Stop Load"}
             </Button>
+            <Button
+              onClick={() => {
+                refetchLoads();
+                queryClient.invalidateQueries({ queryKey: ['loads'] });
+                toast({
+                  title: "Refreshing",
+                  description: "Load data is being refreshed...",
+                });
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Refresh Loads
+            </Button>
           </div>
         </div>
 
@@ -211,8 +236,6 @@ export default function LoadManagement() {
             </Card>
           </div>
         )}
-
-
 
         {editingLoad && (
           <div className="mb-8">
@@ -240,8 +263,6 @@ export default function LoadManagement() {
             </Card>
           </div>
         )}
-
-
 
         {/* Load Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -470,6 +491,10 @@ export default function LoadManagement() {
                   <Package className="h-5 w-5" />
                   Load Inventory ({filteredLoads.length} of {loads.length})
                 </CardTitle>
+                {/* Debug information */}
+                <div className="text-xs text-slate-400 mt-2">
+                  {loadsLoading ? "Loading..." : loadsError ? `Error: ${(loadsError as Error)?.message || 'Unknown error'}` : `Loaded ${loads.length} loads`}
+                </div>
               </CardHeader>
               <CardContent>
             {loadsLoading ? (

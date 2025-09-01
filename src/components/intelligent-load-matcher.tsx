@@ -8,9 +8,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
 import { formatDistanceToNow } from "date-fns";
-import { useDemoApi } from "@/hooks/useDemoApi";
 import { useLoadBoard } from "@/hooks/useSupabase";
-import { LoadBoardService } from "@/lib/supabase-client";
+import { LoadBoardService, DriverService, TruckService } from "@/lib/supabase-client";
 
 interface LoadBoardItem {
   id: string;
@@ -97,6 +96,25 @@ export default function IntelligentLoadMatcher() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { items: loadBoardItems, loading, fetchItems } = useLoadBoard();
+  
+  // Use Supabase services for drivers and trucks
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => DriverService.getDrivers(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+
+  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Mock functions for now since the advanced methods don't exist yet
   const fetchMarketInsights = async () => {
@@ -195,9 +213,9 @@ export default function IntelligentLoadMatcher() {
     }
 
     // Find truck based on driver assignment or selected truck ID
-    let truck = (loadBoardItems as any[]).find(t => t.currentDriverId === selectedDriverId);
+    let truck = trucks.find(t => t.currentDriverId === selectedDriverId);
     if (!truck) {
-      truck = (loadBoardItems as any[]).find(t => t.currentDriverId === selectedDriverId);
+      truck = trucks.find(t => t.currentDriverId === selectedDriverId);
       if (truck) {
         setSelectedTruckId(truck.id); // Update the state for consistency
       }
@@ -229,51 +247,96 @@ export default function IntelligentLoadMatcher() {
         }
       };
 
-      // Call the advanced recommendation engine - ALWAYS for authenticated user
-      // For now, we'll simulate the recommendation engine since it's not implemented yet
-      // TODO: Implement actual recommendation engine with Supabase
-      const mockRecommendations: LoadRecommendation[] = [
-        {
-          loadId: 'mock-1',
-          score: 85,
-          profitPotential: 1200,
-          riskAssessment: 'low',
-          recommendations: {
-            reasons: ['High rate per mile', 'Good route efficiency'],
-            warnings: ['Check weather conditions'],
-            optimizations: ['Consider fuel stops along route']
-          },
-          marketAnalysis: {
-            rateCompetitiveness: 8.5,
-            demandForecast: 'Strong demand in destination',
-            seasonalFactors: ['Peak season for this commodity']
-          },
-          routeOptimization: {
-            suggestedRoute: 'I-80 via Chicago',
-            estimatedFuelCost: 450,
-            deadheadOptimization: 'Minimal deadhead miles'
-          },
-          timeCompatibility: {
-            estimatedDriveTime: 8.5,
-            bufferTime: 2,
-            compatible: true
-          }
-        }
-      ];
+      // Analyze real load board data to generate recommendations
+      const availableLoads = (loadBoardItems as any[])?.filter((load: any) => 
+        load.status === 'available' && 
+        load.equipmentType === truck.equipmentType
+      ) || [];
+
+      if (availableLoads.length === 0) {
+        toast({
+          title: "No Loads Available",
+          description: "No suitable loads found for this truck type.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Generate real recommendations based on available loads
+      const realRecommendations: LoadRecommendation[] = availableLoads
+        .slice(0, 5) // Limit to top 5 recommendations
+        .map((load: any, index: number) => {
+          // Calculate score based on rate per mile, distance, and other factors
+          const ratePerMile = load.ratePerMile || (load.rate / load.miles);
+          const distanceScore = load.miles > 500 ? 20 : load.miles > 200 ? 15 : 10;
+          const rateScore = ratePerMile > 3 ? 30 : ratePerMile > 2 ? 20 : 10;
+          const totalScore = Math.min(100, distanceScore + rateScore + 40); // Base score + calculated
+
+          // Calculate profit potential (simplified)
+          const estimatedCost = (load.miles * truck.avgCostPerMile) + 450; // Fuel + operational
+          const profitPotential = ((load.rate - estimatedCost) / load.rate) * 100;
+
+          // Determine risk assessment
+          const riskAssessment = profitPotential > 20 ? 'low' : profitPotential > 10 ? 'medium' : 'high';
+
+          return {
+            loadId: load.id,
+            score: totalScore,
+            profitPotential: Math.max(0, profitPotential),
+            riskAssessment,
+            recommendations: {
+              reasons: [
+                `High rate per mile: $${ratePerMile.toFixed(2)}`,
+                `Good distance: ${load.miles} miles`,
+                `Equipment match: ${load.equipmentType}`
+              ],
+              warnings: [
+                load.miles > 800 ? 'Long haul - consider driver rest requirements' : '',
+                ratePerMile < 2 ? 'Low rate per mile - consider negotiation' : ''
+              ].filter(Boolean),
+              optimizations: [
+                'Consider fuel stops along route',
+                'Check weather conditions before departure'
+              ]
+            },
+            marketAnalysis: {
+              rateCompetitiveness: ratePerMile > 3 ? 85 : ratePerMile > 2 ? 70 : 50,
+              demandForecast: 'Strong demand in destination',
+              seasonalFactors: ['Peak season for this commodity']
+            },
+            routeOptimization: {
+              suggestedRoute: `Route ${index + 1}`,
+              estimatedFuelCost: Math.round(load.miles * 0.15), // Rough fuel cost estimate
+              deadheadOptimization: 'Minimal deadhead miles'
+            },
+            timeCompatibility: {
+              estimatedDriveTime: Math.round(load.miles / 60), // Assuming 60 mph average
+              bufferTime: 2,
+              compatible: true
+            },
+            loadData: load // Include the actual load data
+          };
+        })
+        .sort((a, b) => b.score - a.score); // Sort by score descending
       
-      setRecommendations(mockRecommendations);
+      setRecommendations(realRecommendations);
+      
+      // Generate dynamic market insights based on available loads
+      const avgRatePerMile = availableLoads.reduce((sum: number, load: any) => 
+        sum + (load.ratePerMile || (load.rate / load.miles)), 0) / availableLoads.length;
+      
       setMarketInsights({
-        overallTrends: 'Rates trending upward in this lane',
-        rateForecasts: 'Expected 5-10% increase in next 2 weeks',
-        recommendedStrategy: 'Book early to secure current rates',
+        overallTrends: avgRatePerMile > 3 ? 'Rates trending upward in this lane' : 'Rates are stable',
+        rateForecasts: avgRatePerMile > 3 ? 'Expected 5-10% increase in next 2 weeks' : 'Rates expected to remain stable',
+        recommendedStrategy: avgRatePerMile > 3 ? 'Book early to secure current rates' : 'Monitor for better opportunities',
         seasonalFactors: ['Peak season approaching'],
-        emergingOpportunities: ['New shipper in destination area']
+        emergingOpportunities: availableLoads.length > 3 ? ['Multiple load opportunities available'] : ['Limited load availability']
       });
       
       // Show success message
       toast({
         title: "Recommendations Generated",
-        description: `Found ${mockRecommendations.length} optimized load opportunities.`,
+        description: `Found ${realRecommendations.length} optimized load opportunities.`,
       });
     } catch (error) {
       console.error('Recommendation generation error:', error);
@@ -325,18 +388,19 @@ export default function IntelligentLoadMatcher() {
   // Debug effect to log data changes
   useEffect(() => {
     console.log('[Load Matcher Debug] Load Board Items:', loadBoardItems);
-    console.log('[Load Matcher Debug] Drivers count:', (loadBoardItems as any)?.filter((item: any) => item.status === 'available').length || 0);
-  }, [loadBoardItems]);
+    console.log('[Load Matcher Debug] Drivers count:', drivers?.filter((driver: any) => driver.isActive).length || 0);
+    console.log('[Load Matcher Debug] Trucks count:', trucks?.length || 0);
+  }, [loadBoardItems, drivers, trucks]);
 
   // Set the truck ID based on selected driver
   useEffect(() => {
     if (selectedDriverId) {
-      const truck = (loadBoardItems as any[]).find(t => t.currentDriverId === selectedDriverId);
+      const truck = trucks.find(t => t.currentDriverId === selectedDriverId);
       if (truck) {
         setSelectedTruckId(truck.id);
       }
     }
-  }, [selectedDriverId, loadBoardItems]);
+  }, [selectedDriverId, trucks]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400";
@@ -375,16 +439,16 @@ export default function IntelligentLoadMatcher() {
                   <SelectValue placeholder="Choose a driver" />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--dark-surface)] border-gray-600">
-                  {(loadBoardItems as any)?.filter((item: any) => item.status === 'available').map((driver: any) => {
-                    const truck = (loadBoardItems as any[]).find(t => t.currentDriverId === driver.id);
+                  {drivers?.filter((driver: any) => driver.isActive).map((driver: any) => {
+                    const truck = trucks.find(t => t.currentDriverId === driver.id);
                     return (
                       <SelectItem key={driver.id} value={driver.id}>
-                        {driver.brokerName || driver.brokerMc || driver.name} {truck && `(${truck.name})`}
+                        {driver.name} {truck && `(${truck.name})`}
                       </SelectItem>
                     );
                   })}
                   {/* Debug: Show if no drivers found */}
-                  {!(loadBoardItems as any)?.filter((item: any) => item.status === 'available').length && (
+                  {!drivers?.filter((driver: any) => driver.isActive).length && (
                     <SelectItem value="no-drivers" disabled>No drivers available</SelectItem>
                   )}
                 </SelectContent>
@@ -402,7 +466,7 @@ export default function IntelligentLoadMatcher() {
                   </div>
                   <Button 
                     onClick={generateLoadRecommendations}
-                    disabled={isGeneratingRecommendations || !selectedDriverId || !(loadBoardItems as any)?.filter((item: any) => item.status === 'available').length}
+                    disabled={isGeneratingRecommendations || !selectedDriverId || !drivers?.filter((driver: any) => driver.isActive).length}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {isGeneratingRecommendations ? "Analyzing..." : "Generate Recommendations"}

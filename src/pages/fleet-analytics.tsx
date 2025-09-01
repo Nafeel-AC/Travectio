@@ -55,17 +55,32 @@ export default function FleetAnalytics() {
   const { isDemoMode, getDemoUserId } = useDemo();
 
   // Use new Supabase hooks instead of old fetchAPI calls
-  const { data: metrics = {}, isLoading: metricsLoading } = useFleetMetrics();
-  const { data: trucks = [], isLoading: trucksLoading } = useTrucks();
-  const { data: loads = [], isLoading: loadsLoading } = useLoads();
+  const { metrics, summary, loading: metricsLoading } = useFleetMetrics();
+  const { trucks, loading: trucksLoading } = useTrucks();
+  const { loads, loading: loadsLoading } = useLoads();
 
-  // Calculate fleet summary from the data
-  const fleetSummary = {
-    totalTrucks: trucks.length,
-    totalLoads: loads.length,
-    activeTrucks: trucks.filter(truck => truck.status === 'active').length,
-    completedLoads: loads.filter(load => load.status === 'completed').length
+  // Use the summary data from the hook, with fallbacks
+  const fleetSummary = summary || {
+    totalTrucks: trucks?.length || 0,
+    totalLoads: loads?.length || 0,
+    activeTrucks: trucks?.filter(truck => truck.status === 'active')?.length || 0,
+    totalMiles: 0,
+    totalRevenue: 0,
+    avgCostPerMile: 0,
+    profitMargin: 0,
+    utilizationRate: 0
   };
+
+  // Debug logging to verify data is being read correctly
+  console.log('Fleet Analytics Debug:', {
+    summary,
+    metrics,
+    trucks: trucks?.length,
+    loads: loads?.length,
+    fleetSummary,
+    trucksData: trucks?.slice(0, 2), // Show first 2 trucks for debugging
+    loadsData: loads?.slice(0, 2)    // Show first 2 loads for debugging
+  });
 
   const isLoading = metricsLoading || trucksLoading || loadsLoading;
 
@@ -110,38 +125,30 @@ export default function FleetAnalytics() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Total Revenue"
-          value={`$${(metrics as any)?.totalRevenue?.toLocaleString() || '0'}`}
-          change={(metrics as any)?.totalRevenueChange}
+          value={`$${(fleetSummary as any)?.totalRevenue?.toLocaleString() || '0'}`}
           description="Period revenue"
           icon={DollarSign}
-          trend={(metrics as any)?.totalRevenueChange > 0 ? "up" : (metrics as any)?.totalRevenueChange < 0 ? "down" : "neutral"}
           className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800"
         />
         <MetricCard
           title="Cost Per Mile"
-          value={`$${(metrics as any)?.costPerMile || '0.00'}`}
-          change={(metrics as any)?.costPerMileChange}
+          value={`$${(fleetSummary as any)?.avgCostPerMile?.toFixed(2) || '0.00'}`}
           description="Operating efficiency"
           icon={Fuel}
-          trend={(metrics as any)?.costPerMileChange > 0 ? "up" : (metrics as any)?.costPerMileChange < 0 ? "down" : "neutral"}
           className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-blue-200 dark:border-blue-800"
         />
         <MetricCard
           title="Profit Margin"
-          value={`${(metrics as any)?.profitMargin || 0}%`}
-          change={(metrics as any)?.profitMarginChange}
+          value={`${(fleetSummary as any)?.profitMargin?.toFixed(1) || 0}%`}
           description="Net profitability"
           icon={Package}
-          trend={(metrics as any)?.profitMarginChange > 0 ? "up" : (metrics as any)?.profitMarginChange < 0 ? "down" : "neutral"}
           className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-800"
         />
         <MetricCard
           title="Fleet Utilization"
-          value={`${(metrics as any)?.utilizationRate || 0}%`}
-          change={(metrics as any)?.utilizationRateChange}
+          value={`${(fleetSummary as any)?.utilizationRate?.toFixed(1) || 0}%`}
           description="Asset efficiency"
           icon={Users}
-          trend={(metrics as any)?.utilizationRateChange > 0 ? "up" : (metrics as any)?.utilizationRateChange < 0 ? "down" : "neutral"}
           className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800"
         />
       </div>
@@ -196,15 +203,15 @@ export default function FleetAnalytics() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Cost Per Mile</span>
-                    <span className="font-medium">${(metrics as any)?.costPerMile || 0}</span>
+                    <span className="font-medium">${(fleetSummary as any)?.avgCostPerMile?.toFixed(2) || 0}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Total Miles</span>
-                    <span className="font-medium">{((metrics as any)?.totalOperationalMiles || (fleetSummary as any)?.totalMiles || 0).toLocaleString()}</span>
+                    <span className="font-medium">{(fleetSummary as any)?.totalMiles?.toLocaleString() || 0}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Avg MPG</span>
-                    <span className="font-medium">{((metrics as any)?.actualMPG || 0).toFixed(1)}</span>
+                    <span className="font-medium">{(fleetSummary as any)?.avgMPG?.toFixed(1) || '0.0'}</span>
                   </div>
                 </div>
                 
@@ -237,7 +244,7 @@ export default function FleetAnalytics() {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {(metrics as any)?.totalLoads || 0}
+                      {(fleetSummary as any)?.totalLoads || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">Total Loads</div>
                   </div>
@@ -252,7 +259,7 @@ export default function FleetAnalytics() {
                   <div className="flex justify-between text-sm">
                     <span>Avg Revenue/Load</span>
                     <span className="font-medium">
-                      ${(metrics as any)?.avgRevenuePerLoad?.toLocaleString() || 0}
+                      ${(fleetSummary as any)?.totalLoads > 0 ? ((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalLoads)?.toLocaleString() : 0}
                     </span>
                   </div>
                 </div>
@@ -343,7 +350,7 @@ export default function FleetAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
-                  {(metrics as any)?.actualMPG?.toFixed(1) || '0.0'}
+                  {(fleetSummary as any)?.avgMPG?.toFixed(1) || '0.0'}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   Average MPG
@@ -396,18 +403,18 @@ export default function FleetAnalytics() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      {((metrics as any)?.totalOperationalMiles || (fleetSummary as any)?.totalMiles || 0).toLocaleString()}
-                    </div>
+                                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {(fleetSummary as any)?.totalMiles?.toLocaleString() || 0}
+                  </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Total Miles</div>
                   </div>
                   <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className={`text-2xl font-bold ${
-                      ((metrics as any)?.revenuePerMile || 0) > ((metrics as any)?.costPerMile || 0)
+                      ((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalMiles || 0) > ((fleetSummary as any)?.avgCostPerMile || 0)
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
                     }`}>
-                      ${(metrics as any)?.revenuePerMile?.toFixed(2) || '0.00'}
+                      ${((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalMiles || 0)?.toFixed(2) || '0.00'}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Per Mile</div>
                   </div>
@@ -488,7 +495,7 @@ export default function FleetAnalytics() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Cost Per Mile</div>
-                  <div className="text-2xl font-bold">${(metrics as any)?.costPerMile || '0.00'}</div>
+                  <div className="text-2xl font-bold">${(fleetSummary as any)?.avgCostPerMile?.toFixed(2) || '0.00'}</div>
                   {((loads as any[])?.length > 0) ? (
                     <div className="text-xs text-green-600 dark:text-green-400 mt-1">↓ 5% vs last month</div>
                   ) : (
@@ -498,17 +505,17 @@ export default function FleetAnalytics() {
                 <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Revenue Per Load</div>
                   <div className={`text-2xl font-bold ${
-                    ((metrics as any)?.avgRevenuePerLoad || 0) > (((metrics as any)?.costPerMile || 0) * ((metrics as any)?.avgMilesPerLoad || 673))
+                    ((fleetSummary as any)?.totalLoads > 0 ? ((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalLoads) : 0) > (((fleetSummary as any)?.avgCostPerMile || 0) * 673)
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
-                  }`}>${(metrics as any)?.avgRevenuePerLoad?.toLocaleString() || '0'}</div>
+                  }`}>${(fleetSummary as any)?.totalLoads > 0 ? ((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalLoads)?.toLocaleString() : '0'}</div>
                   {((loads as any[])?.length > 0) ? (
                     <div className={`text-xs mt-1 ${
-                      ((metrics as any)?.avgRevenuePerLoad || 0) > (((metrics as any)?.costPerMile || 0) * ((metrics as any)?.avgMilesPerLoad || 673))
+                      ((fleetSummary as any)?.totalLoads > 0 ? ((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalLoads) : 0) > (((fleetSummary as any)?.avgCostPerMile || 0) * 673)
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
                     }`}>{
-                      ((metrics as any)?.avgRevenuePerLoad || 0) > (((metrics as any)?.costPerMile || 0) * ((metrics as any)?.avgMilesPerLoad || 673))
+                      ((fleetSummary as any)?.totalLoads > 0 ? ((fleetSummary as any)?.totalRevenue / (fleetSummary as any)?.totalLoads) : 0) > (((fleetSummary as any)?.avgCostPerMile || 0) * 673)
                         ? '↑ 8% vs last month'
                         : '↓ Loss per load'
                     }</div>

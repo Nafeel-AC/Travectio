@@ -8,11 +8,10 @@ import { Clock, AlertTriangle, CheckCircle, Users, Search, Calendar, Plus, Trash
 import EnhancedHOSEntry from "@/components/enhanced-hos-entry";
 
 import { useStableQuery } from "@/hooks/use-stable-query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { DriverService, TruckService, HOSService } from "@/lib/supabase-client";
 
 const dutyStatusColors = {
   "DRIVING": "bg-green-600",
@@ -34,50 +33,49 @@ export default function HOSManagement() {
   const [showEntryForm, setShowEntryForm] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { useDemoQuery } = useDemoApi();
 
-  const { data: drivers = [], isLoading: driversLoading } = useDemoQuery(
-    ["hos-management-drivers"],
-    "/api/drivers",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // ✅ FIXED: Use Supabase services instead of demo API
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => DriverService.getDrivers(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: trucks = [], isLoading: trucksLoading } = useDemoQuery(
-    ["hos-management-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // ✅ FIXED: Use Supabase services instead of demo API
+  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: hosLogs = [], isLoading: logsLoading } = useDemoQuery(
-    ["hos-management-logs", selectedDriver, selectedTruck],
-    "/api/hos-logs",
-    {
-      enabled: !!(selectedDriver || selectedTruck),
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: hosLogs = [], isLoading: logsLoading } = useQuery({
+    queryKey: ['hos-logs', selectedDriver, selectedTruck],
+    queryFn: async () => {
+      const logs = await HOSService.getHosLogs(selectedDriver || undefined, selectedTruck || undefined);
+      console.log('HOS Logs fetched:', logs);
+      return logs;
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  // Driver deletion mutation
+  // ✅ FIXED: Use Supabase services instead of demo API
   const deleteDriverMutation = useMutation({
-    mutationFn: (driverId: string) => apiRequest(`/api/drivers/${driverId}`, "DELETE"),
+    mutationFn: async (driverId: string) => {
+      return DriverService.deleteDriver(driverId);
+    },
     onSuccess: (_, driverId) => {
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
       
       // Clear selected driver if it was deleted
       if (selectedDriver === driverId) {
@@ -101,13 +99,11 @@ export default function HOSManagement() {
   // HOS status update mutation
   const updateHosStatusMutation = useMutation({
     mutationFn: async ({ hosLogId, dutyStatus }: { hosLogId: string; dutyStatus: string }) => {
-      return apiRequest(`/api/hos-logs/${hosLogId}/status`, "PATCH", { dutyStatus });
+      return HOSService.updateHosLogStatus(hosLogId, dutyStatus);
     },
     onSuccess: () => {
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/hos-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/compliance-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["hos-logs"] });
       
       toast({
         title: "Status Updated",

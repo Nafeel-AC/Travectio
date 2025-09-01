@@ -237,26 +237,59 @@ class TruckService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    const { data, error } = await supabase
+    const { data: trucks, error } = await supabase
       .from('trucks')
       .select('*')
       .eq('userId', user.id)
       .order('createdAt', { ascending: false });
 
     if (error) throw new Error(error.message);
-    return data;
+    
+    // Fetch driver data for trucks that have currentDriverId
+    const trucksWithDrivers = await Promise.all(
+      trucks.map(async (truck) => {
+        if (truck.currentDriverId) {
+          const { data: driver, error: driverError } = await supabase
+            .from('drivers')
+            .select('id, name, cdlNumber, phone, email')
+            .eq('id', truck.currentDriverId)
+            .single();
+          
+          if (!driverError && driver) {
+            truck.driver = driver;
+          }
+        }
+        return truck;
+      })
+    );
+    
+    return trucksWithDrivers;
   }
 
   // Get truck by ID
   static async getTruck(id: string) {
-    const { data, error } = await supabase
+    const { data: truck, error } = await supabase
       .from('trucks')
       .select('*')
       .eq('id', id)
       .single();
 
     if (error) throw new Error(error.message);
-    return data;
+    
+    // If truck has a currentDriverId, fetch the driver data
+    if (truck.currentDriverId) {
+      const { data: driver, error: driverError } = await supabase
+        .from('drivers')
+        .select('id, name, cdlNumber, phone, email')
+        .eq('id', truck.currentDriverId)
+        .single();
+      
+      if (!driverError && driver) {
+        truck.driver = driver;
+      }
+    }
+    
+    return truck;
   }
 
   // Create truck
@@ -285,7 +318,13 @@ class TruckService {
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Check if it's a unique constraint violation
+      if (error.code === '23505' && error.message.includes('name')) {
+        throw new Error(`A truck with the name "${truckData.name}" already exists. Please use a different name.`);
+      }
+      throw new Error(error.message);
+    }
     return data;
   }
 
@@ -303,6 +342,52 @@ class TruckService {
 
     if (error) throw new Error(error.message);
     return data;
+  }
+
+  // Assign driver to truck (updates both truck and driver records)
+  static async assignDriverToTruck(truckId: string, driverId: string | null) {
+    // First, remove any existing driver assignment from this truck
+    const { data: currentTruck } = await supabase
+      .from('trucks')
+      .select('currentDriverId')
+      .eq('id', truckId)
+      .single();
+
+    if (currentTruck?.currentDriverId) {
+      // Remove the current driver's truck assignment
+      await supabase
+        .from('drivers')
+        .update({ currentTruckId: null })
+        .eq('id', currentTruck.currentDriverId);
+    }
+
+    // Update the truck with the new driver assignment
+    const { data: updatedTruck, error: truckError } = await supabase
+      .from('trucks')
+      .update({
+        currentDriverId: driverId,
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', truckId)
+      .select()
+      .single();
+
+    if (truckError) throw new Error(truckError.message);
+
+    // If a new driver is being assigned, update the driver's truck assignment
+    if (driverId) {
+      const { error: driverError } = await supabase
+        .from('drivers')
+        .update({ 
+          currentTruckId: truckId,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', driverId);
+
+      if (driverError) throw new Error(driverError.message);
+    }
+
+    return updatedTruck;
   }
 
   // Delete truck
@@ -515,10 +600,26 @@ class LoadService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // ✅ FIXED: Filter out fields that don't exist in the loads table schema
+    const allowedFields = [
+      'truckId', 'type', 'pay', 'miles', 'isProfitable', 'estimatedFuelCost', 
+      'estimatedGallons', 'status', 'originCity', 'originState', 'destinationCity', 
+      'destinationState', 'deadheadFromCity', 'deadheadFromState', 'deadheadMiles', 
+      'totalMilesWithDeadhead', 'pickupDate', 'deliveryDate', 'notes', 'commodity', 
+      'ratePerMile'
+    ];
+
+    const filteredData = Object.keys(loadData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = loadData[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('loads')
       .insert({
-        ...loadData,
+        ...filteredData,
         userId: user.id
       })
       .select()
@@ -530,10 +631,26 @@ class LoadService {
 
   // Update load
   static async updateLoad(id: string, updates: any) {
+    // ✅ FIXED: Filter out fields that don't exist in the loads table schema
+    const allowedFields = [
+      'truckId', 'type', 'pay', 'miles', 'isProfitable', 'estimatedFuelCost', 
+      'estimatedGallons', 'status', 'originCity', 'originState', 'destinationCity', 
+      'destinationState', 'deadheadFromCity', 'deadheadFromState', 'deadheadMiles', 
+      'totalMilesWithDeadhead', 'pickupDate', 'deliveryDate', 'notes', 'commodity', 
+      'ratePerMile'
+    ];
+
+    const filteredUpdates = Object.keys(updates)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = updates[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('loads')
       .update({
-        ...updates,
+        ...filteredUpdates,
         updatedAt: new Date().toISOString()
       })
       .eq('id', id)
@@ -569,10 +686,23 @@ class LoadService {
 
   // Create load stop
   static async createLoadStop(loadId: string, stopData: any) {
+    // ✅ FIXED: Filter out fields that don't exist in the load_stops table schema
+    const allowedFields = [
+      'sequence', 'type', 'stopType', 'city', 'state', 'scheduledTime', 
+      'actualTime', 'notes'
+    ];
+
+    const filteredData = Object.keys(stopData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = stopData[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('load_stops')
       .insert({
-        ...stopData,
+        ...filteredData,
         loadId
       })
       .select()
@@ -584,10 +714,23 @@ class LoadService {
 
   // Update load stop
   static async updateLoadStop(id: string, updates: any) {
+    // ✅ FIXED: Filter out fields that don't exist in the load_stops table schema
+    const allowedFields = [
+      'sequence', 'type', 'stopType', 'city', 'state', 'scheduledTime', 
+      'actualTime', 'notes'
+    ];
+
+    const filteredUpdates = Object.keys(updates)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = updates[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('load_stops')
       .update({
-        ...updates,
+        ...filteredUpdates,
         updatedAt: new Date().toISOString()
       })
       .eq('id', id)
@@ -895,6 +1038,10 @@ class DriverService {
 
   // Delete driver
   static async deleteDriver(id: string) {
+    // First, delete all HOS logs associated with this driver
+    await HOSService.deleteHosLogsByDriver(id);
+
+    // Then delete the driver
     const { error } = await supabase
       .from('drivers')
       .delete()
@@ -916,6 +1063,9 @@ class HOSService {
 
     if (driverId) query = query.eq('driverId', driverId);
     if (truckId) query = query.eq('truckId', truckId);
+
+    // Order by timestamp descending to show most recent first
+    query = query.order('timestamp', { ascending: false });
 
     const { data, error } = await query;
 
@@ -948,6 +1098,33 @@ class HOSService {
     if (error) throw new Error(error.message);
     return data;
   }
+
+  // Update HOS log status
+  static async updateHosLogStatus(id: string, dutyStatus: string) {
+    const { data, error } = await supabase
+      .from('hos_logs')
+      .update({ 
+        dutyStatus,
+        updatedAt: new Date().toISOString() 
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  // Delete HOS logs by driver ID
+  static async deleteHosLogsByDriver(driverId: string) {
+    const { error } = await supabase
+      .from('hos_logs')
+      .delete()
+      .eq('driverId', driverId);
+
+    if (error) throw new Error(error.message);
+    return true;
+  }
 }
 
 // ============================================================================
@@ -968,9 +1145,23 @@ class LoadBoardService {
 
   // Create load board item
   static async createLoadBoardItem(itemData: any) {
+    // ✅ FIXED: Filter out fields that don't exist in the load_board table schema
+    const allowedFields = [
+      'loadBoardSource', 'originCity', 'originState', 'destinationCity', 'destinationState',
+      'equipmentType', 'weight', 'length', 'pay', 'miles', 'ratePerMile', 'pickupDate',
+      'deliveryDate', 'status', 'loadBoardProvider', 'externalId', 'notes'
+    ];
+
+    const filteredData = Object.keys(itemData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = itemData[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('load_board')
-      .insert(itemData)
+      .insert(filteredData)
       .select()
       .single();
 
@@ -1020,31 +1211,92 @@ class FleetMetricsService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Get trucks count
-    const { count: trucksCount } = await supabase
+    // Get trucks count and data
+    const { count: trucksCount, data: trucks } = await supabase
       .from('trucks')
-      .select('*', { count: 'exact', head: true })
-      .eq('userId', user.id)
-      .eq('isActive', 1);
-
-    // Get loads count
-    const { count: loadsCount } = await supabase
-      .from('loads')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact' })
       .eq('userId', user.id);
 
-    // Get drivers count
-    const { count: driversCount } = await supabase
+    // Get loads count and data
+    const { count: loadsCount, data: loads } = await supabase
+      .from('loads')
+      .select('*', { count: 'exact' })
+      .eq('userId', user.id);
+
+    // Get drivers count and data
+    const { count: driversCount, data: drivers } = await supabase
       .from('drivers')
-      .select('*', { count: 'exact', head: true })
-      .eq('userId', user.id)
-      .eq('isActive', 1);
+      .select('*', { count: 'exact' })
+      .eq('userId', user.id);
+
+    // Calculate metrics from actual data
+    const totalTrucks = trucksCount || 0;
+    const totalLoads = loadsCount || 0;
+    const totalDrivers = driversCount || 0;
+    
+    console.log('Fleet Summary Debug:', {
+      totalTrucks,
+      totalLoads,
+      totalDrivers,
+      trucksData: trucks,
+      loadsData: loads,
+      driversData: drivers
+    });
+    
+    // Calculate total miles from trucks
+    const totalMiles = (trucks || []).reduce((sum: number, truck: any) => sum + (truck.totalMiles || 0), 0);
+    
+    // Calculate total revenue from loads
+    const totalRevenue = (loads || []).reduce((sum: number, load: any) => sum + (load.pay || 0), 0);
+    
+    // Calculate average cost per mile from trucks
+    const totalCosts = (trucks || []).reduce((sum: number, truck: any) => {
+      const truckCost = (truck.fixedCosts || 0) + (truck.variableCosts || 0);
+      return sum + truckCost;
+    }, 0);
+    
+    const avgCostPerMile = totalMiles > 0 ? totalCosts / totalMiles : 0;
+    
+    // Calculate average MPG from trucks
+    const totalMPG = (trucks || []).reduce((sum: number, truck: any) => sum + (truck.mpg || 0), 0);
+    const avgMPG = (trucks || []).length > 0 ? totalMPG / (trucks || []).length : 0;
+    
+    // Calculate profit margin
+    const profitMargin = totalRevenue > 0 ? ((totalRevenue - totalCosts) / totalRevenue) * 100 : 0;
+    
+    // Calculate utilization rate (trucks with loads / total trucks)
+    const trucksWithLoads = (trucks || []).filter((truck: any) => 
+      (loads || []).some((load: any) => load.truckId === truck.id)
+    ).length;
+    const utilizationRate = totalTrucks > 0 ? (trucksWithLoads / totalTrucks) * 100 : 0;
+    
+    // Calculate active trucks (trucks with current loads)
+    const activeTrucks = (trucks || []).filter((truck: any) => 
+      (loads || []).some((load: any) => 
+        load.truckId === truck.id && 
+        ['pending', 'in_transit'].includes(load.status)
+      )
+    ).length;
+    
+    // Calculate active drivers (drivers assigned to trucks)
+    const activeDrivers = (drivers || []).filter((driver: any) => 
+      (trucks || []).some((truck: any) => truck.currentDriverId === driver.id)
+    ).length;
 
     return {
-      fleetSize: trucksCount === 1 ? 'solo' : trucksCount === 2 ? 'small' : 'medium',
-      totalTrucks: trucksCount || 0,
-      totalLoads: loadsCount || 0,
-      totalDrivers: driversCount || 0
+      fleetSize: totalTrucks === 1 ? 'solo' : totalTrucks <= 10 ? 'small' : totalTrucks <= 50 ? 'medium' : 'large',
+      totalTrucks,
+      totalLoads,
+      totalDrivers,
+      activeTrucks,
+      activeDrivers,
+      totalMiles,
+      totalRevenue,
+      totalCosts,
+      avgCostPerMile,
+      avgMPG,
+      profitMargin,
+      utilizationRate
     };
   }
 }
@@ -1081,9 +1333,22 @@ class LoadPlanService {
 
   // Create load plan
   static async createLoadPlan(planData: any) {
+    // ✅ FIXED: Filter out fields that don't exist in the load_plans table schema
+    const allowedFields = [
+      'name', 'description', 'startDate', 'endDate', 'status', 'totalRevenue',
+      'totalMiles', 'estimatedProfit', 'notes'
+    ];
+
+    const filteredData = Object.keys(planData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = planData[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('load_plans')
-      .insert(planData)
+      .insert(filteredData)
       .select()
       .single();
 

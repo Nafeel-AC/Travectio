@@ -7,9 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calculator, CheckCircle, XCircle, Truck, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
-import { TruckService } from "@/lib/supabase-client";
+import { TruckService, FuelService, LoadService } from "@/lib/supabase-client";
 
 interface CalculationResult {
   costPerMile: number;
@@ -44,52 +43,44 @@ export default function LoadCalculator() {
     refetchOnReconnect: false,
   });
 
-  // TODO: Implement proper services for cost breakdowns, fuel purchases, and loads
-  const { data: costBreakdowns = [] } = useQuery({
-    queryKey: ['cost-breakdowns', selectedTruckId],
-    queryFn: () => Promise.resolve([]), // Placeholder
-    enabled: !!selectedTruckId,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
-  // Fetch fuel purchases for accurate MPG and fuel price calculations
+  // ✅ FIXED: Use real Supabase services instead of placeholders
   const { data: fuelPurchases = [] } = useQuery({
     queryKey: ['fuel-purchases', selectedTruckId],
-    queryFn: () => Promise.resolve([]), // Placeholder
+    queryFn: () => FuelService.getFuelPurchases(undefined, selectedTruckId),
     enabled: !!selectedTruckId,
     staleTime: 1000 * 60 * 10, // 10 minutes
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Fetch loads for weekly miles calculation
   const { data: loads = [] } = useQuery({
     queryKey: ['loads', selectedTruckId],
-    queryFn: () => Promise.resolve([]), // Placeholder
+    queryFn: () => LoadService.getLoads(),
     enabled: !!selectedTruckId,
     staleTime: 1000 * 60 * 10, // 10 minutes
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
-  // Mutation to save load calculation results for cross-tab synchronization
+  // ✅ FIXED: Remove non-existent API call and use local calculation only
   const saveCalculationMutation = useMutation({
-    mutationFn: (data: { 
+    mutationFn: async (data: { 
       truckId: string; 
       loadPay: number; 
       loadMiles: number; 
       calculationResult: CalculationResult;
-    }) => apiRequest("/api/load-calculations", "POST", data),
-    ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
+    }) => {
+      // For now, just return the calculation result since there's no load-calculations table
+      // In the future, this could save to a load_calculations table
+      return data.calculationResult;
+    },
     onSuccess: () => {
       toast({
-        title: "Calculation Saved & Synchronized",
-        description: "Load profitability calculation saved and all fleet metrics updated across system.",
+        title: "Calculation Complete",
+        description: "Load profitability calculated successfully.",
       });
     },
   });
@@ -446,8 +437,8 @@ export default function LoadCalculator() {
                     <span className="text-white font-semibold">{result.milesPerGallon} MPG</span>
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {costBreakdowns.length > 0 && costBreakdowns[0]?.milesPerGallon > 0 
-                      ? `✓ Actual: ${costBreakdowns[0].milesPerGallon} MPG from ${costBreakdowns[0].gallonsUsed} gal @ $${costBreakdowns[0].avgFuelPrice?.toFixed(3)}` 
+                    {fuelPurchases.length > 0 
+                      ? `✓ Actual fuel data available from ${fuelPurchases.length} purchase(s)` 
                       : "Estimated - add fuel transactions for accuracy"}
                   </div>
                   <div className="flex justify-between">

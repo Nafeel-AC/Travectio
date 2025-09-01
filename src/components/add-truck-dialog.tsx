@@ -16,7 +16,7 @@ interface AddTruckDialogProps {
 
 export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [truckData, setTruckData] = useState({
+  const [truckInfo, setTruckInfo] = useState({
     name: "",
     make: "",
     model: "",
@@ -24,7 +24,37 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
     vin: "",
     licensePlate: "",
     capacity: "",
-    fuelType: "diesel"
+    fuelType: "diesel",
+    equipmentType: "Dry Van",
+    eldDeviceId: "",
+    mpg: 6.5
+  });
+
+  const [fixedCosts, setFixedCosts] = useState({
+    truckPayment: 0,
+    trailerPayment: 0,
+    elogSubscription: 0,
+    liabilityInsurance: 0,
+    physicalInsurance: 0,
+    cargoInsurance: 0,
+    trailerInterchange: 0,
+    bobtailInsurance: 0,
+    nonTruckingLiability: 0,
+    basePlateDeduction: 0,
+    companyPhone: 0
+  });
+
+  const [variableCosts, setVariableCosts] = useState({
+    fuel: 0,
+    maintenance: 0,
+    tires: 0,
+    permits: 0,
+    tolls: 0,
+    dwellTime: 0,
+    reeferFuel: 0,
+    truckParking: 0,
+    driverPay: 0,
+    iftaTaxes: 0
   });
   
   const { createTruck } = useTrucks();
@@ -34,13 +64,29 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
     e.preventDefault();
     
     try {
-      await addTruck(truckData);
+      // Calculate total costs for database
+      const totalFixedCosts = calculateTotalFixedCosts();
+      const totalVariableCosts = calculateTotalVariableCosts();
+      
+      // Prepare truck data with all fields
+      const truckData = {
+        ...truckInfo,
+        fixedCosts: totalFixedCosts,
+        variableCosts: totalVariableCosts,
+        totalMiles: 0, // New trucks start with 0 miles
+        status: 'active',
+        mpg: truckInfo.mpg
+      };
+      
+      await createTruck(truckData);
       toast({
         title: "Success",
         description: "Truck added successfully!",
       });
       setIsOpen(false);
-      setTruckData({
+      
+      // Reset all form data
+      setTruckInfo({
         name: "",
         make: "",
         model: "",
@@ -48,11 +94,39 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
         vin: "",
         licensePlate: "",
         capacity: "",
-        fuelType: "diesel"
+        fuelType: "diesel",
+        equipmentType: "Dry Van",
+        eldDeviceId: "",
+        mpg: 6.5
+      });
+      setFixedCosts({
+        truckPayment: 0,
+        trailerPayment: 0,
+        elogSubscription: 0,
+        liabilityInsurance: 0,
+        physicalInsurance: 0,
+        cargoInsurance: 0,
+        trailerInterchange: 0,
+        bobtailInsurance: 0,
+        nonTruckingLiability: 0,
+        basePlateDeduction: 0,
+        companyPhone: 0
+      });
+      setVariableCosts({
+        fuel: 0,
+        maintenance: 0,
+        tires: 0,
+        permits: 0,
+        tolls: 0,
+        dwellTime: 0,
+        reeferFuel: 0,
+        truckParking: 0,
+        driverPay: 0,
+        iftaTaxes: 0
       });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Failed to Add Truck",
         description: error.message || "Failed to add truck",
         variant: "destructive",
       });
@@ -69,16 +143,27 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
     setVariableCosts(prev => ({ ...prev, [field]: value }));
   };
 
-  console.log('[AddTruckDialog] Component rendering, mutation state:', {
-    isIdle: addTruckMutation.isIdle,
-    isPending: addTruckMutation.isPending,
-    isError: addTruckMutation.isError,
-    isSuccess: addTruckMutation.isSuccess,
-    dialogOpen: open
-  });
+  const calculateTotalFixedCosts = () => {
+    return Object.values(fixedCosts).reduce((sum, cost) => sum + cost, 0);
+  };
+
+  const calculateTotalVariableCosts = () => {
+    return Object.values(variableCosts).reduce((sum, cost) => sum + cost, 0);
+  };
+
+  const calculateTotalWeeklyCosts = () => {
+    return calculateTotalFixedCosts() + calculateTotalVariableCosts();
+  };
+
+  const calculateCostPerMile = () => {
+    const weeklyMiles = 3000; // Default assumption
+    return weeklyMiles > 0 ? calculateTotalWeeklyCosts() / weeklyMiles : 0;
+  };
+
+  console.log('[AddTruckDialog] Component rendering, dialog open:', isOpen);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -162,6 +247,18 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
                     onChange={(e) => setTruckInfo(prev => ({ ...prev, eldDeviceId: e.target.value }))}
                     className="bg-slate-700 border-slate-600 text-white"
                     placeholder="Electronic logging device ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mpg" className="text-white">MPG (Miles Per Gallon)</Label>
+                  <Input
+                    id="mpg"
+                    type="number"
+                    step="0.1"
+                    value={truckInfo.mpg}
+                    onChange={(e) => setTruckInfo(prev => ({ ...prev, mpg: parseFloat(e.target.value) || 6.5 }))}
+                    className="bg-slate-700 border-slate-600 text-white"
+                    placeholder="6.5"
                   />
                 </div>
               </div>
@@ -456,29 +553,16 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
           <div className="flex justify-end gap-3 pt-4 relative z-[10000]">
             <Button
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => setIsOpen(false)}
               className="border-slate-600 text-slate-300 hover:bg-slate-700"
             >
               Cancel
             </Button>
             <Button
-              onClick={(e) => {
-                console.log('[AddTruckDialog] ====== BUTTON CLICK DETECTED ======');
-                console.log('[AddTruckDialog] Click event:', e);
-                console.log('[AddTruckDialog] Event type:', e.type);
-                console.log('[AddTruckDialog] Button disabled state:', addTruckMutation.isPending);
-                console.log('[AddTruckDialog] About to call handleSubmit...');
-                e.preventDefault();
-                e.stopPropagation();
-                handleSubmit();
-                console.log('[AddTruckDialog] handleSubmit called from button click');
-                console.log('[AddTruckDialog] ==============================================');
-              }}
-              disabled={addTruckMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white relative z-[10001] pointer-events-auto"
-              style={{ position: 'relative', zIndex: 10001 }}
+              onClick={handleSubmit}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {addTruckMutation.isPending ? "Adding Truck..." : "Add Truck to Fleet"}
+              Add Truck to Fleet
             </Button>
           </div>
         </div>

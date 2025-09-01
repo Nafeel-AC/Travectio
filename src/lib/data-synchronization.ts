@@ -21,16 +21,16 @@ export class DataSynchronizationManager {
    */
   synchronizeTruckData(truckId?: string) {
     const queries = [
-      "/api/trucks",
-      "/api/metrics", 
-      "/api/fleet-summary",
-      "/api/compliance-overview",
-      "/api/load-board",
-      "/api/activities",
+      "trucks",
+      "metrics", 
+      "fleet-summary",
+      "compliance-overview",
+      "load-board",
+      "activities",
     ];
 
     if (truckId) {
-      queries.push("/api/trucks");
+      queries.push("trucks");
     }
 
     // Use debounced synchronization to prevent excessive API calls
@@ -45,14 +45,14 @@ export class DataSynchronizationManager {
    */
   synchronizeLoadData() {
     const queries = [
-      "/api/loads", // Critical: invalidate the main loads endpoint
-      "/api/load-board",
-      "/api/load-plans",
-      "/api/metrics",
-      "/api/fleet-summary",
-      "/api/compliance-overview",
-      "/api/activities",
-      "/api/trucks", // For load assignments and truck status
+      "loads", // Critical: invalidate the main loads endpoint
+      "load-board",
+      "load-plans",
+      "metrics",
+      "fleet-summary",
+      "compliance-overview",
+      "activities",
+      "trucks", // For load assignments and truck status
     ];
 
     queries.forEach(queryKey => {
@@ -66,10 +66,10 @@ export class DataSynchronizationManager {
    */
   synchronizeCostData(truckId?: string) {
     const queries = [
-      "/api/trucks",
-      "/api/metrics",
-      "/api/fleet-summary",
-      "/api/load-board", // For updated cost calculations in recommendations
+      "trucks",
+      "metrics",
+      "fleet-summary",
+      "load-board", // For updated cost calculations in recommendations
     ];
 
     queries.forEach(queryKey => {
@@ -83,11 +83,11 @@ export class DataSynchronizationManager {
    */
   synchronizeComplianceData() {
     const queries = [
-      ["/api/compliance-overview"],
-      ["/api/load-board"], // For load recommendations based on HOS
-      ["/api/load-plans"], // For multi-leg planning with HOS constraints
-      ["/api/metrics"],
-      ["/api/activities"],
+      ["compliance-overview"],
+      ["load-board"], // For load recommendations based on HOS
+      ["load-plans"], // For multi-leg planning with HOS constraints
+      ["metrics"],
+      ["activities"],
     ];
 
     queries.forEach(queryKey => {
@@ -101,15 +101,15 @@ export class DataSynchronizationManager {
    */
   synchronizeAllFleetData() {
     const queries = [
-      ["/api/trucks"],
-      ["/api/loads"], // Critical: invalidate the main loads endpoint
-      ["/api/metrics"],
-      ["/api/fleet-summary"],
-      ["/api/compliance-overview"],
-      ["/api/load-board"],
-      ["/api/load-plans"],
-      ["/api/activities"],
-      ["/api/drivers"],
+      ["trucks"],
+      ["loads"], // Critical: invalidate the main loads endpoint
+      ["metrics"],
+      ["fleet-summary"],
+      ["compliance-overview"],
+      ["load-board"],
+      ["load-plans"],
+      ["activities"],
+      ["drivers"],
     ];
 
     queries.forEach(queryKey => {
@@ -123,11 +123,11 @@ export class DataSynchronizationManager {
    */
   synchronizeFuelData(truckId: string) {
     const queries = [
-      ["/api/trucks", truckId, "cost-breakdowns"],
-      ["/api/trucks"], // For updated avgCostPerMile calculations
-      ["/api/metrics"], // For dashboard cost metrics
-      ["/api/fleet-summary"], // For fleet fuel efficiency overview
-      ["/api/load-board"], // For load recommendations with updated fuel costs
+      ["trucks", truckId, "cost-breakdowns"],
+      ["trucks"], // For updated avgCostPerMile calculations
+      ["metrics"], // For dashboard cost metrics
+      ["fleet-summary"], // For fleet fuel efficiency overview
+      ["load-board"], // For load recommendations with updated fuel costs
     ];
 
     queries.forEach(queryKey => {
@@ -141,12 +141,12 @@ export class DataSynchronizationManager {
    */
   synchronizePlanningData() {
     const queries = [
-      ["/api/load-plans"],
-      ["/api/compliance-overview"], // For HOS impact analysis
-      ["/api/fleet-summary"], // For fleet utilization updates
-      ["/api/load-board"], // For available load recommendations
-      ["/api/metrics"], // For planning efficiency metrics
-      ["/api/activities"],
+      ["load-plans"],
+      ["compliance-overview"], // For HOS impact analysis
+      ["fleet-summary"], // For fleet utilization updates
+      ["load-board"], // For available load recommendations
+      ["metrics"], // For planning efficiency metrics
+      ["activities"],
     ];
 
     queries.forEach(queryKey => {

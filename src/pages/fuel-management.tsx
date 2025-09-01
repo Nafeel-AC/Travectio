@@ -11,11 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Fuel, Edit, Trash2, Link, Unlink, Plus, MapPin, Calendar, DollarSign, Truck, ArrowLeft, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { FuelService, TruckService, LoadService } from "@/lib/supabase-client";
 
 interface FuelPurchase {
   id: string;
@@ -66,57 +65,58 @@ export default function FuelManagementPage() {
     receiptNumber: "",
     paymentMethod: "",
     notes: "",
-    truckId: ""
+    truckId: "",
+    fuelType: "diesel"
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const { useDemoQuery } = useDemoApi();
-  // Fetch all fuel purchases
-  const { data: allPurchases = [], isLoading: purchasesLoading } = useDemoQuery(
-    ["fuel-management-purchases"],
-    "/api/fuel-purchases",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
 
-  // Fetch trucks for selection
-  const { data: trucks = [] } = useDemoQuery(
-    ["fuel-management-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // Fetch all fuel purchases using proper Supabase service
+  const { data: allPurchases = [], isLoading: purchasesLoading, error: purchasesError } = useQuery({
+    queryKey: ['fuel-purchases'],
+    queryFn: async () => {
+      const data = await FuelService.getFuelPurchases();
+      console.log('Fuel purchases fetched:', data);
+      return data;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
 
-  // Fetch loads for selection
-  const { data: loads = [] } = useDemoQuery(
-    ["fuel-management-loads"],
-    "/api/loads",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+  // Fetch trucks using proper Supabase service
+  const { data: trucks = [], error: trucksError } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // Fetch loads using proper Supabase service
+  const { data: loads = [], error: loadsError } = useQuery({
+    queryKey: ['loads'],
+    queryFn: () => LoadService.getLoads(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Filter purchases
   const unattachedPurchases = (allPurchases as FuelPurchase[]).filter(p => !p.loadId);
   const attachedPurchases = (allPurchases as FuelPurchase[]).filter(p => p.loadId);
 
-  // Create fuel purchase mutation
+  // Create fuel purchase mutation using proper Supabase service
   const createPurchaseMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/fuel-purchases", "POST", data),
-    ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
+    mutationFn: (data: any) => FuelService.createFuelPurchase(data),
     onSuccess: () => {
       setShowCreateDialog(false);
+      // Invalidate and refetch the fuel purchases query
+      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
       toast({
         title: "Success & Synchronized",
         description: "Fuel purchase created and all fleet metrics updated successfully",
@@ -125,20 +125,21 @@ export default function FuelManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create fuel purchase",
         variant: "destructive",
       });
     },
   });
 
-  // Attach purchase to load mutation
+  // Attach purchase to load mutation using proper Supabase service
   const attachPurchaseMutation = useMutation({
     mutationFn: ({ purchaseId, loadId }: { purchaseId: string; loadId: string }) =>
-      apiRequest(`/api/fuel-purchases/${purchaseId}/attach`, "PATCH", { loadId }),
-    ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
+      FuelService.updateFuelPurchase(purchaseId, { loadId }),
     onSuccess: () => {
       setShowAttachDialog(false);
       setSelectedPurchase(null);
+      // Invalidate and refetch the fuel purchases query
+      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
       toast({
         title: "Success & Synchronized",
         description: "Fuel purchase attached to load and all metrics updated successfully",
@@ -147,18 +148,19 @@ export default function FuelManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to attach fuel purchase",
         variant: "destructive",
       });
     },
   });
 
-  // Detach purchase from load mutation
+  // Detach purchase from load mutation using proper Supabase service
   const detachPurchaseMutation = useMutation({
     mutationFn: (purchaseId: string) =>
-      apiRequest(`/api/fuel-purchases/${purchaseId}/attach`, "PATCH", { loadId: null }),
-    ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
+      FuelService.updateFuelPurchase(purchaseId, { loadId: null }),
     onSuccess: () => {
+      // Invalidate and refetch the fuel purchases query
+      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
       toast({
         title: "Success & Synchronized", 
         description: "Fuel purchase detached from load and all metrics updated successfully",
@@ -167,17 +169,18 @@ export default function FuelManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to detach fuel purchase",
         variant: "destructive",
       });
     },
   });
 
-  // Delete purchase mutation
+  // Delete purchase mutation using proper Supabase service
   const deletePurchaseMutation = useMutation({
-    mutationFn: (purchaseId: string) => apiRequest(`/api/fuel-purchases/${purchaseId}`, "DELETE"),
-    ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
+    mutationFn: (purchaseId: string) => FuelService.deleteFuelPurchase(purchaseId),
     onSuccess: () => {
+      // Invalidate and refetch the fuel purchases query
+      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
       toast({
         title: "Success & Synchronized",
         description: "Fuel purchase deleted and all fleet metrics updated successfully",
@@ -186,19 +189,20 @@ export default function FuelManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to delete fuel purchase",
         variant: "destructive",
       });
     },
   });
 
-  // Update purchase mutation
+  // Update purchase mutation using proper Supabase service
   const updatePurchaseMutation = useMutation({
     mutationFn: ({ purchaseId, data }: { purchaseId: string; data: any }) =>
-      apiRequest(`/api/fuel-purchases/${purchaseId}`, "PUT", data),
-    ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
+      FuelService.updateFuelPurchase(purchaseId, data),
     onSuccess: () => {
       setEditingPurchase(null);
+      // Invalidate and refetch the fuel purchases query
+      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
       toast({
         title: "Success & Synchronized",
         description: "Fuel purchase updated and all fleet metrics refreshed successfully",
@@ -207,7 +211,7 @@ export default function FuelManagementPage() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update fuel purchase",
         variant: "destructive",
       });
     },
@@ -217,16 +221,17 @@ export default function FuelManagementPage() {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     const data = {
-      truckId: formData.get("truckId"),
+      truckId: formData.get("truckId") as string,
+      fuelType: formData.get("fuelType") as string,
       gallons: parseFloat(formData.get("gallons") as string),
       pricePerGallon: parseFloat(formData.get("pricePerGallon") as string),
       totalCost: parseFloat(formData.get("gallons") as string) * parseFloat(formData.get("pricePerGallon") as string),
-      stationName: formData.get("stationName"),
-      stationAddress: formData.get("stationAddress"),
+      stationName: formData.get("stationName") as string,
+      stationAddress: formData.get("stationAddress") as string,
       purchaseDate: new Date(formData.get("purchaseDate") as string).toISOString(),
-      receiptNumber: formData.get("receiptNumber"),
-      paymentMethod: formData.get("paymentMethod"),
-      notes: formData.get("notes"),
+      receiptNumber: formData.get("receiptNumber") as string || null,
+      paymentMethod: formData.get("paymentMethod") as string,
+      notes: formData.get("notes") as string || null,
     };
     createPurchaseMutation.mutate(data);
   };
@@ -262,7 +267,8 @@ export default function FuelManagementPage() {
       receiptNumber: purchase.receiptNumber || "",
       paymentMethod: purchase.paymentMethod,
       notes: purchase.notes || "",
-      truckId: purchase.truckId
+      truckId: purchase.truckId,
+      fuelType: (purchase as any).fuelType || "diesel"
     });
   };
 
@@ -278,7 +284,8 @@ export default function FuelManagementPage() {
       receiptNumber: "",
       paymentMethod: "",
       notes: "",
-      truckId: ""
+      truckId: "",
+      fuelType: "diesel"
     });
   };
 
@@ -286,8 +293,17 @@ export default function FuelManagementPage() {
     if (!editingPurchase) return;
     
     const data = {
-      ...editForm,
+      gallons: editForm.gallons,
+      pricePerGallon: editForm.pricePerGallon,
+      totalCost: editForm.totalCost,
+      stationName: editForm.stationName,
+      stationAddress: editForm.stationAddress,
       purchaseDate: new Date(editForm.purchaseDate).toISOString(),
+      receiptNumber: editForm.receiptNumber || null,
+      paymentMethod: editForm.paymentMethod,
+      notes: editForm.notes || null,
+      truckId: editForm.truckId,
+      fuelType: editForm.fuelType,
     };
     
     updatePurchaseMutation.mutate({ purchaseId: editingPurchase.id, data });
@@ -295,6 +311,27 @@ export default function FuelManagementPage() {
 
   if (purchasesLoading) {
     return <div className="p-6">Loading fuel purchases...</div>;
+  }
+
+  // Show error messages if any queries failed
+  if (purchasesError || trucksError || loadsError) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-4">
+          <h3 className="text-red-200 font-semibold mb-2">Error Loading Data</h3>
+          {purchasesError && (
+            <p className="text-red-300 text-sm mb-1">Fuel purchases: {purchasesError.message}</p>
+          )}
+          {trucksError && (
+            <p className="text-red-300 text-sm mb-1">Trucks: {trucksError.message}</p>
+          )}
+          {loadsError && (
+            <p className="text-red-300 text-sm mb-1">Loads: {loadsError.message}</p>
+          )}
+          <p className="text-red-400 text-xs mt-2">Please check your connection and try refreshing the page.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -361,43 +398,58 @@ export default function FuelManagementPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="gallons" className="text-white">Gallons</Label>
-                  <Input
-                    name="gallons"
-                    type="number"
-                    step="0.1"
-                    required
-                    className="bg-slate-700 border-slate-600 text-white"
-                    placeholder="25.5"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="pricePerGallon" className="text-white">Price per Gallon</Label>
-                  <Input
-                    name="pricePerGallon"
-                    type="number"
-                    step="0.001"
-                    required
-                    className="bg-slate-700 border-slate-600 text-white"
-                    placeholder="3.899"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="paymentMethod" className="text-white">Payment Method</Label>
-                  <Select name="paymentMethod" required>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                      <SelectValue placeholder="Select method" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-700 border-slate-600">
-                      <SelectItem value="fuel_card" className="text-white">Fuel Card</SelectItem>
-                      <SelectItem value="credit_card" className="text-white">Credit Card</SelectItem>
-                      <SelectItem value="cash" className="text-white">Cash</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                             <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <Label htmlFor="fuelType" className="text-white">Fuel Type</Label>
+                   <Select name="fuelType" required defaultValue="diesel">
+                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                       <SelectValue placeholder="Select fuel type" />
+                     </SelectTrigger>
+                     <SelectContent className="bg-slate-700 border-slate-600">
+                       <SelectItem value="diesel" className="text-white">Diesel</SelectItem>
+                       <SelectItem value="def" className="text-white">DEF (Diesel Exhaust Fluid)</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+                 <div>
+                   <Label htmlFor="paymentMethod" className="text-white">Payment Method</Label>
+                   <Select name="paymentMethod" required defaultValue="Company Card">
+                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                       <SelectValue placeholder="Select method" />
+                     </SelectTrigger>
+                     <SelectContent className="bg-slate-700 border-slate-600">
+                       <SelectItem value="Company Card" className="text-white">Company Card</SelectItem>
+                       <SelectItem value="Cash" className="text-white">Cash</SelectItem>
+                       <SelectItem value="Fleet Card" className="text-white">Fleet Card</SelectItem>
+                       <SelectItem value="Personal Card" className="text-white">Personal Card</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <Label htmlFor="gallons" className="text-white">Gallons</Label>
+                   <Input
+                     name="gallons"
+                     type="number"
+                     step="0.1"
+                     required
+                     className="bg-slate-700 border-slate-600 text-white"
+                     placeholder="25.5"
+                   />
+                 </div>
+                 <div>
+                   <Label htmlFor="pricePerGallon" className="text-white">Price per Gallon</Label>
+                   <Input
+                     name="pricePerGallon"
+                     type="number"
+                     step="0.001"
+                     required
+                     className="bg-slate-700 border-slate-600 text-white"
+                     placeholder="3.899"
+                   />
+                 </div>
+               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="stationName" className="text-white">Station Name</Label>
@@ -759,31 +811,46 @@ export default function FuelManagementPage() {
             <DialogTitle className="text-white">Edit Fuel Purchase</DialogTitle>
           </DialogHeader>
           {editingPurchase && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-gallons" className="text-white">Gallons</Label>
-                  <Input
-                    id="edit-gallons"
-                    type="number"
-                    step="0.001"
-                    value={editForm.gallons}
-                    onChange={(e) => setEditForm({ ...editForm, gallons: parseFloat(e.target.value) || 0 })}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-price" className="text-white">Price per Gallon</Label>
-                  <Input
-                    id="edit-price"
-                    type="number"
-                    step="0.001"
-                    value={editForm.pricePerGallon}
-                    onChange={(e) => setEditForm({ ...editForm, pricePerGallon: parseFloat(e.target.value) || 0 })}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-              </div>
+                         <div className="space-y-4">
+               <div className="grid grid-cols-3 gap-4">
+                 <div>
+                   <Label htmlFor="edit-fuelType" className="text-white">Fuel Type</Label>
+                   <Select 
+                     value={editForm.fuelType} 
+                     onValueChange={(value) => setEditForm({ ...editForm, fuelType: value })}
+                   >
+                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                       <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="bg-slate-700 border-slate-600">
+                       <SelectItem value="diesel" className="text-white">Diesel</SelectItem>
+                       <SelectItem value="def" className="text-white">DEF (Diesel Exhaust Fluid)</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+                 <div>
+                   <Label htmlFor="edit-gallons" className="text-white">Gallons</Label>
+                   <Input
+                     id="edit-gallons"
+                     type="number"
+                     step="0.001"
+                     value={editForm.gallons}
+                     onChange={(e) => setEditForm({ ...editForm, gallons: parseFloat(e.target.value) || 0 })}
+                     className="bg-slate-700 border-slate-600 text-white"
+                   />
+                 </div>
+                 <div>
+                   <Label htmlFor="edit-price" className="text-white">Price per Gallon</Label>
+                   <Input
+                     id="edit-price"
+                     type="number"
+                     step="0.001"
+                     value={editForm.pricePerGallon}
+                     onChange={(e) => setEditForm({ ...editForm, pricePerGallon: parseFloat(e.target.value) || 0 })}
+                     className="bg-slate-700 border-slate-600 text-white"
+                   />
+                 </div>
+               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -866,10 +933,10 @@ export default function FuelManagementPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="company_card" className="text-white">Company Card</SelectItem>
-                    <SelectItem value="cash" className="text-white">Cash</SelectItem>
-                    <SelectItem value="fleet_card" className="text-white">Fleet Card</SelectItem>
-                    <SelectItem value="personal_card" className="text-white">Personal Card</SelectItem>
+                    <SelectItem value="Company Card" className="text-white">Company Card</SelectItem>
+                    <SelectItem value="Cash" className="text-white">Cash</SelectItem>
+                    <SelectItem value="Fleet Card" className="text-white">Fleet Card</SelectItem>
+                    <SelectItem value="Personal Card" className="text-white">Personal Card</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

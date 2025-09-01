@@ -30,6 +30,7 @@ import LoginPage from "@/components/login-page";
 import ModernLayout from "@/components/modern-layout";
 import UnifiedDashboard from "@/components/unified-dashboard";
 import LoadMatcher from "@/pages/load-matcher";
+import DriversPage from "@/pages/drivers";
 import EnvDebug from "@/components/env-debug";
 import { useAuth } from "@/hooks/useSupabase";
 
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/hos-management" component={HOSManagement} />
         <Route path="/load-management" component={LoadManagement} />
         <Route path="/load-matcher" component={LoadMatcher} />
+        <Route path="/drivers" component={DriversPage} />
         <Route path="/fuel-management" component={FuelManagement} />
         <Route path="/user-management" component={UserManagement} />
         <Route path="/session-management" component={SessionManagement} />

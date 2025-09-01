@@ -25,7 +25,12 @@ export default function TruckProfile() {
   // Fetch truck data using TruckService
   const { data: truck, isLoading } = useQuery({
     queryKey: ['truck', id],
-    queryFn: () => TruckService.getTruck(id!),
+    queryFn: async () => {
+      console.log('Fetching truck with ID:', id);
+      const result = await TruckService.getTruck(id!);
+      console.log('Truck data received:', result);
+      return result;
+    },
     enabled: !!id,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
@@ -46,11 +51,23 @@ export default function TruckProfile() {
 
   const updateTruckMutation = useMutation({
     mutationFn: async (updatedTruckInfo: any) => {
+      console.log('Updating truck with data:', updatedTruckInfo);
+      // If we're updating the driver assignment, use the special method
+      if ('currentDriverId' in updatedTruckInfo) {
+        console.log('Using assignDriverToTruck method');
+        const result = await TruckService.assignDriverToTruck(id!, updatedTruckInfo.currentDriverId);
+        console.log('Driver assignment result:', result);
+        return result;
+      }
+      // Otherwise use the regular update method
+      console.log('Using regular updateTruck method');
       return await TruckService.updateTruck(id!, updatedTruckInfo);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Mutation successful, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ['truck', id] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
       toast({
         title: "Success",
         description: "Truck information updated successfully",
@@ -58,6 +75,7 @@ export default function TruckProfile() {
       setIsEditingTruckInfo(false);
     },
     onError: (error: any) => {
+      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update truck information",

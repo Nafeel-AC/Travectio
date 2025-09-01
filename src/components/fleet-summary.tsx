@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Truck, Users, Package, TrendingUp, TrendingDown, DollarSign, Gauge, Building } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { FleetMetricsService } from "@/lib/supabase-client";
 
 interface FleetSummary {
   fleetSize: string;
@@ -18,25 +19,30 @@ interface FleetSummary {
 }
 
 export default function FleetSummary() {
-  // TODO: Implement proper fleet summary service
+  // ✅ FIXED: Use real Supabase service instead of placeholder
   const { data: summary, isLoading, error } = useQuery({
     queryKey: ['fleet-summary'],
-    queryFn: () => Promise.resolve({
-      totalTrucks: 0,
-      activeTrucks: 0,
-      totalDrivers: 0,
-      activeDrivers: 0,
-      totalMiles: 0,
-      totalRevenue: 0,
-      totalCosts: 0,
-      profitMargin: 0,
-      utilizationRate: 0,
-      fleetSize: 'solo'
-    }), // Placeholder
-    staleTime: 1000 * 60 * 10, // 10 minutes instead of 1 second
-    refetchOnWindowFocus: false, // Disable problematic refetching
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    queryFn: async () => {
+      const fleetSummary = await FleetMetricsService.getFleetSummary();
+      return {
+        totalTrucks: fleetSummary.totalTrucks || 0,
+        activeTrucks: fleetSummary.activeTrucks || 0,
+        totalDrivers: fleetSummary.totalDrivers || 0,
+        activeDrivers: fleetSummary.activeDrivers || 0,
+        totalMiles: fleetSummary.totalMiles || 0,
+        totalRevenue: fleetSummary.totalRevenue || 0,
+        totalCosts: fleetSummary.totalCosts || 0,
+        profitMargin: fleetSummary.profitMargin || 0,
+        utilizationRate: fleetSummary.utilizationRate || 0,
+        fleetSize: fleetSummary.fleetSize || 'solo',
+        totalLoads: fleetSummary.totalLoads || 0,
+        avgCostPerMile: fleetSummary.avgCostPerMile || 0
+      };
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Debug logging
