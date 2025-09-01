@@ -1,5 +1,6 @@
 import { CheckCircle, Circle, ArrowRight } from "lucide-react";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
+import { TruckService } from "@/lib/supabase-client";
 import { cn } from "@/lib/utils";
 
 interface WorkflowStep {
@@ -12,40 +13,34 @@ interface WorkflowStep {
 }
 
 export default function WorkflowProgress() {
-  const { useDemoQuery } = useDemoApi();
   // Check fleet setup status
-  const { data: trucks = [] } = useDemoQuery(
-    ["/api/trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [] } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: loads = [] } = useDemoQuery(
-    ["/api/loads"],
-    "/api/loads",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper services for loads and fuel purchases
+  const { data: loads = [] } = useQuery({
+    queryKey: ['loads'],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: fuelPurchases = [] } = useDemoQuery(
-    ["/api/fuel-purchases"],
-    "/api/fuel-purchases",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: fuelPurchases = [] } = useQuery({
+    queryKey: ['fuel-purchases'],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const hasTrucks = Array.isArray(trucks) && trucks.length > 0;
   const hasLoads = Array.isArray(loads) && loads.length > 0;

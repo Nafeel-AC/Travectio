@@ -12,43 +12,46 @@ import {
   Users,
   Route
 } from "lucide-react";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
+import { TruckService } from "@/lib/supabase-client";
 
 export default function EnhancedFleetSummary() {
-  const { useDemoQuery } = useDemoApi();
-  
-  const { data: fleetSummary = {} } = useDemoQuery(
-    ['enhanced-fleet-summary'],
-    '/api/fleet-summary',
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper fleet summary and metrics services
+  const { data: fleetSummary = {} } = useQuery({
+    queryKey: ['fleet-summary'],
+    queryFn: () => Promise.resolve({
+      totalTrucks: 0,
+      activeTrucks: 0,
+      totalMiles: 0,
+      totalRevenue: 0,
+      profitMargin: 0,
+      utilizationRate: 0
+    }), // Placeholder
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: metrics = {} } = useDemoQuery(
-    ['enhanced-metrics'],
-    '/api/metrics',
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: metrics = {} } = useQuery({
+    queryKey: ['metrics'],
+    queryFn: () => Promise.resolve({
+      fuelEfficiencyRating: 'Good'
+    }), // Placeholder
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: trucks = [] } = useDemoQuery(
-    ['enhanced-trucks'],
-    '/api/trucks',
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [] } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const performanceScore = Math.round(
     ((fleetSummary?.profitMargin || 0) * 0.4 + 

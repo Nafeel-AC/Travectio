@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Truck, Users, Package, TrendingUp, TrendingDown, DollarSign, Gauge, Building } from "lucide-react";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 
 interface FleetSummary {
   fleetSize: string;
@@ -18,18 +18,26 @@ interface FleetSummary {
 }
 
 export default function FleetSummary() {
-  const { useDemoQuery } = useDemoApi();
-  
-  const { data: summary, isLoading, error } = useDemoQuery(
-    ["fleet-summary-stable"],
-    "/api/fleet-summary",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes instead of 1 second
-      refetchOnWindowFocus: false, // Disable problematic refetching
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  ) as { data: FleetSummary | undefined; isLoading: boolean; error: any };
+  // TODO: Implement proper fleet summary service
+  const { data: summary, isLoading, error } = useQuery({
+    queryKey: ['fleet-summary'],
+    queryFn: () => Promise.resolve({
+      totalTrucks: 0,
+      activeTrucks: 0,
+      totalDrivers: 0,
+      activeDrivers: 0,
+      totalMiles: 0,
+      totalRevenue: 0,
+      totalCosts: 0,
+      profitMargin: 0,
+      utilizationRate: 0,
+      fleetSize: 'solo'
+    }), // Placeholder
+    staleTime: 1000 * 60 * 10, // 10 minutes instead of 1 second
+    refetchOnWindowFocus: false, // Disable problematic refetching
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Debug logging
 

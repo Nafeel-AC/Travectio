@@ -691,8 +691,8 @@ export const useLoadBoard = () => {
 // ============================================================================
 
 export const useFleetMetrics = () => {
-  const [metrics, setMetrics] = useState(null);
-  const [summary, setSummary] = useState(null);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchMetrics = useCallback(async () => {
@@ -857,7 +857,7 @@ export const useLoadPlanLegs = (planId: string) => {
 // ============================================================================
 
 export const useAnalytics = () => {
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
@@ -948,7 +948,7 @@ export const useActivities = () => {
 // ============================================================================
 
 export const useBusinessAnalytics = () => {
-  const [analytics, setAnalytics] = useState(null);
+  const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchAnalytics = useCallback(async () => {
@@ -979,7 +979,7 @@ export const useBusinessAnalytics = () => {
 // ============================================================================
 
 export const useOwnerDashboard = () => {
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
@@ -1091,9 +1091,9 @@ export const useUserManagement = () => {
 // ============================================================================
 
 export const useSessionManagement = () => {
-  const [statistics, setStatistics] = useState(null);
-  const [activeSessions, setActiveSessions] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [statistics, setStatistics] = useState<any>(null);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchStatistics = useCallback(async () => {

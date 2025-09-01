@@ -14,9 +14,22 @@ import { NavigationGuide } from "@/components/navigation-guide";
 import { DriverOnboarding } from "@/components/driver-onboarding";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, Truck, AlertTriangle, Info, Clock, Package, BarChart3 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+interface LoadCategories {
+  categories: {
+    dryVan?: number;
+    reefer?: number;
+    flatbed?: number;
+  };
+  profitability: {
+    dryVan?: number;
+    reefer?: number;
+    flatbed?: number;
+  };
+}
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,29 +46,25 @@ export default function Dashboard() {
     }
   }, []);
 
-  const { useDemoQuery } = useDemoApi();
+  // For now, we'll use empty data since these endpoints don't exist in our Supabase setup
+  // TODO: Implement proper services for activities and load categories
+  const { data: activities = [] } = useQuery({
+    queryKey: ['activities'],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: activities = [] } = useDemoQuery(
-    ["/api/activities"],
-    "/api/activities",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
-
-  const { data: loadCategories = { categories: {}, profitability: {} } } = useDemoQuery(
-    ["/api/load-categories"],
-    "/api/load-categories",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  ) as { data: { categories: any, profitability: any } };
+  const { data: loadCategories = { categories: {}, profitability: {} } as LoadCategories } = useQuery({
+    queryKey: ['load-categories'],
+    queryFn: () => Promise.resolve({ categories: {}, profitability: {} } as LoadCategories), // Placeholder
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const getActivityIcon = (type: string) => {
     switch (type) {

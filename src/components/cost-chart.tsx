@@ -1,20 +1,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 
 export default function CostChart() {
-  const { useDemoQuery } = useDemoApi();
-  const { data: trendData, isLoading } = useDemoQuery(
-    ["/api/cost-trend"],
-    "/api/cost-trend",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper cost trend service
+  const { data: trendData = [], isLoading } = useQuery({
+    queryKey: ['cost-trend'],
+    queryFn: () => Promise.resolve([
+      { month: 'Jan', costPerMile: 2.1 },
+      { month: 'Feb', costPerMile: 2.3 },
+      { month: 'Mar', costPerMile: 2.0 },
+      { month: 'Apr', costPerMile: 2.2 },
+      { month: 'May', costPerMile: 2.4 },
+      { month: 'Jun', costPerMile: 2.1 }
+    ]), // Placeholder data
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   if (isLoading) {
     return (

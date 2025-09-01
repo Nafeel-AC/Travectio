@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverManagementCard } from "./driver-management-card";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
+import { DriverService, TruckService } from "@/lib/supabase-client";
 import { 
   Users, 
   Search, 
@@ -35,33 +36,33 @@ export function DriverListManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { useDemoQuery } = useDemoApi();
-  
-  const { data: drivers = [], isLoading: driversLoading } = useDemoQuery(
-    ["/api/drivers"],
-    "/api/drivers",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => DriverService.getDrivers(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: trucks = [] } = useDemoQuery(
-    ["/api/trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [] } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Calculate how many trucks each driver is assigned to
   const getAssignedTrucksCount = (driverId: string) => {
     return trucks.filter(truck => truck.currentDriverId === driverId).length;
+  };
+
+  // Handle driver updates
+  const handleDriverUpdate = (updatedDriver: Driver) => {
+    // The query will automatically refetch and update the UI
+    // This function is called by the DriverManagementCard component
   };
 
   // Filter drivers based on search and status
@@ -168,6 +169,7 @@ export function DriverListManager() {
                 key={driver.id}
                 driver={driver}
                 assignedTrucks={getAssignedTrucksCount(driver.id)}
+                onUpdate={handleDriverUpdate}
               />
             ))}
           </div>

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Package, MapPin, DollarSign, Clock, Filter, Truck, RefreshCw, Plus } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -60,18 +60,15 @@ export default function LoadBoard() {
   });
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { useDemoQuery } = useDemoApi();
-
-  const { data: loads = [], isLoading, refetch } = useDemoQuery(
-    ["/api/load-board", selectedEquipment],
-    `/api/load-board${selectedEquipment && selectedEquipment !== "all" ? `?equipmentType=${selectedEquipment}` : ""}`,
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper load board service
+  const { data: loads = [], isLoading, refetch } = useQuery({
+    queryKey: ['load-board', selectedEquipment],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const assignLoadMutation = useMutation({
     mutationFn: (loadId: string) =>

@@ -10,7 +10,8 @@ import {
   Fuel
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useSupabase";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -36,18 +37,8 @@ const getNavigation = (isAdmin: boolean) => {
 };
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { useDemoQuery } = useDemoApi();
-  const { data: user } = useDemoQuery(
-    ["sidebar-auth-user"],
-    "/api/auth/user",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
-
+  const { user } = useAuth();
+  
   const navigation = getNavigation((user as any)?.isAdmin || false);
   return (
     <>

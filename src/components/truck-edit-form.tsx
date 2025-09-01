@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Edit, Save, X, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { TruckService } from "@/lib/supabase-client";
 import { DriverAssignmentSelect } from "./driver-assignment-select";
 
 interface TruckEditFormProps {
@@ -25,14 +25,14 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
     licensePlate: truck.licensePlate || '',
     eldDeviceId: truck.eldDeviceId || '',
     equipmentType: truck.equipmentType || 'Dry Van',
-    currentDriverId: truck.currentDriverId || '',
+    currentDriverId: truck.currentDriverId || null,
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const updateTruckMutation = useMutation({
     mutationFn: async (updatedTruck: any) => {
-      await apiRequest(`/api/trucks/${truck.id}`, 'PATCH', updatedTruck);
+      return await TruckService.updateTruck(truck.id, updatedTruck);
     },
     onSuccess: () => {
       toast({
@@ -40,7 +40,7 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
         description: "Truck information updated successfully",
       });
       setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
       onEditComplete();
     },
     onError: (error: any) => {
@@ -54,14 +54,14 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
 
   const deleteTruckMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest(`/api/trucks/${truck.id}`, 'DELETE');
+      return await TruckService.deleteTruck(truck.id);
     },
     onSuccess: () => {
       toast({
         title: "Success",
         description: `${truck.name} has been deleted from your fleet`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
       onDelete();
     },
     onError: (error: any) => {
@@ -80,7 +80,7 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
       licensePlate: truck.licensePlate || '',
       eldDeviceId: truck.eldDeviceId || '',
       equipmentType: truck.equipmentType || 'Dry Van',
-      currentDriverId: truck.currentDriverId || '',
+      currentDriverId: truck.currentDriverId || null,
     });
     setIsEditing(true);
   };
@@ -94,7 +94,12 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
   };
 
   const handleFieldChange = (field: string, value: string) => {
-    setEditedTruck(prev => ({ ...prev, [field]: value }));
+    // Handle currentDriverId specially - convert empty string to null for UUID field
+    if (field === 'currentDriverId') {
+      setEditedTruck(prev => ({ ...prev, [field]: value === '' ? null : value }));
+    } else {
+      setEditedTruck(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const confirmDelete = () => {
@@ -177,7 +182,7 @@ export function TruckEditForm({ truck, onEditComplete, onDelete }: TruckEditForm
               <Label htmlFor="driver-assignment" className="text-white">Assigned Driver</Label>
               <DriverAssignmentSelect
                 selectedDriverId={editedTruck.currentDriverId}
-                onDriverChange={(driverId) => handleFieldChange('currentDriverId', driverId)}
+                onDriverChange={(driverId) => handleFieldChange('currentDriverId', driverId || '')}
               />
             </div>
           </div>

@@ -8,7 +8,7 @@ import { DemoProvider } from "@/lib/demo-context";
 // import { AntiPollingWrapper } from "@/components/anti-polling-wrapper";
 import EnhancedDashboard from "@/pages/enhanced-dashboard";
 import Profile from "@/pages/profile";
-import TruckDemo from "@/pages/truck-demo";
+
 import GuidedTruckAddition from "@/pages/guided-truck-addition";
 import TruckProfile from "@/pages/truck-profile";
 import TruckCostBreakdown from "@/pages/truck-cost-breakdown";
@@ -68,7 +68,7 @@ function Router() {
         <Route path="/fleet-analytics" component={FleetAnalytics} />
         <Route path="/enhanced-dashboard" component={EnhancedDashboard} />
         <Route path="/profile" component={Profile} />
-        <Route path="/truck-demo" component={TruckDemo} />
+
         <Route path="/add-truck" component={GuidedTruckAddition} />
         <Route path="/truck/:id" component={TruckProfile} />
         <Route

@@ -1,5 +1,6 @@
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DriverService } from "@/lib/supabase-client";
 
 interface Driver {
   id: string;
@@ -11,23 +12,20 @@ interface Driver {
 }
 
 interface DriverAssignmentSelectProps {
-  selectedDriverId: string;
-  onDriverChange: (driverId: string) => void;
+  selectedDriverId: string | null;
+  onDriverChange: (driverId: string | null) => void;
 }
 
 export function DriverAssignmentSelect({ selectedDriverId, onDriverChange }: DriverAssignmentSelectProps) {
-  const { useDemoQuery } = useDemoApi();
-  const { data: drivers = [], isLoading, error } = useDemoQuery(
-    ["/api/drivers"],
-    "/api/drivers",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      retry: false, // Don't retry on auth errors
-    }
-  );
+  const { data: drivers = [], isLoading, error } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => DriverService.getDrivers(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    retry: false, // Don't retry on auth errors
+  });
 
   const activeDrivers = drivers.filter(driver => driver.isActive);
   const selectedDriver = drivers.find(driver => driver.id === selectedDriverId);
@@ -40,7 +38,7 @@ export function DriverAssignmentSelect({ selectedDriverId, onDriverChange }: Dri
   return (
     <Select 
       value={selectedDriverId || "none"} 
-      onValueChange={(value) => onDriverChange(value === "none" ? "" : value)}
+      onValueChange={(value) => onDriverChange(value === "none" ? null : value)}
     >
       <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
         <SelectValue placeholder={isLoading ? "Loading drivers..." : error ? "Driver data unavailable" : "Select a driver"}>

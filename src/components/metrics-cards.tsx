@@ -1,19 +1,22 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { DollarSign, Package, Truck, PieChart, TrendingUp, TrendingDown, Fuel, Calculator } from "lucide-react";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 
 export default function MetricsCards() {
-  const { useDemoQuery } = useDemoApi();
-  const { data: metrics = {}, isLoading } = useDemoQuery(
-    ["metrics-cards-data"],
-    "/api/metrics",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper metrics service
+  const { data: metrics = {}, isLoading } = useQuery({
+    queryKey: ['metrics'],
+    queryFn: () => Promise.resolve({
+      costPerMile: 0,
+      totalLoads: 0,
+      activeTrucks: 0,
+      utilization: 0
+    }), // Placeholder
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Check if we have any actual data
   const hasData = metrics && (

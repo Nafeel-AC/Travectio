@@ -6,17 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Truck, DollarSign, Fuel, Wrench, Edit, Save, X, Trash2 } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
-import { useState } from "react";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { TruckService } from "@/lib/supabase-client";
 import { DriverAssignmentSelect } from "@/components/driver-assignment-select";
 
 export default function TruckProfile() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
-  const { useDemoQuery } = useDemoApi();
   const [isEditing, setIsEditing] = useState(false);
   const [editedCosts, setEditedCosts] = useState<any>({});
   const [isEditingTruckInfo, setIsEditingTruckInfo] = useState(false);
@@ -24,35 +22,35 @@ export default function TruckProfile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: truck, isLoading } = useDemoQuery(
-    ["/api/trucks", id],
-    `/api/trucks/${id}`,
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  ) as { data: any, isLoading: boolean };
+  // Fetch truck data using TruckService
+  const { data: truck, isLoading } = useQuery({
+    queryKey: ['truck', id],
+    queryFn: () => TruckService.getTruck(id!),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: costBreakdown } = useDemoQuery(
-    ["/api/truck-cost-breakdown", id],
-    `/api/truck-cost-breakdown/${id}`,
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  ) as { data: any };
+  // Fetch cost breakdown data
+  const { data: costBreakdown } = useQuery({
+    queryKey: ['truck-cost-breakdown', id],
+    queryFn: () => TruckService.getLatestCostBreakdown(id!),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const updateTruckMutation = useMutation({
     mutationFn: async (updatedTruckInfo: any) => {
-      await apiRequest(`/api/trucks/${id}`, 'PATCH', updatedTruckInfo);
+      return await TruckService.updateTruck(id!, updatedTruckInfo);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
+      queryClient.invalidateQueries({ queryKey: ['truck', id] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
       toast({
         title: "Success",
         description: "Truck information updated successfully",
@@ -98,10 +96,11 @@ export default function TruckProfile() {
         costPerMile
       };
 
-      await apiRequest(`/api/truck-cost-breakdown/${costBreakdown.id}`, 'PATCH', updateData);
+      // Update cost breakdown
+      await TruckService.updateCostBreakdown(costBreakdown.id, updateData);
 
       // Also update the truck's summary costs
-      await apiRequest(`/api/trucks/${id}`, 'PATCH', {
+      await TruckService.updateTruck(id!, {
         fixedCosts: totalFixedCosts,
         variableCosts: totalVariableCosts
       });
@@ -114,9 +113,9 @@ export default function TruckProfile() {
         description: "Your truck costs have been saved successfully",
       });
       setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/truck-cost-breakdown", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
+      queryClient.invalidateQueries({ queryKey: ['truck-cost-breakdown', id] });
+      queryClient.invalidateQueries({ queryKey: ['truck', id] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
     onError: (error) => {
       toast({
@@ -129,15 +128,15 @@ export default function TruckProfile() {
 
   const deleteTruckMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest(`/api/trucks/${id}`, 'DELETE');
+      return await TruckService.deleteTruck(id!);
     },
     onSuccess: () => {
       toast({
         title: "Truck deleted",
         description: `${truck?.name || 'Truck'} has been removed from your fleet`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
       // Force immediate navigation after successful deletion
       setTimeout(() => setLocation("/"), 100);
     },
@@ -243,7 +242,7 @@ export default function TruckProfile() {
 
   // Fixed and variable costs are weekly costs, divide by standard weekly miles
   const standardWeeklyMiles = 3000;
-  const costPerMile = (truck.fixedCosts + truck.variableCosts) / standardWeeklyMiles;
+  const costPerMile = ((truck.fixedCosts || 0) + (truck.variableCosts || 0)) / standardWeeklyMiles;
 
   return (
     <div className="min-h-screen bg-slate-950 p-6">
@@ -262,16 +261,16 @@ export default function TruckProfile() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                <span className="text-2xl">{getEquipmentIcon(truck.equipmentType)}</span>
-                {truck.name}
+                <span className="text-2xl">{getEquipmentIcon(truck.equipmentType || 'Dry Van')}</span>
+                {truck.name || 'Unnamed Truck'}
               </h1>
-              <p className="text-slate-400 mt-1">{truck.equipmentType} • {truck.licensePlate || 'No License Plate'}</p>
+              <p className="text-slate-400 mt-1">{(truck.equipmentType || 'Unknown')} • {truck.licensePlate || 'No License Plate'}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
               <div className="text-sm text-slate-400">Cost Per Mile</div>
-              <div className="text-2xl font-bold text-red-400">${costPerMile.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-red-400">${(costPerMile || 0).toFixed(2)}</div>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -283,10 +282,10 @@ export default function TruckProfile() {
               <AlertDialogContent className="bg-slate-800 border-slate-700">
                 <AlertDialogHeader>
                   <AlertDialogTitle className="text-white">
-                    Delete {truck.name}?
+                    Delete {truck.name || 'this truck'}?
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-slate-300">
-                    This action cannot be undone. This will permanently delete {truck.name} and remove all associated cost data, loads, and planning information from your fleet.
+                    This action cannot be undone. This will permanently delete {truck.name || 'this truck'} and remove all associated cost data, loads, and planning information from your fleet.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -316,7 +315,7 @@ export default function TruckProfile() {
                 </div>
                 <div>
                   <div className="text-sm text-slate-400">Fixed Costs</div>
-                  <div className="text-xl font-semibold text-white">${truck.fixedCosts.toFixed(2)}</div>
+                  <div className="text-xl font-semibold text-white">${(truck.fixedCosts || 0).toFixed(2)}</div>
                   <div className="text-xs text-slate-500">per week</div>
                 </div>
               </div>
@@ -331,7 +330,7 @@ export default function TruckProfile() {
                 </div>
                 <div>
                   <div className="text-sm text-slate-400">Variable Costs</div>
-                  <div className="text-xl font-semibold text-white">${truck.variableCosts.toFixed(2)}</div>
+                  <div className="text-xl font-semibold text-white">${(truck.variableCosts || 0).toFixed(2)}</div>
                   <div className="text-xs text-slate-500">per week</div>
                 </div>
               </div>
@@ -346,7 +345,7 @@ export default function TruckProfile() {
                 </div>
                 <div>
                   <div className="text-sm text-slate-400">Total Miles</div>
-                  <div className="text-xl font-semibold text-white">{truck.totalMiles.toLocaleString()}</div>
+                  <div className="text-xl font-semibold text-white">{(truck.totalMiles || 0).toLocaleString()}</div>
                   <div className="text-xs text-slate-500">lifetime</div>
                 </div>
               </div>

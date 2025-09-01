@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { TruckService } from "@/lib/supabase-client";
 
 interface CalculationResult {
   costPerMile: number;
@@ -34,57 +34,48 @@ export default function LoadCalculator() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { useDemoQuery } = useDemoApi();
   // Stable queries with aggressive caching to prevent infinite loops
-  const { data: trucks = [] } = useDemoQuery(
-    ["load-calculator-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [] } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  // Fetch cost breakdown data for selected truck
-  const { data: costBreakdowns = [] } = useDemoQuery(
-    ["load-calculator-cost-breakdowns", selectedTruckId],
-    `/api/trucks/${selectedTruckId}/cost-breakdowns`,
-    {
-      enabled: !!selectedTruckId,
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper services for cost breakdowns, fuel purchases, and loads
+  const { data: costBreakdowns = [] } = useQuery({
+    queryKey: ['cost-breakdowns', selectedTruckId],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    enabled: !!selectedTruckId,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Fetch fuel purchases for accurate MPG and fuel price calculations
-  const { data: fuelPurchases = [] } = useDemoQuery(
-    ["load-calculator-fuel-purchases", selectedTruckId],
-    "/api/fuel-purchases",
-    {
-      enabled: !!selectedTruckId,
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: fuelPurchases = [] } = useQuery({
+    queryKey: ['fuel-purchases', selectedTruckId],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    enabled: !!selectedTruckId,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Fetch loads for weekly miles calculation
-  const { data: loads = [] } = useDemoQuery(
-    ["load-calculator-loads", selectedTruckId],
-    "/api/loads",
-    {
-      enabled: !!selectedTruckId,
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: loads = [] } = useQuery({
+    queryKey: ['loads', selectedTruckId],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    enabled: !!selectedTruckId,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Mutation to save load calculation results for cross-tab synchronization
   const saveCalculationMutation = useMutation({

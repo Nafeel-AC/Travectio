@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, AlertTriangle, CheckCircle, User, Truck } from "lucide-react";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 
 interface HOSData {
@@ -25,17 +25,19 @@ interface ComplianceOverview {
 }
 
 export default function HOSDashboard() {
-  const { useDemoQuery } = useDemoApi();
-  const { data: compliance, isLoading } = useDemoQuery(
-    ["/api/compliance-overview"],
-    "/api/compliance-overview",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper compliance service
+  const { data: compliance, isLoading } = useQuery({
+    queryKey: ['compliance-overview'],
+    queryFn: () => Promise.resolve({
+      totalActiveDrivers: 0,
+      violations: [],
+      alerts: []
+    }), // Placeholder
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const getDutyStatusColor = (status: string) => {
     switch (status) {

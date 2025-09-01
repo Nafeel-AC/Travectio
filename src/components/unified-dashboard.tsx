@@ -21,7 +21,8 @@ import { useAuth } from "@/hooks/useSupabase";
 import WelcomeOnboarding from "./welcome-onboarding";
 import LoadCalculator from "./load-calculator";
 import IntegrationSetupCard from "./integration-setup-card";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
+import { TruckService } from "@/lib/supabase-client";
 
 interface MetricCardProps {
   title: string;
@@ -66,55 +67,56 @@ function MetricCard({ title, value, change, description, icon: Icon, trend = 'ne
 
 export default function UnifiedDashboard() {
   const { user } = useAuth();
-  const { useDemoQuery } = useDemoApi();
-  // FIXED: Demo-aware queries with stable caching
-  const { data: metrics = {}, isLoading: metricsLoading } = useDemoQuery(
-    ['unified-dashboard-metrics'],
-    '/api/metrics',
-    {
-      enabled: !!user,
-      staleTime: 1000 * 60 * 10, // 10 minutes caching instead of 0
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  // TODO: Implement proper services for metrics, fleet summary, and loads
+  const { data: metrics = {}, isLoading: metricsLoading } = useQuery({
+    queryKey: ['metrics'],
+    queryFn: () => Promise.resolve({
+      costPerMile: 0,
+      totalLoads: 0,
+      activeTrucks: 0,
+      utilization: 0
+    }), // Placeholder
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes caching instead of 0
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: fleetSummary = {}, isLoading: fleetLoading } = useDemoQuery(
-    ['unified-dashboard-fleet-summary'],
-    '/api/fleet-summary',
-    {
-      enabled: !!user,
-      staleTime: 1000 * 60 * 10, // 10 minutes caching
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: fleetSummary = {}, isLoading: fleetLoading } = useQuery({
+    queryKey: ['fleet-summary'],
+    queryFn: () => Promise.resolve({
+      totalTrucks: 0,
+      activeTrucks: 0,
+      totalMiles: 0,
+      totalRevenue: 0
+    }), // Placeholder
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes caching
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: trucks = [], isLoading: trucksLoading } = useDemoQuery(
-    ['unified-dashboard-trucks'],
-    '/api/trucks',
-    {
-      enabled: !!user,
-      staleTime: 1000 * 60 * 10, // 10 minutes caching instead of 0
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes caching instead of 0
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: loads = [], isLoading: loadsLoading } = useDemoQuery(
-    ['unified-dashboard-loads'],
-    '/api/loads',
-    {
-      enabled: !!user,
-      staleTime: 1000 * 60 * 10, // 10 minutes caching
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: loads = [], isLoading: loadsLoading } = useQuery({
+    queryKey: ['loads'],
+    queryFn: () => Promise.resolve([]), // Placeholder
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes caching
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // For new users, show welcome onboarding if they have no trucks and no loads
   const isFirstTime = !((trucks as any[])?.length) && !((loads as any[])?.length);

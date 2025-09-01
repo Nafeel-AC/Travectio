@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { useTrucks } from "@/hooks/useSupabase";
+import { useTrucks, useTruckCostBreakdown } from "@/hooks/useSupabase";
 import { useAuth } from "@/hooks/useSupabase";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,12 +31,13 @@ import {
   Smartphone,
 } from "lucide-react";
 import { useLocation } from "wouter";
-import { NavigationLayout } from "@/components/global-navigation";
 import { TruckCostGuide } from "@/components/truck-cost-guide";
+import { TruckService } from "@/lib/supabase-client";
 
 export default function GuidedTruckAddition() {
   const { createTruck, loading } = useTrucks();
   const { user } = useAuth();
+  const { createBreakdown } = useTruckCostBreakdown(""); // We'll set the truckId after creation
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -75,6 +76,10 @@ export default function GuidedTruckAddition() {
   });
 
   const handleSubmit = async () => {
+    console.log("handleSubmit called");
+    console.log("truckInfo:", truckInfo);
+    console.log("costInfo:", costInfo);
+    
     if (!truckInfo.name.trim()) {
       toast({
         title: "Truck Name Required",
@@ -133,19 +138,24 @@ export default function GuidedTruckAddition() {
     };
 
     try {
+      console.log("Creating truck with data:", truckData);
       // 1. Create the truck
       const newTruck = await createTruck(truckData);
+      console.log("Truck created:", newTruck);
 
       // 2. Add cost breakdown to truck_cost_breakdown table
       if (newTruck && newTruck.id) {
-        // You may need to import and use the appropriate hook/service for this
-        // Example: await createBreakdown(newTruck.id, costBreakdownData);
-        // For now, we'll use fetch to call your API endpoint if you have one
-        await fetch("/api/truck-cost-breakdown", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ truckId: newTruck.id, ...costBreakdownData }),
-        });
+        try {
+          await TruckService.createCostBreakdown(newTruck.id, costBreakdownData);
+        } catch (costError) {
+          console.error("Failed to create cost breakdown:", costError);
+          // Don't fail the entire operation if cost breakdown fails
+          toast({
+            title: "Truck Added - Cost Breakdown Issue",
+            description: "Truck was added but cost breakdown failed. You can add costs later.",
+            variant: "destructive",
+          });
+        }
       }
 
       toast({
@@ -153,8 +163,14 @@ export default function GuidedTruckAddition() {
         description:
           "Your truck has been added to the fleet with all cost details.",
       });
-      setLocation("/truck-demo");
+      
+      // Invalidate queries to refresh the data
+      queryClient.invalidateQueries(['trucks']);
+      
+      // Redirect to the truck profile page to view the newly added truck
+      setLocation(`/truck/${newTruck.id}`);
     } catch (error: any) {
+      console.error("Failed to add truck:", error);
       toast({
         title: "Failed to Add Truck",
         description:
@@ -854,7 +870,7 @@ export default function GuidedTruckAddition() {
   };
 
   return (
-    <NavigationLayout currentPath="/add-truck">
+    <>
       {/* Cost Guide Modal */}
       <TruckCostGuide
         isOpen={showCostGuide}
@@ -939,10 +955,12 @@ export default function GuidedTruckAddition() {
               </Button>
             ) : (
               <Button
-                onClick={handleSubmit}
+                onClick={() => {
+                  console.log("Add Truck button clicked");
+                  handleSubmit();
+                }}
                 disabled={loading}
-                className="bg-green-600 hover:bg-green-700 text-white relative z-[10001] pointer-events-auto"
-                style={{ position: "relative", zIndex: 10001 }}
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {loading ? (
                   "Adding Truck..."
@@ -957,6 +975,6 @@ export default function GuidedTruckAddition() {
           </div>
         </div>
       </div>
-    </NavigationLayout>
+    </>
   );
 }

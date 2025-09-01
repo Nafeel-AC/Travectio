@@ -10,7 +10,7 @@ import { Edit, Trash2, Save, X, Truck, User, Users } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDemoApi } from "@/hooks/useDemoApi";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { TruckService } from "@/lib/supabase-client";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 
@@ -43,11 +43,11 @@ export function TruckManagementCard({ truck, compact = false }: TruckManagementC
       refetchOnMount: false,
       refetchOnReconnect: false,
     }
-  );
+  ) as { data: any[] };
 
   const updateTruckMutation = useMutation({
     mutationFn: async (data: any) => {
-      await apiRequest(`/api/trucks/${truck.id}`, 'PATCH', data);
+      return await TruckService.updateTruck(truck.id, data);
     },
     onSuccess: () => {
       toast({
@@ -55,8 +55,8 @@ export function TruckManagementCard({ truck, compact = false }: TruckManagementC
         description: "Truck updated successfully",
       });
       setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["metrics"] });
     },
     onError: (error: any) => {
       toast({
@@ -69,15 +69,15 @@ export function TruckManagementCard({ truck, compact = false }: TruckManagementC
 
   const deleteTruckMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest(`/api/trucks/${truck.id}`, 'DELETE');
+      return await TruckService.deleteTruck(truck.id);
     },
     onSuccess: () => {
       toast({
         title: "Success",
         description: `${truck.name} deleted successfully`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["metrics"] });
     },
     onError: (error: any) => {
       toast({
@@ -90,8 +90,8 @@ export function TruckManagementCard({ truck, compact = false }: TruckManagementC
 
   const assignDriverMutation = useMutation({
     mutationFn: async ({ driverId }: { driverId: string }) => {
-      await apiRequest(`/api/trucks/${truck.id}`, 'PATCH', { 
-        currentDriverId: driverId || null 
+      return await TruckService.updateTruck(truck.id, { 
+        currentDriverId: driverId === "" ? null : driverId 
       });
     },
     onSuccess: () => {
@@ -101,15 +101,15 @@ export function TruckManagementCard({ truck, compact = false }: TruckManagementC
           ? `Driver assigned to ${truck.name} successfully`
           : `Driver removed from ${truck.name}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["metrics"] });
       setIsDriverDialogOpen(false);
       setSelectedDriverId("");
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete truck",
+        description: error.message || "Failed to assign driver",
         variant: "destructive",
       });
     },

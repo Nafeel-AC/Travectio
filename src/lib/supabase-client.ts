@@ -264,6 +264,18 @@ class TruckService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Check if truck with same name already exists for this user
+    const { data: existingTruck } = await supabase
+      .from('trucks')
+      .select('id, name')
+      .eq('userId', user.id)
+      .eq('name', truckData.name)
+      .single();
+
+    if (existingTruck) {
+      throw new Error(`A truck with the name "${truckData.name}" already exists. Please use a different name.`);
+    }
+
     const { data, error } = await supabase
       .from('trucks')
       .insert({

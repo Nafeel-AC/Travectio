@@ -10,11 +10,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Truck, DollarSign, Calculator, Info, Plus, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 import { useTrucks } from "@/hooks/useSupabase";
+import { TruckService } from "@/lib/supabase-client";
 
 export default function TruckDemo() {
-  const { addTruck } = useTrucks();
+  const { createTruck } = useTrucks();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   // Basic truck information
   const [truckInfo, setTruckInfo] = useState({
@@ -71,12 +73,20 @@ export default function TruckDemo() {
   };
 
   const addTruckMutation = useMutation({
-    mutationFn: async (truckData: any) => {
+    mutationFn: async ({ truckData, costBreakdownData }: { truckData: any; costBreakdownData: any }) => {
       console.log('[TruckDemo] Attempting to add truck:', truckData);
       
-      const result = await addTruck(truckData);
-      console.log('[TruckDemo] Successfully added truck:', result);
-      return result;
+      // First create the truck
+      const truck = await createTruck(truckData);
+      console.log('[TruckDemo] Successfully added truck:', truck);
+      
+      // Then create the cost breakdown
+      if (truck && truck.id) {
+        const costBreakdown = await TruckService.createCostBreakdown(truck.id, costBreakdownData);
+        console.log('[TruckDemo] Successfully added cost breakdown:', costBreakdown);
+      }
+      
+      return truck;
     },
     onSuccess: (data) => {
       console.log('[TruckDemo] ====== SUCCESS HANDLER CALLED ======');
@@ -128,19 +138,26 @@ export default function TruckDemo() {
       fixedCosts: totalFixedCosts,
       variableCosts: totalVariableCosts,
       totalMiles: 0,
-      isActive: 1,
-      costBreakdown: {
-        ...fixedCosts,
-        ...variableCosts,
-        totalFixedCosts,
-        totalVariableCosts,
-        totalWeeklyCosts,
-        costPerMile,
-        weekStarting: new Date().toISOString()
-      }
+      isActive: 1
     };
 
-    addTruckMutation.mutate(truckData);
+    // Calculate week ending date (7 days from start)
+    const weekStart = new Date();
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6); // 7 days total (including start day)
+
+    const costBreakdownData = {
+      ...fixedCosts,
+      ...variableCosts,
+      totalFixedCosts,
+      totalVariableCosts,
+      totalWeeklyCosts,
+      costPerMile,
+      weekStarting: weekStart.toISOString(),
+      weekEnding: weekEnd.toISOString()
+    };
+
+    addTruckMutation.mutate({ truckData, costBreakdownData });
   };
 
   const handleFixedCostChange = (field: keyof typeof fixedCosts) => (e: React.ChangeEvent<HTMLInputElement>) => {

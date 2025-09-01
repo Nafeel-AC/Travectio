@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
 import { DollarSign, Calculator, ArrowLeft, Save, Truck, Info, HelpCircle, TrendingUp } from "lucide-react";
 import { useLocation, useRoute, useParams } from "wouter";
 import { NavigationLayout } from "@/components/global-navigation";
@@ -25,8 +25,6 @@ export default function TruckCostBreakdown() {
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/trucks/:truckId/cost-breakdown");
   const truckIdFromParams = params?.truckId;
-  const { useDemoQuery } = useDemoApi();
-
   // Fixed costs (weekly basis)
   const [fixedCosts, setFixedCosts] = useState({
     truckPayment: "",
@@ -54,17 +52,15 @@ export default function TruckCostBreakdown() {
   });
 
   // Get truck data
-  const { data: truck, isLoading: loadingTruck } = useDemoQuery(
-    [`/api/trucks/${truckIdFromParams}`],
-    `/api/trucks/${truckIdFromParams}`,
-    {
-      enabled: !!truckIdFromParams,
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: truck, isLoading: loadingTruck } = useQuery({
+    queryKey: ['truck', truckIdFromParams],
+    queryFn: () => TruckService.getTruck(truckIdFromParams!),
+    enabled: !!truckIdFromParams,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   useEffect(() => {
     const fetchCostBreakdowns = async () => {

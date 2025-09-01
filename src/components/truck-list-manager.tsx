@@ -1,22 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Truck } from "lucide-react";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useQuery } from "@tanstack/react-query";
+import { TruckService } from "@/lib/supabase-client";
 import { Link } from "wouter";
 import { TruckManagementCard } from "./truck-management-card";
 
 export function TruckListManager() {
-  const { useDemoQuery } = useDemoApi();
-  const { data: trucks, isLoading } = useDemoQuery(
-    ["truck-list-manager-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks, isLoading } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   if (isLoading) {
     return (

@@ -5,46 +5,40 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Truck, Trash2, MoreVertical, Users } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { TruckService, DriverService } from "@/lib/supabase-client";
 import AddTruckDialog from "./add-truck-dialog";
 import { useState } from "react";
 
 export default function FleetOverview() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { useDemoQuery } = useDemoApi();
   const [selectedTruckForDriver, setSelectedTruckForDriver] = useState<any>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
   
-  const { data: trucks = [], isLoading, error } = useDemoQuery(
-    ["fleet-overview-trucks"],
-    "/api/trucks",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: trucks = [], isLoading, error } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const { data: drivers = [] } = useDemoQuery(
-    ["/api/drivers"],
-    "/api/drivers",
-    {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+  const { data: drivers = [] } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => DriverService.getDrivers(),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   const deleteTruckMutation = useMutation({
     mutationFn: async (truckId: string) => {
-      await apiRequest(`/api/trucks/${truckId}`, 'DELETE');
+      return await TruckService.deleteTruck(truckId);
     },
     onSuccess: (_, truckId) => {
       const truck = (trucks as any[]).find((t: any) => t.id === truckId);
@@ -52,8 +46,8 @@ export default function FleetOverview() {
         title: "Truck deleted",
         description: `${truck?.name || 'Truck'} has been removed from your fleet`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
     },
     onError: (error) => {
       toast({
@@ -66,7 +60,7 @@ export default function FleetOverview() {
 
   const assignDriverMutation = useMutation({
     mutationFn: async ({ truckId, driverId }: { truckId: string; driverId: string }) => {
-      await apiRequest(`/api/trucks/${truckId}`, 'PATCH', { 
+      return await TruckService.updateTruck(truckId, { 
         currentDriverId: driverId || null 
       });
     },
@@ -77,8 +71,8 @@ export default function FleetOverview() {
           ? `Driver assigned to ${selectedTruckForDriver?.name} successfully`
           : `Driver removed from ${selectedTruckForDriver?.name}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/trucks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
       setIsDriverDialogOpen(false);
       setSelectedTruckForDriver(null);
       setSelectedDriverId("");
