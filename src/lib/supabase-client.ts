@@ -24,7 +24,7 @@ class AuthService {
       .from('users')
       .select('id, email, "firstName", "lastName", "isAdmin", "isFounder"')
       .eq('id', authData.user.id)
-      .single();
+      .maybeSingle();
 
     if (userError || !userData) {
       throw new Error('User not found');
@@ -49,7 +49,7 @@ class AuthService {
       .from('users')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     return userData;
   }
@@ -63,7 +63,7 @@ class AuthService {
       .from('users')
       .select('id, email, "firstName", "lastName", "isAdmin", "isFounder"')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     return userData ? {
       isAdmin: !!userData.isAdmin,

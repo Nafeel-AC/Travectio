@@ -353,7 +353,7 @@ CREATE TABLE IF NOT EXISTS feature_analytics (
 -- Sessions table (from your migrated schema - renamed from user_sessions)
 CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "userId" UUID NOT NULL REFERENCES users(id),
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     "sessionToken" TEXT NOT NULL,
     "isActive" INTEGER NOT NULL DEFAULT 1,
     "expiresAt" TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -367,8 +367,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- Session audit logs table
 CREATE TABLE IF NOT EXISTS session_audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "userId" UUID NOT NULL REFERENCES users(id),
-    "sessionId" UUID REFERENCES sessions(id),
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "sessionId" UUID REFERENCES sessions(id) ON DELETE SET NULL,
     action TEXT NOT NULL,
     "ipAddress" TEXT,
     "userAgent" TEXT,
@@ -431,6 +431,17 @@ CREATE POLICY "Users can view own profile" ON users
 
 CREATE POLICY "Users can update own profile" ON users
     FOR UPDATE USING (auth.uid() = id);
+
+-- Allow authenticated users to insert their own user row
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'users' AND policyname = 'Users can insert own profile'
+  ) THEN
+    CREATE POLICY "Users can insert own profile" ON users
+      FOR INSERT WITH CHECK (auth.uid() = id);
+  END IF;
+END $$;
 
 -- Trucks table policies
 -- Only allow users to view their own trucks
@@ -589,11 +600,45 @@ CREATE POLICY "Founder can view feature analytics" ON feature_analytics
 
 -- Sessions table policies
 CREATE POLICY "Users can view own sessions" ON sessions
-    FOR ALL USING (auth.uid() = "userId");
+    FOR SELECT USING (auth.uid() = "userId");
+
+-- Allow users to insert and update their own sessions
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sessions' AND policyname = 'Users can insert own sessions'
+  ) THEN
+    CREATE POLICY "Users can insert own sessions" ON sessions
+      FOR INSERT WITH CHECK (auth.uid() = "userId");
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sessions' AND policyname = 'Users can update own sessions'
+  ) THEN
+    CREATE POLICY "Users can update own sessions" ON sessions
+      FOR UPDATE USING (auth.uid() = "userId");
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sessions' AND policyname = 'Users can delete own sessions'
+  ) THEN
+    CREATE POLICY "Users can delete own sessions" ON sessions
+      FOR DELETE USING (auth.uid() = "userId");
+  END IF;
+END $$;
 
 -- Session audit logs table policies
 CREATE POLICY "Users can view own session logs" ON session_audit_logs
-    FOR ALL USING (auth.uid() = "userId");
+    FOR SELECT USING (auth.uid() = "userId");
+
+-- Allow users to insert their own audit logs
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'session_audit_logs' AND policyname = 'Users can insert own session logs'
+  ) THEN
+    CREATE POLICY "Users can insert own session logs" ON session_audit_logs
+      FOR INSERT WITH CHECK (auth.uid() = "userId");
+  END IF;
+END $$;
 
 -- =====================================================
 -- FOUNDER USER SETUP - CHOOSE ONE OPTION BELOW

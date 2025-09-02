@@ -17,7 +17,7 @@ export default function ModernLayout({ children }: ModernLayoutProps) {
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden">
       <ModernSidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto p-6">
         <div className="h-full">
           {children}
         </div>

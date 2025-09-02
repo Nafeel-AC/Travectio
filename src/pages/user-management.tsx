@@ -42,9 +42,8 @@ interface UserData {
 }
 
 export default function UserManagement() {
-  // Use new Supabase hook instead of old fetch API
-  const { users, isLoading, error, deleteUser, updateUser } =
-    useUserManagement();
+  // Use Supabase-backed hook
+  const { users, loading, deleteUser } = useUserManagement();
 
   const { isFounder, isAdmin } = useFounderAccess();
   const { toast } = useToast();
@@ -85,7 +84,7 @@ export default function UserManagement() {
     },
   });
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -113,29 +112,6 @@ export default function UserManagement() {
     );
   }
 
-  if (error) {
-    const errorMessage = (error as any)?.message || "Unknown error";
-    const isAccessDenied =
-      errorMessage.includes("403") ||
-      errorMessage.includes("Admin access required");
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">User Management</h1>
-        </div>
-        <Card className="bg-red-900/20 border-red-800">
-          <CardContent className="pt-6">
-            <p className="text-red-400">
-              {isAccessDenied
-                ? "Access denied. Administrator privileges required to view user management."
-                : "Failed to load users. Please try again later."}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

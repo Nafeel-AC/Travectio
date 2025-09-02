@@ -25,26 +25,51 @@ export const useAuth = () => {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to ensure user row exists in users table
-  const ensureUserRow = useCallback(async (authUser: any) => {
-    if (!authUser) return;
-    // Check if user exists in users table
-    const { data } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', authUser.id)
-      .single();
-    if (!data) {
-      // Insert user row
-          await supabase.from('users').insert({
+  // Helper to ensure user row exists (read-only; avoids RLS insert violations)
+  const ensureUserRow = useCallback(async (authUser: any): Promise<boolean> => {
+    try {
+      if (!authUser) return false;
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (data?.id) return true;
+
+      if (error) {
+        // If RLS blocks SELECT, assume exists and proceed
+        if ((error as any).code === '42501' || (error as any).status === 403) {
+          console.warn('[useAuth] users SELECT blocked by RLS; proceeding.');
+          return true;
+        }
+        console.warn('[useAuth] users SELECT error:', error);
+      }
+
+      // Row not found; attempt to create minimal user profile so FK insert will succeed
+      try {
+        const { error: insertErr } = await supabase
+          .from('users')
+          .insert({
             id: authUser.id,
-            email: authUser.email,
-            firstName: authUser.user_metadata?.firstName || null,
-            lastName: authUser.user_metadata?.lastName || null,
-            profileImageUrl: authUser.user_metadata?.avatar_url || null,
-            phone: authUser.phone || null,
-            // You can add more fields if you collect them at signup
+            email: authUser.email || null,
+            isFounder: 0,
+            isAdmin: 0,
+            isActive: 1,
           });
+        if (insertErr) {
+          // If RLS blocks INSERT, log and proceed (session insert may still fail if FK enforced)
+          console.warn('[useAuth] users INSERT error:', insertErr);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.warn('[useAuth] users INSERT failed:', e);
+        return false;
+      }
+    } catch (err) {
+      console.warn('[useAuth] ensureUserRow failed:', err);
+      return false;
     }
   }, []);
 
@@ -52,6 +77,103 @@ export const useAuth = () => {
     let mounted = true;
 
     console.log('[useAuth] Starting authentication check...');
+
+    // Helpers for session tracking
+    const getClientSessionId = (uid?: string) => {
+      try {
+        const lastUid = localStorage.getItem('clientSessionUserId') || '';
+        let sid = localStorage.getItem('clientSessionId') || '';
+        if (!sid || (uid && lastUid && lastUid !== uid)) {
+          // Create a new client-side session id when user changes or missing
+          const gen = (globalThis.crypto && 'randomUUID' in globalThis.crypto)
+            ? (globalThis.crypto as any).randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          sid = gen;
+          localStorage.setItem('clientSessionId', sid);
+        }
+        if (uid && lastUid !== uid) {
+          localStorage.setItem('clientSessionUserId', uid);
+        }
+        return sid;
+      } catch {
+        return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      }
+    };
+
+    const upsertSession = async (uid: string, expiresAt?: string | null, _ignored?: string | null) => {
+      try {
+        const token = getClientSessionId(uid);
+        const nowIso = new Date().toISOString();
+
+        // Use UPSERT with onConflict to avoid 409s from unique constraint (userId, sessionToken)
+        const { data, error } = await supabase
+          .from('sessions')
+          .upsert({
+            userId: uid,
+            sessionToken: token,
+            isActive: 1,
+            lastActivity: nowIso,
+            expiresAt: expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+            updatedAt: nowIso,
+          }, { onConflict: '"userId","sessionToken"' })
+          .select('id')
+          .single();
+
+        if (error) {
+          console.warn('[useAuth] session upsert error:', error);
+          return;
+        }
+        if (data?.id) {
+          localStorage.setItem('dbSessionId', data.id);
+        }
+      } catch (e) {
+        console.warn('[useAuth] upsertSession failed:', e);
+      }
+    };
+
+    const markSessionInactive = async () => {
+      try {
+        const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionId') : null;
+        const uid = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionUserId') : null;
+        if (!token || !uid) return;
+        await supabase
+          .from('sessions')
+          .update({ isActive: 0, updatedAt: new Date().toISOString() })
+          .eq('userId', uid)
+          .eq('sessionToken', token);
+      } catch (e) {
+        console.warn('[useAuth] markSessionInactive failed:', e);
+      }
+    };
+
+    const logAudit = async (uid: string, action: string, metadata?: any) => {
+      try {
+        let sid = (typeof localStorage !== 'undefined') ? localStorage.getItem('dbSessionId') : null;
+        if (!sid) {
+          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionId') : null;
+          const uidLocal = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionUserId') : null;
+          if (token && uidLocal) {
+            const { data: rows } = await supabase
+              .from('sessions')
+              .select('id')
+              .eq('userId', uidLocal)
+              .eq('sessionToken', token)
+              .limit(1);
+            if (rows && rows.length > 0) sid = rows[0].id;
+          }
+        }
+        await supabase.from('session_audit_logs').insert({
+          userId: uid,
+          sessionId: sid,
+          action,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          metadata,
+        });
+      } catch (e) {
+        // best-effort
+      }
+    };
 
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
@@ -66,8 +188,17 @@ export const useAuth = () => {
       if (session?.user) {
         console.log('[useAuth] User found:', session.user.email);
         setUser(session.user as any);
-        // Don't await ensureUserRow here to prevent blocking
-        ensureUserRow(session.user).catch(console.error);
+        // Run user ensure + session upsert in background so loading doesn't hang
+        ensureUserRow(session.user)
+          .then((ensured) => {
+            if (!ensured) return;
+            return upsertSession(
+              session.user.id,
+              session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+              (session as any)?.access_token || null
+            ).then(() => logAudit(session.user.id, 'login'));
+          })
+          .catch((err) => console.warn('[useAuth] background session setup failed:', err));
       } else {
         console.log('[useAuth] No user found in session');
       }
@@ -90,11 +221,21 @@ export const useAuth = () => {
       if (session?.user) {
         console.log('[useAuth] Setting user:', session.user.email);
         setUser(session.user as any);
-        // Don't await ensureUserRow here to prevent blocking
-        ensureUserRow(session.user).catch(console.error);
+        ensureUserRow(session.user)
+          .then((ensured) => {
+            if (!ensured) return;
+            return upsertSession(
+              session.user.id,
+              session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+              (session as any)?.access_token || null
+            ).then(() => logAudit(session.user.id, 'login'));
+          })
+          .catch((err) => console.warn('[useAuth] background session setup failed:', err));
       } else {
         console.log('[useAuth] Clearing user');
         setUser(null);
+        // Mark previous session inactive
+        markSessionInactive();
       }
       setLoading(false);
     });
@@ -114,6 +255,12 @@ export const useAuth = () => {
       
       if (error) throw error;
       
+      // Force a fresh DB session row on next upsert by clearing previous token
+      try {
+        localStorage.removeItem('clientSessionId');
+        // user id will be re-synced by the auth listener
+      } catch {}
+
       // User will be set by the auth state change listener
       return data;
     } catch (error) {
@@ -123,8 +270,30 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
+      // Best-effort: mark the current DB session inactive BEFORE signing out,
+      // so RLS (auth.uid()) still allows the update.
+      try {
+        const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionId') : null;
+        const uid = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionUserId') : null;
+        if (token && uid) {
+          await supabase
+            .from('sessions')
+            .update({ isActive: 0, updatedAt: new Date().toISOString() })
+            .eq('userId', uid)
+            .eq('sessionToken', token);
+        }
+      } catch (e) {
+        console.warn('[useAuth] pre-signout session deactivate failed (non-fatal):', e);
+      }
+
       await supabase.auth.signOut();
       // User will be cleared by the auth state change listener
+      try {
+        // Also clear client-side ids so next login starts a fresh session token
+        localStorage.removeItem('clientSessionId');
+        localStorage.removeItem('dbSessionId');
+        // keep clientSessionUserId; it will be updated on next login
+      } catch {}
     } catch (error) {
       console.error('Error logging out:', error);
     }

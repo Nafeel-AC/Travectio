@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDemoApi } from "@/hooks/useDemoApi";
-import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useSupabase";
 import type { User } from "@shared/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +19,8 @@ interface SessionAuditLog {
   endpoint?: string;
   ipAddress?: string;
   userAgent?: string;
-  timestamp: string;
+  createdAt?: string; // matches DB column
+  timestamp?: string; // legacy/demo shape fallback
   metadata?: any;
 }
 
@@ -47,50 +46,24 @@ export default function SessionManagement() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { useDemoQuery } = useDemoApi();
   
   const typedUser = user as User | null;
 
-  // Fetch audit logs
-  const { data: auditLogs = [], isLoading: auditLogsLoading } = useDemoQuery(
-    ["/api/sessions/audit-logs"],
-    "/api/sessions/audit-logs",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      enabled: isAuthenticated,
-    }
-  );
+  // Supabase-backed session management
+  const {
+    statistics: sessionStats,
+    activeSessions = [],
+    auditLogs = [],
+    loading: sessionsHookLoading,
+    invalidateSession,
+    fetchActiveSessions,
+    fetchAuditLogs,
+    fetchStatistics,
+  } = useSessionManagement();
 
-  // Fetch active sessions
-  const { data: activeSessions = [], isLoading: sessionsLoading } = useDemoQuery(
-    ["/api/sessions/active"],
-    "/api/sessions/active",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      enabled: isAuthenticated,
-    }
-  );
-
-  // Fetch session statistics (admin only)
-  const { data: sessionStats, isLoading: statsLoading } = useDemoQuery(
-    ["/api/sessions/statistics"],
-    "/api/sessions/statistics",
-    {
-      staleTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      enabled: !!(isAuthenticated && typedUser?.isAdmin === 1),
-    }
-  );
-
-  const { invalidateSession } = useSessionManagement();
+  const auditLogsLoading = sessionsHookLoading && isAuthenticated;
+  const sessionsLoading = sessionsHookLoading && isAuthenticated;
+  const statsLoading = sessionsHookLoading && !!(isAuthenticated && typedUser?.isAdmin === 1);
 
   const handleInvalidateSession = async (sessionId: string) => {
     try {
@@ -298,7 +271,7 @@ export default function SessionManagement() {
                                 {log.action.replace('_', ' ').toUpperCase()}
                               </Badge>
                               <span className="text-sm text-gray-500">
-                                {formatDistanceToNow(new Date(log.timestamp))} ago
+                                {formatDistanceToNow(new Date(log.createdAt || log.timestamp || ''))} ago
                               </span>
                             </div>
                             {log.endpoint && (
@@ -311,7 +284,7 @@ export default function SessionManagement() {
                                   {log.ipAddress}
                                 </p>
                               )}
-                              <p>{format(new Date(log.timestamp), 'MMM dd, yyyy h:mm:ss a')}</p>
+                              <p>{format(new Date(log.createdAt || log.timestamp || ''), 'MMM dd, yyyy h:mm:ss a')}</p>
                             </div>
                           </div>
                         </div>

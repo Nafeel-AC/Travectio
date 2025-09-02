@@ -18,18 +18,30 @@ if (typeof window !== 'undefined') {
   console.log('Is Vite dev server:', window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 }
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// Basic sanity checks to catch common misconfiguration (e.g., swapped URL/key)
+const looksLikeUrl = (value: string | undefined) => typeof value === 'string' && /^https?:\/\//i.test(value);
+const looksLikeKey = (value: string | undefined) => typeof value === 'string' && value.includes('.') && !/^https?:\/\//i.test(value);
+
+const likelyUrlInvalid = supabaseUrl && !looksLikeUrl(supabaseUrl);
+const likelyKeyInvalid = supabaseAnonKey && !looksLikeKey(supabaseAnonKey);
+
+if (!supabaseUrl || !supabaseAnonKey || likelyUrlInvalid || likelyKeyInvalid) {
   const errorMessage = `Missing Supabase environment variables. 
   
   Expected:
   - VITE_SUPABASE_URL: ${supabaseUrl || 'MISSING'}
   - VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'PRESENT' : 'MISSING'}
   
+  Validation:
+  - URL looks valid: ${looksLikeUrl(supabaseUrl) ? 'YES' : 'NO'}
+  - Key looks valid: ${looksLikeKey(supabaseAnonKey) ? 'YES' : 'NO'}
+  
   Please check:
   1. Your .env file exists in the project root
   2. Variables are prefixed with VITE_
   3. You're running through the Vite dev server (npm run dev)
   4. You've restarted the dev server after adding .env
+  5. Ensure you did not swap values: VITE_SUPABASE_URL must be an https URL, VITE_SUPABASE_ANON_KEY must be a long key containing dots
   
   Current environment: ${import.meta.env.MODE || 'unknown'}
   Current directory: ${import.meta.env.PWD || 'unknown'}`;

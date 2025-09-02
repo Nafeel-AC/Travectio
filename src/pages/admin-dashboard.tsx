@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -22,9 +22,42 @@ import {
 } from "lucide-react";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
 import { Link } from "wouter";
+import { supabase } from "@/lib/supabase";
 
 export default function AdminDashboard() {
   const { isFounder, isAdmin } = useFounderAccess();
+
+  const [counts, setCounts] = useState({ users: 0, activeSessions: 0, integrations: 0 });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCounts = async () => {
+      setLoading(true);
+      try {
+        const [{ count: usersCount }, { count: activeSessionsCount }, { count: integrationsCount }] = await Promise.all([
+          supabase.from("users").select("*", { count: "exact", head: true }),
+          supabase.from("sessions").select("*", { count: "exact", head: true }).eq("isActive", 1),
+          supabase.from("truck_integrations").select("*", { count: "exact", head: true }),
+        ]);
+        if (isMounted) {
+          setCounts({
+            users: usersCount || 0,
+            activeSessions: activeSessionsCount || 0,
+            integrations: integrationsCount || 0,
+          });
+        }
+      } catch (e) {
+        // Non-fatal; leave defaults
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchCounts();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Quick access cards for admin functions
   const adminCards = [
@@ -34,7 +67,7 @@ export default function AdminDashboard() {
       icon: Users,
       href: "/user-management",
       color: "bg-blue-500",
-      count: "25 Users",
+      count: loading ? "…" : `${counts.users} Users`,
     },
     {
       title: "Session Management",
@@ -42,7 +75,7 @@ export default function AdminDashboard() {
       icon: Monitor,
       href: "/session-management",
       color: "bg-green-500",
-      count: "12 Active",
+      count: loading ? "…" : `${counts.activeSessions} Active`,
     },
     {
       title: "System Integrations",
@@ -50,7 +83,7 @@ export default function AdminDashboard() {
       icon: Settings,
       href: "/integration-management",
       color: "bg-purple-500",
-      count: "5 Connected",
+      count: loading ? "…" : `${counts.integrations} Connected`,
     },
   ];
 
