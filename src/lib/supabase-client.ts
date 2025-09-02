@@ -1560,38 +1560,110 @@ class BusinessAnalyticsService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Get cost per mile
-    const { data: costBreakdowns } = await supabase
-      .from('truck_cost_breakdown')
-      .select('costPerMile')
-      .eq('truckId', (await supabase
-        .from('trucks')
-        .select('id')
-        .eq('userId', user.id)
-        .eq('isActive', 1)
-        .limit(1)
-        .single())?.data?.id || '');
+    // Check if user is founder for system-wide analytics
+    const { data: userData } = await supabase
+      .from('users')
+      .select('isFounder')
+      .eq('id', user.id)
+      .single();
 
-    const costPerMile = costBreakdowns?.[0]?.costPerMile || 0;
+    const isFounder = userData?.isFounder;
 
-    // Get total loads
-    const { count: totalLoads } = await supabase
-      .from('loads')
-      .select('*', { count: 'exact', head: true })
-      .eq('userId', user.id);
+    if (isFounder) {
+      // System-wide analytics for founders
+      const [
+        { data: allLoads },
+        { data: allTrucks },
+        { data: allUsers },
+        { data: costBreakdowns }
+      ] = await Promise.all([
+        supabase.from('loads').select('pay, miles, status, "createdAt", "userId"'),
+        supabase.from('trucks').select('equipmentType, "totalMiles", "isActive", "userId"'),
+        supabase.from('users').select('id, "isActive", "createdAt"'),
+        supabase.from('truck_cost_breakdown').select('costPerMile, truckId')
+      ]);
 
-    // Get active trucks
-    const { count: activeTrucks } = await supabase
-      .from('trucks')
-      .select('*', { count: 'exact', head: true })
-      .eq('userId', user.id)
-      .eq('isActive', 1);
+      // Calculate system-wide metrics
+      const totalRevenue = allLoads?.reduce((sum, load) => 
+        load.status === 'completed' ? sum + (load.pay || 0) : sum, 0) || 0;
+      
+      const totalMiles = allLoads?.reduce((sum, load) => sum + (load.miles || 0), 0) || 0;
+      
+      const avgSystemRevenuePerMile = totalMiles > 0 ? totalRevenue / totalMiles : 0;
 
-    return {
-      costPerMile,
-      totalLoads: totalLoads || 0,
-      activeTrucks: activeTrucks || 0
-    };
+      // Calculate average cost per mile across all trucks
+      const avgCostPerMile = costBreakdowns?.length > 0 
+        ? costBreakdowns.reduce((sum, breakdown) => sum + (breakdown.costPerMile || 0), 0) / costBreakdowns.length
+        : 0;
+
+      // Calculate equipment distribution
+      const equipmentDistribution = allTrucks?.reduce((acc, truck) => {
+        const type = truck.equipmentType || 'Unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Calculate user growth metrics
+      const activeUsers = allUsers?.filter(user => user.isActive).length || 0;
+      const totalUsers = allUsers?.length || 0;
+
+      return {
+        // System-wide metrics
+        totalRevenue,
+        totalMiles,
+        avgSystemRevenuePerMile,
+        avgCostPerMile,
+        totalLoads: allLoads?.length || 0,
+        activeTrucks: allTrucks?.filter(truck => truck.isActive).length || 0,
+        totalTrucks: allTrucks?.length || 0,
+        activeUsers,
+        totalUsers,
+        equipmentDistribution,
+        // Performance metrics
+        systemProfitMargin: totalRevenue > 0 ? ((totalRevenue - (avgCostPerMile * totalMiles)) / totalRevenue) * 100 : 0
+      };
+    } else {
+      // User-specific analytics for regular users
+      const [
+        { data: userLoads },
+        { data: userTrucks },
+        { data: costBreakdowns }
+      ] = await Promise.all([
+        supabase.from('loads').select('pay, miles, status, "createdAt"').eq('userId', user.id),
+        supabase.from('trucks').select('equipmentType, "totalMiles", "isActive"').eq('userId', user.id),
+        supabase.from('truck_cost_breakdown')
+          .select('costPerMile, truckId')
+          .in('truckId', (await supabase
+            .from('trucks')
+            .select('id')
+            .eq('userId', user.id)
+          ).data?.map(t => t.id) || [])
+      ]);
+
+      const userRevenue = userLoads?.reduce((sum, load) => 
+        load.status === 'completed' ? sum + (load.pay || 0) : sum, 0) || 0;
+      
+      const userMiles = userLoads?.reduce((sum, load) => sum + (load.miles || 0), 0) || 0;
+      
+      const avgUserRevenuePerMile = userMiles > 0 ? userRevenue / userMiles : 0;
+
+      const avgCostPerMile = costBreakdowns?.length > 0 
+        ? costBreakdowns.reduce((sum, breakdown) => sum + (breakdown.costPerMile || 0), 0) / costBreakdowns.length
+        : 0;
+
+      return {
+        // User-specific metrics
+        totalRevenue: userRevenue,
+        totalMiles: userMiles,
+        avgSystemRevenuePerMile: avgUserRevenuePerMile,
+        avgCostPerMile,
+        totalLoads: userLoads?.length || 0,
+        activeTrucks: userTrucks?.filter(truck => truck.isActive).length || 0,
+        totalTrucks: userTrucks?.length || 0,
+        // Performance metrics
+        profitMargin: userRevenue > 0 ? ((userRevenue - (avgCostPerMile * userMiles)) / userRevenue) * 100 : 0
+      };
+    }
   }
 }
 
@@ -1649,6 +1721,130 @@ class IntegrationService {
 }
 
 // ============================================================================
+// FOUNDER SERVICES (Cross-tenant access)
+// ============================================================================
+
+class FounderService {
+  // Get all drivers across all users (founder only)
+  static async getAllDrivers() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Check if user is founder
+    const { data: userData } = await supabase
+      .from('users')
+      .select('isFounder')
+      .eq('id', user.id)
+      .single();
+
+    if (!userData?.isFounder) {
+      throw new Error('Access denied. Founder privileges required.');
+    }
+
+    const { data: drivers, error } = await supabase
+      .from('drivers')
+      .select(`
+        *,
+        users!drivers_userId_fkey (
+          id,
+          email,
+          firstName,
+          lastName,
+          company
+        )
+      `)
+      .order('createdAt', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return drivers;
+  }
+
+  // Get all trucks across all users (founder only)
+  static async getAllTrucks() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Check if user is founder
+    const { data: userData } = await supabase
+      .from('users')
+      .select('isFounder')
+      .eq('id', user.id)
+      .single();
+
+    if (!userData?.isFounder) {
+      throw new Error('Access denied. Founder privileges required.');
+    }
+
+    const { data: trucks, error } = await supabase
+      .from('trucks')
+      .select(`
+        *,
+        users!trucks_userId_fkey (
+          id,
+          email,
+          firstName,
+          lastName,
+          company
+        )
+      `)
+      .order('createdAt', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return trucks;
+  }
+
+  // Get all drivers with their assigned trucks (founder only)
+  static async getAllDriversWithTrucks() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Check if user is founder
+    const { data: userData } = await supabase
+      .from('users')
+      .select('isFounder')
+      .eq('id', user.id)
+      .single();
+
+    if (!userData?.isFounder) {
+      throw new Error('Access denied. Founder privileges required.');
+    }
+
+    const { data: drivers, error } = await supabase
+      .from('drivers')
+      .select(`
+        *,
+        users!drivers_userId_fkey (
+          id,
+          email,
+          firstName,
+          lastName,
+          company
+        ),
+        trucks!drivers_currentTruckId_fkey (
+          id,
+          name,
+          equipmentType,
+          licensePlate,
+          vin,
+          fixedCosts,
+          variableCosts,
+          totalMiles,
+          isActive,
+          loadBoardIntegration,
+          elogsIntegration,
+          preferredLoadBoard,
+          elogsProvider,
+          costPerMile
+        )
+      `)
+      .order('createdAt', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return drivers;
+  }
+}
+
+// ============================================================================
 // OWNER DASHBOARD
 // ============================================================================
 
@@ -1669,23 +1865,65 @@ class OwnerDashboardService {
       throw new Error('Access denied. Founder privileges required.');
     }
 
-    // Get system-wide metrics
-    const { count: totalUsers } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
+    // Get system-wide metrics in parallel
+    const [
+      { count: totalUsers },
+      { count: totalTrucks },
+      { count: totalLoads },
+      { count: activeUsers },
+      { count: activeTrucks },
+      { data: loadsData },
+      { data: trucksData }
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('trucks').select('*', { count: 'exact', head: true }),
+      supabase.from('loads').select('*', { count: 'exact', head: true }),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('isActive', 1),
+      supabase.from('trucks').select('*', { count: 'exact', head: true }).eq('isActive', 1),
+      supabase.from('loads').select('pay, miles, status, "createdAt"'),
+      supabase.from('trucks').select('equipmentType, "totalMiles"')
+    ]);
 
-    const { count: totalTrucks } = await supabase
-      .from('trucks')
-      .select('*', { count: 'exact', head: true });
+    // Calculate revenue and miles from loads
+    const totalRevenue = loadsData?.reduce((sum, load) => 
+      load.status === 'completed' ? sum + (load.pay || 0) : sum, 0) || 0;
+    
+    const totalMiles = loadsData?.reduce((sum, load) => sum + (load.miles || 0), 0) || 0;
+    
+    // Calculate average revenue per mile
+    const avgSystemRevenuePerMile = totalMiles > 0 ? totalRevenue / totalMiles : 0;
 
-    const { count: totalLoads } = await supabase
-      .from('loads')
-      .select('*', { count: 'exact', head: true });
+    // Calculate equipment type distribution
+    const equipmentDistribution = trucksData?.reduce((acc, truck) => {
+      const type = truck.equipmentType || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
+    // Calculate system scalability (assuming max capacity of 100 users)
+    const maxCapacity = 100;
+    const currentUsers = activeUsers || 0;
+    const utilizationPercentage = (currentUsers / maxCapacity) * 100;
+    const growthCapacity = maxCapacity - currentUsers;
 
     return {
-      totalUsers: totalUsers || 0,
-      totalTrucks: totalTrucks || 0,
-      totalLoads: totalLoads || 0,
+      systemTotals: {
+        totalUsers: totalUsers || 0,
+        totalRevenue,
+        totalMiles,
+        totalTrucks: totalTrucks || 0,
+        totalLoads: totalLoads || 0,
+        avgSystemRevenuePerMile,
+        activeUsers: activeUsers || 0,
+        activeTrucks: activeTrucks || 0
+      },
+      equipmentDistribution,
+      scalabilityStatus: {
+        currentUsers,
+        maxCapacity,
+        utilizationPercentage,
+        growthCapacity
+      },
       systemHealth: 'healthy'
     };
   }
@@ -1711,5 +1949,6 @@ export {
   ActivityService,
   BusinessAnalyticsService,
   OwnerDashboardService,
-  IntegrationService
+  IntegrationService,
+  FounderService
 };

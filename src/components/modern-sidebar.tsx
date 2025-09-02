@@ -21,10 +21,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
-import { useDemo } from "@/lib/demo-context";
 import { supabase } from "@/lib/supabase";
-import { Switch } from "@/components/ui/switch";
-import CustomerAccess from "./customer-access";
 
 interface NavigationItem {
   href: string;
@@ -56,6 +53,13 @@ const navigationItems: NavigationItem[] = [
     label: "Owner Dashboard",
     description: "System-wide business intelligence",
     icon: Shield,
+    founderOnly: true,
+  },
+  {
+    href: "/founder-driver-overview",
+    label: "Driver Overview",
+    description: "Complete driver and truck assignment details",
+    icon: Users,
     founderOnly: true,
   },
   {
@@ -149,7 +153,7 @@ export default function ModernSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { isFounder, isAdmin } = useFounderAccess();
-  const { isDemoMode, setDemoMode, getDisplayMode } = useDemo();
+  
 
   // Debug logs to troubleshoot the demo switcher visibility
 
@@ -252,37 +256,7 @@ export default function ModernSidebar() {
             </div>
           </div>
 
-          {/* Demo Mode Switcher - Only for Founder */}
-          {isFounder && (
-            <div className="space-y-2 p-3 bg-blue-800/30 rounded-lg border border-blue-700">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">
-                    Demo Mode
-                  </div>
-                  <div className="text-xs text-slate-400 truncate">
-                    {isDemoMode ? "Sample fleet data" : "Founder analytics"}
-                  </div>
-                </div>
-                <Switch
-                  checked={isDemoMode}
-                  onCheckedChange={setDemoMode}
-                  className="data-[state=checked]:bg-blue-600 flex-shrink-0"
-                />
-              </div>
-              {isDemoMode && (
-                <div className="text-xs text-blue-300 bg-blue-900/20 p-2 rounded border border-blue-800">
-                  💡 Big Purple/Marty + Big Brown/Edward
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Customer Access Helper - Only for Founder in Development */}
-          {isFounder &&
-            !new URLSearchParams(window.location.search).get("dev_user") && (
-              <CustomerAccess />
-            )}
+          {/* Founder-only helper blocks removed */}
 
           {/* Logout Button - Always Visible and Prominent */}
           <Button

@@ -41,7 +41,7 @@ import {
   RefreshCw,
   TrendingDown,
 } from "lucide-react";
-import { useOwnerDashboard, useUserManagement } from "@/hooks/useSupabase";
+import { useOwnerDashboard, useUserManagement, useBusinessAnalytics } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
 
 interface UserMetrics {
@@ -129,17 +129,21 @@ export default function OwnerDashboard() {
   const { terminateUser, reactivateUser } = useUserManagement();
   const { isFounder, isAdmin } = useFounderAccess();
 
-  // Mock data for now since we're migrating from Express to Supabase
+  // Use real API calls instead of mock data
+  const { dashboardData: ownerData, loading: ownerLoading } = useOwnerDashboard();
+  const { analytics: businessData, loading: businessLoading } = useBusinessAnalytics();
+
+  // Combine data from both services
   const dashboardData = {
     success: true,
     dashboardData: {
       systemTotals: {
-        totalUsers: 25,
-        totalRevenue: 1250000,
-        totalMiles: 500000,
-        totalTrucks: 150,
-        totalLoads: 800,
-        avgSystemRevenuePerMile: 2.5,
+        totalUsers: ownerData?.systemTotals?.totalUsers || 0,
+        totalRevenue: businessData?.totalRevenue || 0,
+        totalMiles: businessData?.totalMiles || 0,
+        totalTrucks: ownerData?.systemTotals?.totalTrucks || 0,
+        totalLoads: businessData?.totalLoads || 0,
+        avgSystemRevenuePerMile: businessData?.avgSystemRevenuePerMile || 0,
         topPerformers: {
           byRevenue: [],
           byEfficiency: [],
@@ -147,16 +151,17 @@ export default function OwnerDashboard() {
         },
       },
       marketIntelligence: {
+        // Keep integration data as mock for now (as requested)
         loadBoardAdoption: { DAT: 15, Truckstop: 8, LoadBoard: 2 },
         eldProviderAdoption: { Samsara: 12, Geotab: 8, Omnitracs: 5 },
-        equipmentTypeDistribution: { "Dry Van": 80, Reefer: 45, Flatbed: 25 },
+        equipmentTypeDistribution: businessData?.equipmentDistribution || {},
       },
       userMetrics: [],
-      scalabilityStatus: {
-        currentUsers: 25,
+      scalabilityStatus: ownerData?.scalabilityStatus || {
+        currentUsers: 0,
         maxCapacity: 100,
-        utilizationPercentage: 25,
-        growthCapacity: 75,
+        utilizationPercentage: 0,
+        growthCapacity: 100,
       },
     },
   };
@@ -204,6 +209,27 @@ export default function OwnerDashboard() {
       handleTerminateUser(selectedUser.userId);
     }
   };
+
+  // Show loading state while data is being fetched
+  if (ownerLoading || businessLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="space-y-6 animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!dashboardData?.success) {
     return (

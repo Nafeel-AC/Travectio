@@ -24,6 +24,7 @@ import IntegrationManagement from "@/pages/integration-management";
 import IntegrationOnboarding from "@/pages/integration-onboarding";
 import APICredentialsGuide from "@/components/api-credentials-guide";
 import OwnerDashboard from "@/pages/owner-dashboard";
+import FounderDriverOverview from "@/pages/founder-driver-overview";
 import UserGuide from "@/pages/user-guide";
 import EnhancedLanding from "@/components/enhanced-landing";
 import LoginPage from "@/components/login-page";
@@ -155,7 +156,7 @@ function Router() {
           </RouteGuard>
         </Route>
         <Route path="/drivers">
-          <RouteGuard requireCustomer>
+          <RouteGuard>
             <DriversPage />
           </RouteGuard>
         </Route>
@@ -196,6 +197,11 @@ function Router() {
         <Route path="/owner-dashboard">
           <RouteGuard requireFounder>
             <OwnerDashboard />
+          </RouteGuard>
+        </Route>
+        <Route path="/founder-driver-overview">
+          <RouteGuard requireFounder>
+            <FounderDriverOverview />
           </RouteGuard>
         </Route>
 
