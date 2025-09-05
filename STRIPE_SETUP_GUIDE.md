@@ -28,9 +28,7 @@
 
 1. Go to https://stripe.com and create account
 2. Create products in Stripe Dashboard:
-   - **Starter Plan**: $99/month recurring
-   - **Growth Plan**: $199/month recurring
-   - **Enterprise Plan**: $12/month per unit recurring
+   - **Travectio Subscription**: $24.99/month per unit recurring
 3. Get your API keys from Stripe Dashboard
 
 ### **2. Configure Supabase Environment Variables**

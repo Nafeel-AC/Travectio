@@ -90,39 +90,13 @@ export const usePricingPlans = () => {
         if (error.message?.includes('404') || error.message?.includes('not found')) {
           return [
             {
-              id: "starter",
-              name: "starter",
-              displayName: "Starter Plan",
+              id: "per-truck",
+              name: "per-truck",
+              displayName: "Per Truck Plan",
               minTrucks: 1,
-              maxTrucks: 5,
-              basePrice: 99,
-              pricePerTruck: null,
-              stripePriceId: null,
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            },
-            {
-              id: "growth",
-              name: "growth",
-              displayName: "Growth Plan",
-              minTrucks: 6,
-              maxTrucks: 15,
-              basePrice: 199,
-              pricePerTruck: null,
-              stripePriceId: null,
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            },
-            {
-              id: "enterprise",
-              name: "enterprise",
-              displayName: "Enterprise Plan",
-              minTrucks: 16,
               maxTrucks: null,
               basePrice: null,
-              pricePerTruck: 12,
+              pricePerTruck: 24.99,
               stripePriceId: null,
               isActive: true,
               createdAt: new Date().toISOString(),
@@ -283,25 +257,19 @@ export const useCancelSubscription = () => {
 
 // Helper functions
 export const calculatePlanPrice = (plan: PricingPlan, truckCount: number): number => {
-  if (plan.basePrice !== null) {
-    return plan.basePrice;
-  }
-  return (plan.pricePerTruck || 0) * truckCount;
+  // Always use per-truck pricing
+  const price = (plan.pricePerTruck || 0) * truckCount;
+  // Round to 2 decimal places to avoid floating point precision issues
+  return Math.round(price * 100) / 100;
 };
 
 export const getRecommendedPlan = (plans: PricingPlan[], truckCount: number): PricingPlan | null => {
+  // With per-truck pricing, there's only one plan, so return it if truck count is valid
   const applicablePlans = plans.filter(
     plan => truckCount >= plan.minTrucks && (plan.maxTrucks === null || truckCount <= plan.maxTrucks)
   );
 
-  if (applicablePlans.length === 0) return null;
-
-  // Return the most cost-effective plan
-  return applicablePlans.reduce((best, current) => {
-    const bestPrice = calculatePlanPrice(best, truckCount);
-    const currentPrice = calculatePlanPrice(current, truckCount);
-    return currentPrice < bestPrice ? current : best;
-  });
+  return applicablePlans.length > 0 ? applicablePlans[0] : null;
 };
 
 export const canSelectPlan = (plan: PricingPlan, truckCount: number): boolean => {

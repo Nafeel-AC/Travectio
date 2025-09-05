@@ -125,10 +125,8 @@ async function handleCheckoutSessionCompleted(supabase: any, session: Stripe.Che
     return
   }
 
-  // Calculate subscription amount
-  const calculatedAmount = plan.basePrice 
-    ? plan.basePrice 
-    : (plan.pricePerTruck * truckCount)
+  // Calculate subscription amount - always per truck pricing
+  const calculatedAmount = plan.pricePerTruck * truckCount
 
   // Create or update subscription record
   const { error } = await supabase

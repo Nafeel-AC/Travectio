@@ -16,11 +16,9 @@ CREATE TABLE IF NOT EXISTS pricing_plans (
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default pricing plans (will skip if they already exist)
+-- Insert default pricing plans - $24.99 per truck model (will skip if they already exist)
 INSERT INTO pricing_plans (name, "displayName", "minTrucks", "maxTrucks", "basePrice", "pricePerTruck", "isActive") VALUES
-('starter', 'Starter Plan', 1, 5, 99.00, NULL, TRUE),
-('growth', 'Growth Plan', 6, 15, 199.00, NULL, TRUE),
-('enterprise', 'Enterprise Plan', 16, NULL, NULL, 12.00, TRUE)
+('per-truck', 'Per Truck Plan', 1, NULL, NULL, 24.99, TRUE)
 ON CONFLICT (name) DO NOTHING;
 
 -- Enable RLS if not already enabled

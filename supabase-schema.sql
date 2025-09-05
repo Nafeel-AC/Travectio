@@ -690,11 +690,9 @@ CREATE TABLE IF NOT EXISTS pricing_plans (
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default pricing plans
+-- Insert default pricing plans - $24.99 per truck model
 INSERT INTO pricing_plans (name, "displayName", "minTrucks", "maxTrucks", "basePrice", "pricePerTruck", "isActive") VALUES
-('starter', 'Starter Plan', 1, 5, 99.00, NULL, TRUE),
-('growth', 'Growth Plan', 6, 15, 199.00, NULL, TRUE),
-('enterprise', 'Enterprise Plan', 16, NULL, NULL, 12.00, TRUE)
+('per-truck', 'Per Truck Plan', 1, NULL, NULL, 24.99, TRUE)
 ON CONFLICT (name) DO NOTHING;
 
 -- Subscriptions table - Track customer subscription details
@@ -802,14 +800,8 @@ BEGIN
         RAISE EXCEPTION 'Truck count % exceeds maximum % for plan %', truck_count, plan_record."maxTrucks", plan_record."displayName";
     END IF;
     
-    -- Calculate amount based on plan type
-    IF plan_record."basePrice" IS NOT NULL THEN
-        -- Fixed price plan (Starter/Growth)
-        calculated_amount = plan_record."basePrice";
-    ELSE
-        -- Per-truck pricing (Enterprise)
-        calculated_amount = plan_record."pricePerTruck" * truck_count;
-    END IF;
+    -- Calculate amount using per-truck pricing
+    calculated_amount = plan_record."pricePerTruck" * truck_count;
     
     RETURN calculated_amount;
 END;
@@ -821,17 +813,12 @@ RETURNS UUID AS $$
 DECLARE
     plan_id UUID;
 BEGIN
-    -- Get the most cost-effective plan for the truck count
+    -- With per-truck pricing, there's only one plan
     SELECT p.id INTO plan_id
     FROM pricing_plans p
     WHERE p."isActive" = TRUE
       AND truck_count >= p."minTrucks"
       AND (p."maxTrucks" IS NULL OR truck_count <= p."maxTrucks")
-    ORDER BY 
-        CASE 
-            WHEN p."basePrice" IS NOT NULL THEN p."basePrice"
-            ELSE p."pricePerTruck" * truck_count
-        END
     LIMIT 1;
     
     RETURN plan_id;

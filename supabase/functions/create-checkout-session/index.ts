@@ -79,10 +79,8 @@ serve(async (req) => {
       throw new Error(`Truck count ${truckCount} is outside plan limits`)
     }
 
-    // Calculate subscription amount
-    const subscriptionAmount = plan.basePrice 
-      ? plan.basePrice 
-      : plan.pricePerTruck * truckCount
+    // Calculate subscription amount - always per truck pricing
+    const subscriptionAmount = plan.pricePerTruck * truckCount
 
     // Get or create Stripe customer
     let stripeCustomerId: string
@@ -105,37 +103,22 @@ serve(async (req) => {
       stripeCustomerId = customer.id
     }
 
-    // Determine pricing based on plan type
-    let priceData: any
+    // Create dynamic price for per-truck pricing
+    const unitAmount = Math.round(plan.pricePerTruck * 100) // Convert to cents
 
-    if (plan.stripePriceId) {
-      // Use existing Stripe price
-      priceData = {
-        price: plan.stripePriceId,
-        quantity: plan.basePrice ? 1 : truckCount,
-      }
-    } else {
-      // Create dynamic price for this checkout
-      const unitAmount = plan.basePrice 
-        ? Math.round(plan.basePrice * 100) // Convert to cents
-        : Math.round(plan.pricePerTruck * 100)
-
-      const quantity = plan.basePrice ? 1 : truckCount
-
-      priceData = {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: plan.displayName,
-            description: `Fleet management for ${truckCount} truck${truckCount > 1 ? 's' : ''}`,
-          },
-          unit_amount: unitAmount,
-          recurring: {
-            interval: 'month',
-          },
+    const priceData = {
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: 'Travectio Subscription',
+          description: `Fleet management for ${truckCount} truck${truckCount > 1 ? 's' : ''}`,
         },
-        quantity: quantity,
-      }
+        unit_amount: unitAmount,
+        recurring: {
+          interval: 'month',
+        },
+      },
+      quantity: truckCount,
     }
 
     // Create Stripe Checkout Session

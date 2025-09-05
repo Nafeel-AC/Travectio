@@ -45,33 +45,13 @@ interface PricingPlan {
 
 const defaultPlans: PricingPlan[] = [
   {
-    id: "starter",
-    name: "starter",
-    displayName: "Starter Plan",
+    id: "per-truck",
+    name: "per-truck",
+    displayName: "Per Truck Plan",
     minTrucks: 1,
-    maxTrucks: 5,
-    basePrice: 99,
-    pricePerTruck: null,
-    isActive: true,
-  },
-  {
-    id: "growth",
-    name: "growth",
-    displayName: "Growth Plan",
-    minTrucks: 6,
-    maxTrucks: 15,
-    basePrice: 199,
-    pricePerTruck: null,
-    isActive: true,
-  },
-  {
-    id: "enterprise",
-    name: "enterprise",
-    displayName: "Enterprise Plan",
-    minTrucks: 16,
     maxTrucks: null,
     basePrice: null,
-    pricePerTruck: 12,
+    pricePerTruck: 24.99,
     isActive: true,
   },
 ];
@@ -145,73 +125,28 @@ export default function PricingPage() {
   };
 
   const getPlanFeatures = (planName: string) => {
-    const commonFeatures = [
+    return [
       "Real-time fleet tracking",
       "Load management",
       "Fuel cost tracking",
       "Driver management",
-      "Basic reporting",
+      "Advanced reporting",
       "Mobile app access",
-      "Email support",
+      "Priority support",
+      "API access",
+      "Unlimited trucks",
+      "Advanced analytics",
+      "Custom integrations",
+      "24/7 customer support",
     ];
-
-    switch (planName) {
-      case "starter":
-        return [
-          ...commonFeatures,
-          "Up to 5 trucks",
-          "Standard integrations",
-          "Basic analytics",
-        ];
-      case "growth":
-        return [
-          ...commonFeatures,
-          "Up to 15 trucks",
-          "Advanced integrations",
-          "Enhanced analytics",
-          "Priority support",
-          "Custom reporting",
-        ];
-      case "enterprise":
-        return [
-          ...commonFeatures,
-          "Unlimited trucks",
-          "Enterprise integrations",
-          "Advanced analytics",
-          "Dedicated support",
-          "Custom reporting",
-          "API access",
-          "White-label options",
-        ];
-      default:
-        return commonFeatures;
-    }
   };
 
   const getPlanIcon = (planName: string) => {
-    switch (planName) {
-      case "starter":
-        return <Truck className="h-8 w-8" />;
-      case "growth":
-        return <Users className="h-8 w-8" />;
-      case "enterprise":
-        return <Crown className="h-8 w-8" />;
-      default:
-        return <Truck className="h-8 w-8" />;
-    }
+    return <Truck className="h-8 w-8" />;
   };
 
   const getPlanColor = (planName: string) => {
-    switch (planName) {
-      case "starter":
-        return "text-blue-400";
-      case "growth":
-        return "text-green-400";
-      case "enterprise":
-        return "text-purple-400";
-      default:
-        return "text-blue-400";
-    }
+    return "text-blue-400";
   };
 
   return (
@@ -220,11 +155,11 @@ export default function PricingPage() {
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-white mb-6">
-            Choose Your Perfect Plan
+            Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-            Scale your fleet management with plans designed for every business
-            size. From solo owner-operators to enterprise fleets.
+            Pay only for what you use. $24.99 per truck per month. 
+            Scale up or down anytime with no hidden fees.
           </p>
         </div>
 
@@ -285,7 +220,7 @@ export default function PricingPage() {
                 <div className="bg-slate-700/50 rounded-lg p-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-400">
-                      ${calculatePlanPriceLocal(recommendedPlan, truckCount)}
+                      ${calculatePlanPriceLocal(recommendedPlan, truckCount).toFixed(2)}
                       /month
                     </div>
                     <div className="text-slate-300 text-sm">
@@ -293,12 +228,7 @@ export default function PricingPage() {
                       {recommendedPlan.basePrice ? (
                         <span className="text-slate-400 block">
                           ($
-                          {(
-                            calculatePlanPriceLocal(
-                              recommendedPlan,
-                              truckCount
-                            ) / truckCount
-                          ).toFixed(2)}{" "}
+                          {(calculatePlanPriceLocal(recommendedPlan, truckCount) / truckCount).toFixed(2)}{" "}
                           per truck)
                         </span>
                       ) : (
@@ -314,129 +244,58 @@ export default function PricingPage() {
           </Card>
         </div>
 
-        {/* Pricing Plans */}
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
-          {plans.map((plan) => {
-            const isRecommended = plan.id === recommendedPlan?.id;
-            const canSelectThisPlan = canSelectPlan(plan, truckCount);
-            const planPrice = calculatePlanPriceLocal(plan, truckCount);
+        {/* Pricing Plan */}
+        <div className="max-w-md mx-auto mb-16">
+          <Card className="relative bg-slate-800/50 border-2 border-blue-500 shadow-lg shadow-blue-500/20">
+            <CardHeader className="text-center">
+              <div className="text-blue-400 mb-4 flex justify-center">
+                {getPlanIcon("per-truck")}
+              </div>
+              <CardTitle className="text-white text-2xl">
+                Travectio Subscription
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Pay per truck • Scale anytime
+              </CardDescription>
+            </CardHeader>
 
-            return (
-              <Card
-                key={plan.id}
-                className={`relative bg-slate-800/50 border-2 transition-all duration-300 ${
-                  isRecommended
-                    ? "border-green-500 shadow-lg shadow-green-500/20 scale-105"
-                    : canSelectThisPlan
-                    ? "border-slate-600 hover:border-slate-500"
-                    : "border-slate-700 opacity-60"
-                }`}
+            <CardContent className="space-y-6">
+              {/* Pricing */}
+              <div className="text-center">
+                <div className="text-4xl font-bold text-white">
+                  $24.99
+                  <span className="text-lg text-slate-400">/truck/month</span>
+                </div>
+                <div className="text-slate-400 text-sm mt-1">
+                  Total: ${(24.99 * truckCount).toFixed(2)}/month for {truckCount} truck{truckCount > 1 ? 's' : ''}
+                </div>
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-2">
+                {getPlanFeatures("per-truck").map((feature, index) => (
+                  <li
+                    key={index}
+                    className="flex items-center gap-2 text-slate-300"
+                  >
+                    <Check className="h-4 w-4 text-green-400" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Subscribe Button */}
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                disabled={createCheckoutMutation.isPending}
+                onClick={() => handleSubscribe("per-truck")}
               >
-                {/* Recommended Badge */}
-                {isRecommended && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-green-600 text-white px-4 py-1">
-                      <Star className="h-3 w-3 mr-1" />
-                      RECOMMENDED
-                    </Badge>
-                  </div>
-                )}
-
-                <CardHeader className="text-center">
-                  <div
-                    className={`${getPlanColor(
-                      plan.name
-                    )} mb-4 flex justify-center`}
-                  >
-                    {getPlanIcon(plan.name)}
-                  </div>
-                  <CardTitle className="text-white text-2xl">
-                    {plan.displayName}
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    {plan.minTrucks} - {plan.maxTrucks || "∞"} trucks
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-6">
-                  {/* Pricing */}
-                  <div className="text-center">
-                    <div
-                      className={`text-4xl font-bold ${
-                        canSelectThisPlan ? "text-white" : "text-slate-500"
-                      }`}
-                    >
-                      $
-                      {canSelectThisPlan
-                        ? planPrice
-                        : plan.basePrice || `${plan.pricePerTruck} × trucks`}
-                      <span className="text-lg text-slate-400">/month</span>
-                    </div>
-                    {plan.basePrice && canSelectThisPlan && (
-                      <div className="text-slate-400 text-sm mt-1">
-                        ${(planPrice / truckCount).toFixed(2)} per truck
-                      </div>
-                    )}
-                    {!canSelectThisPlan && (
-                      <div className="text-slate-400 text-sm mt-2">
-                        {truckCount < plan.minTrucks
-                          ? `Minimum ${plan.minTrucks} trucks required`
-                          : `Maximum ${plan.maxTrucks} trucks exceeded`}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Features */}
-                  <ul className="space-y-2">
-                    {getPlanFeatures(plan.name).map((feature, index) => (
-                      <li
-                        key={index}
-                        className="flex items-center gap-2 text-slate-300"
-                      >
-                        <Check
-                          className={`h-4 w-4 ${
-                            canSelectThisPlan
-                              ? "text-green-400"
-                              : "text-slate-500"
-                          }`}
-                        />
-                        <span
-                          className={canSelectThisPlan ? "" : "text-slate-500"}
-                        >
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Subscribe Button */}
-                  <Button
-                    className={`w-full ${
-                      isRecommended
-                        ? "bg-green-600 hover:bg-green-700"
-                        : canSelectThisPlan
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-slate-600 cursor-not-allowed"
-                    }`}
-                    disabled={
-                      !canSelectThisPlan || createCheckoutMutation.isPending
-                    }
-                    onClick={() =>
-                      canSelectThisPlan && handleSubscribe(plan.id)
-                    }
-                  >
-                    {!canSelectThisPlan
-                      ? "Not Available"
-                      : createCheckoutMutation.isPending
-                      ? "Processing..."
-                      : isRecommended
-                      ? "Get Started - Best Value"
-                      : "Choose Plan"}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+                {createCheckoutMutation.isPending
+                  ? "Processing..."
+                  : `Subscribe for ${truckCount} truck${truckCount > 1 ? 's' : ''}`}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* FAQ Section */}
@@ -448,14 +307,13 @@ export default function PricingPage() {
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
                 <CardTitle className="text-white">
-                  Can I change plans later?
+                  How does per-truck pricing work?
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  Yes! You can upgrade or downgrade your plan at any time.
-                  Changes take effect immediately, and we'll prorate the billing
-                  accordingly.
+                  You pay $24.99 for each truck in your fleet every month. 
+                  Add or remove trucks anytime and your billing adjusts automatically.
                 </p>
               </CardContent>
             </Card>
@@ -463,14 +321,13 @@ export default function PricingPage() {
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
                 <CardTitle className="text-white">
-                  What happens if I exceed my truck limit?
+                  Can I change my truck count?
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  We'll automatically suggest an upgrade to the next tier. You
-                  can continue using all features while deciding whether to
-                  upgrade or remove excess trucks.
+                  Yes! You can add or remove trucks from your subscription at any time. 
+                  Changes take effect immediately with prorated billing.
                 </p>
               </CardContent>
             </Card>
@@ -483,8 +340,8 @@ export default function PricingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  Yes! All plans come with a 14-day free trial. No credit card
-                  required to start. Cancel anytime during the trial period.
+                  Yes! Start with a 14-day free trial. No credit card required. 
+                  Cancel anytime during the trial period with no charges.
                 </p>
               </CardContent>
             </Card>
@@ -492,13 +349,13 @@ export default function PricingPage() {
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
                 <CardTitle className="text-white">
-                  Do you offer annual billing?
+                  What if I have 0 trucks?
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  Yes! Annual billing is available with a 20% discount. Contact
-                  us for enterprise pricing and custom billing arrangements.
+                  You need at least 1 truck to subscribe. If you temporarily have no trucks, 
+                  you can pause your subscription and reactivate when needed.
                 </p>
               </CardContent>
             </Card>
