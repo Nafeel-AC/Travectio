@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,6 +30,7 @@ import {
   useSubscription,
   useUpdateSubscription,
   useCancelSubscription,
+  useCreatePayment,
   PricingPlan as PricingPlanType,
   calculatePlanPrice,
   getRecommendedPlan,
@@ -66,6 +68,7 @@ export default function PricingPage() {
   const [isManagingSubscription, setIsManagingSubscription] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const search = useSearch();
 
   // Fetch pricing plans from API, fallback to default plans
   const {
@@ -74,17 +77,46 @@ export default function PricingPage() {
     error: plansError,
   } = usePricingPlans();
   const createCheckoutMutation = useCreateCheckoutSession();
-  
+  const createPaymentMutation = useCreatePayment();
+
   // Fetch current subscription
   const {
     data: currentSubscription,
     isLoading: subscriptionLoading,
     error: subscriptionError,
   } = useSubscription();
-  
+
   // Subscription management hooks
   const updateSubscriptionMutation = useUpdateSubscription();
   const cancelSubscriptionMutation = useCancelSubscription();
+
+  // Handle success callback from Stripe
+  useEffect(() => {
+    const urlParams = new URLSearchParams(search);
+    const success = urlParams.get("success");
+    const sessionId = urlParams.get("session_id");
+
+    if (success === "true" && sessionId) {
+      toast({
+        title: "Payment Successful!",
+        description:
+          "Your subscription is now active. Please allow a few moments for the payment to be processed.",
+      });
+
+      // Clear the URL parameters by navigating to the same page without params
+      window.history.replaceState({}, "", window.location.pathname);
+
+      // If there's an active subscription, create a manual payment record as backup
+      if (currentSubscription?.id) {
+        createPaymentMutation.mutate({
+          subscriptionId: currentSubscription.id,
+          amount: currentSubscription.calculatedAmount || 24.99,
+          stripeInvoiceId: `manual_${sessionId}`,
+          status: "paid",
+        });
+      }
+    }
+  }, [search, toast, currentSubscription, createPaymentMutation]);
 
   // Use API plans if available, otherwise fallback to default
   const plans = apiPlans || defaultPlans;
@@ -92,7 +124,11 @@ export default function PricingPage() {
   // Calculate the recommended plan and pricing
   const getRecommendedPlanLocal = (trucks: number): LocalPricingPlan | null => {
     // For local plans, just return the first plan if it matches the truck count
-    if (plans.length > 0 && plans[0].minTrucks <= trucks && (plans[0].maxTrucks === null || plans[0].maxTrucks >= trucks)) {
+    if (
+      plans.length > 0 &&
+      plans[0].minTrucks <= trucks &&
+      (plans[0].maxTrucks === null || plans[0].maxTrucks >= trucks)
+    ) {
       return plans[0];
     }
     return null;
@@ -122,7 +158,9 @@ export default function PricingPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading subscription information...</p>
+          <p className="text-white text-lg">
+            Loading subscription information...
+          </p>
         </div>
       </div>
     );
@@ -162,7 +200,9 @@ export default function PricingPage() {
     if (!currentSubscription) return;
 
     try {
-      await updateSubscriptionMutation.mutateAsync({ truckCount: newTruckCount });
+      await updateSubscriptionMutation.mutateAsync({
+        truckCount: newTruckCount,
+      });
       toast({
         title: "Subscription Updated",
         description: `Truck count updated to ${newTruckCount}. Billing will be prorated.`,
@@ -183,7 +223,8 @@ export default function PricingPage() {
       await cancelSubscriptionMutation.mutateAsync({ immediately: false });
       toast({
         title: "Subscription Cancelled",
-        description: "Your subscription will end at the current billing period.",
+        description:
+          "Your subscription will end at the current billing period.",
       });
     } catch (error) {
       toast({
@@ -228,8 +269,8 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-            Pay only for what you use. $24.99 per truck per month. 
-            Scale up or down anytime with no hidden fees.
+            Pay only for what you use. $24.99 per truck per month. Scale up or
+            down anytime with no hidden fees.
           </p>
         </div>
 
@@ -250,24 +291,32 @@ export default function PricingPage() {
                 <div className="grid md:grid-cols-3 gap-6">
                   {/* Current Plan Details */}
                   <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Plan Details</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      Plan Details
+                    </h3>
                     <div className="space-y-1">
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Plan:</span> {currentSubscription.plan?.displayName || 'Per Truck Plan'}
+                        <span className="text-slate-400">Plan:</span>{" "}
+                        {currentSubscription.plan?.displayName ||
+                          "Per Truck Plan"}
                       </p>
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Trucks:</span> {currentSubscription.truckCount}
+                        <span className="text-slate-400">Trucks:</span>{" "}
+                        {currentSubscription.truckCount}
                       </p>
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Monthly Cost:</span> ${currentSubscription.calculatedAmount?.toFixed(2)}
+                        <span className="text-slate-400">Monthly Cost:</span> $
+                        {currentSubscription.calculatedAmount?.toFixed(2)}
                       </p>
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Status:</span> 
-                        <Badge className={`ml-2 ${
-                          currentSubscription.status === 'active' 
-                            ? 'bg-green-600 text-white' 
-                            : 'bg-yellow-600 text-white'
-                        }`}>
+                        <span className="text-slate-400">Status:</span>
+                        <Badge
+                          className={`ml-2 ${
+                            currentSubscription.status === "active"
+                              ? "bg-green-600 text-white"
+                              : "bg-yellow-600 text-white"
+                          }`}
+                        >
                           {currentSubscription.status}
                         </Badge>
                       </p>
@@ -276,34 +325,44 @@ export default function PricingPage() {
 
                   {/* Billing Information */}
                   <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Billing Information</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      Billing Information
+                    </h3>
                     <div className="space-y-1">
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Next Billing:</span> 
-                        {currentSubscription.currentPeriodEnd 
-                          ? new Date(currentSubscription.currentPeriodEnd).toLocaleDateString()
-                          : 'N/A'
-                        }
+                        <span className="text-slate-400">Next Billing:</span>
+                        {currentSubscription.currentPeriodEnd
+                          ? new Date(
+                              currentSubscription.currentPeriodEnd
+                            ).toLocaleDateString()
+                          : "N/A"}
                       </p>
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Price per Truck:</span> $24.99
+                        <span className="text-slate-400">Price per Truck:</span>{" "}
+                        $24.99
                       </p>
                       <p className="text-slate-300">
-                        <span className="text-slate-400">Total Monthly:</span> 
-                        ${(currentSubscription.truckCount * 24.99).toFixed(2)}
+                        <span className="text-slate-400">Total Monthly:</span>$
+                        {(currentSubscription.truckCount * 24.99).toFixed(2)}
                       </p>
                     </div>
                   </div>
 
                   {/* Quick Actions */}
                   <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      Quick Actions
+                    </h3>
                     <div className="space-y-2">
                       <Button
-                        onClick={() => setIsManagingSubscription(!isManagingSubscription)}
+                        onClick={() =>
+                          setIsManagingSubscription(!isManagingSubscription)
+                        }
                         className="w-full bg-blue-600 hover:bg-blue-700"
                       >
-                        {isManagingSubscription ? 'Hide Management' : 'Manage Subscription'}
+                        {isManagingSubscription
+                          ? "Hide Management"
+                          : "Manage Subscription"}
                       </Button>
                       <Button
                         onClick={handleCancelSubscription}
@@ -311,7 +370,9 @@ export default function PricingPage() {
                         className="w-full"
                         disabled={cancelSubscriptionMutation.isPending}
                       >
-                        {cancelSubscriptionMutation.isPending ? 'Cancelling...' : 'Cancel Subscription'}
+                        {cancelSubscriptionMutation.isPending
+                          ? "Cancelling..."
+                          : "Cancel Subscription"}
                       </Button>
                     </div>
                   </div>
@@ -320,10 +381,15 @@ export default function PricingPage() {
                 {/* Subscription Management Panel */}
                 {isManagingSubscription && (
                   <div className="border-t border-slate-700 pt-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Update Truck Count</h3>
+                    <h3 className="text-lg font-semibold text-white mb-4">
+                      Update Truck Count
+                    </h3>
                     <div className="space-y-4">
                       <div className="flex items-center gap-4">
-                        <Label htmlFor="update-trucks" className="text-slate-300 min-w-0">
+                        <Label
+                          htmlFor="update-trucks"
+                          className="text-slate-300 min-w-0"
+                        >
                           Number of trucks:
                         </Label>
                         <Input
@@ -342,17 +408,27 @@ export default function PricingPage() {
                         />
                         <Button
                           onClick={() => handleUpdateTruckCount(truckCount)}
-                          disabled={updateSubscriptionMutation.isPending || truckCount === currentSubscription.truckCount}
+                          disabled={
+                            updateSubscriptionMutation.isPending ||
+                            truckCount === currentSubscription.truckCount
+                          }
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          {updateSubscriptionMutation.isPending ? 'Updating...' : 'Update'}
+                          {updateSubscriptionMutation.isPending
+                            ? "Updating..."
+                            : "Update"}
                         </Button>
                       </div>
                       <div className="text-sm text-slate-400">
-                        New monthly cost: ${(truckCount * 24.99).toFixed(2)} 
+                        New monthly cost: ${(truckCount * 24.99).toFixed(2)}
                         {truckCount !== currentSubscription.truckCount && (
                           <span className="ml-2">
-                            (Change: ${((truckCount - currentSubscription.truckCount) * 24.99).toFixed(2)})
+                            (Change: $
+                            {(
+                              (truckCount - currentSubscription.truckCount) *
+                              24.99
+                            ).toFixed(2)}
+                            )
                           </span>
                         )}
                       </div>
@@ -367,139 +443,151 @@ export default function PricingPage() {
         {/* Truck Count Selector - Only show for users without subscriptions */}
         {!currentSubscription && (
           <div className="max-w-2xl mx-auto mb-12">
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                How many trucks do you want to manage?
-              </CardTitle>
-              <CardDescription>
-                Adjust to see the best plan for your fleet size
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Slider */}
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm text-slate-400">
-                  <span>1 truck</span>
-                  <span className="text-white font-medium">
-                    {truckCount} trucks
-                  </span>
-                  <span>50+ trucks</span>
-                </div>
-                <Slider
-                  value={[truckCount]}
-                  onValueChange={([value]) => handleTruckCountChange(value)}
-                  max={50}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Custom Input */}
-              <div className="flex items-center gap-4">
-                <Label htmlFor="custom-trucks" className="text-slate-300">
-                  Or enter exact number:
-                </Label>
-                <div className="flex-1 max-w-32">
-                  <Input
-                    id="custom-trucks"
-                    type="number"
-                    min="1"
-                    max="200"
-                    value={customTruckCount}
-                    onChange={(e) =>
-                      handleCustomTruckCountChange(e.target.value)
-                    }
-                    className="bg-slate-700 border-slate-600 text-white"
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  How many trucks do you want to manage?
+                </CardTitle>
+                <CardDescription>
+                  Adjust to see the best plan for your fleet size
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Slider */}
+                <div className="space-y-4">
+                  <div className="flex justify-between text-sm text-slate-400">
+                    <span>1 truck</span>
+                    <span className="text-white font-medium">
+                      {truckCount} trucks
+                    </span>
+                    <span>50+ trucks</span>
+                  </div>
+                  <Slider
+                    value={[truckCount]}
+                    onValueChange={([value]) => handleTruckCountChange(value)}
+                    max={50}
+                    min={1}
+                    step={1}
+                    className="w-full"
                   />
                 </div>
-              </div>
 
-              {/* Current Calculation */}
-              {recommendedPlan && (
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-400">
-                      ${calculatePlanPriceLocal(recommendedPlan, truckCount).toFixed(2)}
-                      /month
-                    </div>
-                    <div className="text-slate-300 text-sm">
-                      Recommended: {recommendedPlan.displayName}
-                      {recommendedPlan.basePrice ? (
-                        <span className="text-slate-400 block">
-                          ($
-                          {(calculatePlanPriceLocal(recommendedPlan, truckCount) / truckCount).toFixed(2)}{" "}
-                          per truck)
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 block">
-                          (${recommendedPlan.pricePerTruck} per truck)
-                        </span>
-                      )}
-                    </div>
+                {/* Custom Input */}
+                <div className="flex items-center gap-4">
+                  <Label htmlFor="custom-trucks" className="text-slate-300">
+                    Or enter exact number:
+                  </Label>
+                  <div className="flex-1 max-w-32">
+                    <Input
+                      id="custom-trucks"
+                      type="number"
+                      min="1"
+                      max="200"
+                      value={customTruckCount}
+                      onChange={(e) =>
+                        handleCustomTruckCountChange(e.target.value)
+                      }
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {/* Current Calculation */}
+                {recommendedPlan && (
+                  <div className="bg-slate-700/50 rounded-lg p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400">
+                        $
+                        {calculatePlanPriceLocal(
+                          recommendedPlan,
+                          truckCount
+                        ).toFixed(2)}
+                        /month
+                      </div>
+                      <div className="text-slate-300 text-sm">
+                        Recommended: {recommendedPlan.displayName}
+                        {recommendedPlan.basePrice ? (
+                          <span className="text-slate-400 block">
+                            ($
+                            {(
+                              calculatePlanPriceLocal(
+                                recommendedPlan,
+                                truckCount
+                              ) / truckCount
+                            ).toFixed(2)}{" "}
+                            per truck)
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 block">
+                            (${recommendedPlan.pricePerTruck} per truck)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
         {/* Pricing Plan - Only show for users without subscriptions */}
         {!currentSubscription && (
           <div className="max-w-md mx-auto mb-16">
-          <Card className="relative bg-slate-800/50 border-2 border-blue-500 shadow-lg shadow-blue-500/20">
-            <CardHeader className="text-center">
-              <div className="text-blue-400 mb-4 flex justify-center">
-                {getPlanIcon("per-truck")}
-              </div>
-              <CardTitle className="text-white text-2xl">
-                Travectio Subscription
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Pay per truck • Scale anytime
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-6">
-              {/* Pricing */}
-              <div className="text-center">
-                <div className="text-4xl font-bold text-white">
-                  $24.99
-                  <span className="text-lg text-slate-400">/truck/month</span>
+            <Card className="relative bg-slate-800/50 border-2 border-blue-500 shadow-lg shadow-blue-500/20">
+              <CardHeader className="text-center">
+                <div className="text-blue-400 mb-4 flex justify-center">
+                  {getPlanIcon("per-truck")}
                 </div>
-                <div className="text-slate-400 text-sm mt-1">
-                  Total: ${(24.99 * truckCount).toFixed(2)}/month for {truckCount} truck{truckCount > 1 ? 's' : ''}
+                <CardTitle className="text-white text-2xl">
+                  Travectio Subscription
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Pay per truck • Scale anytime
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-6">
+                {/* Pricing */}
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-white">
+                    $24.99
+                    <span className="text-lg text-slate-400">/truck/month</span>
+                  </div>
+                  <div className="text-slate-400 text-sm mt-1">
+                    Total: ${(24.99 * truckCount).toFixed(2)}/month for{" "}
+                    {truckCount} truck{truckCount > 1 ? "s" : ""}
+                  </div>
                 </div>
-              </div>
 
-              {/* Features */}
-              <ul className="space-y-2">
-                {getPlanFeatures("per-truck").map((feature, index) => (
-                  <li
-                    key={index}
-                    className="flex items-center gap-2 text-slate-300"
-                  >
-                    <Check className="h-4 w-4 text-green-400" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+                {/* Features */}
+                <ul className="space-y-2">
+                  {getPlanFeatures("per-truck").map((feature, index) => (
+                    <li
+                      key={index}
+                      className="flex items-center gap-2 text-slate-300"
+                    >
+                      <Check className="h-4 w-4 text-green-400" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
 
-              {/* Subscribe Button */}
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                disabled={createCheckoutMutation.isPending}
-                onClick={() => handleSubscribe("per-truck")}
-              >
-                {createCheckoutMutation.isPending
-                  ? "Processing..."
-                  : `Subscribe for ${truckCount} truck${truckCount > 1 ? 's' : ''}`}
-              </Button>
-            </CardContent>
-          </Card>
+                {/* Subscribe Button */}
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  disabled={createCheckoutMutation.isPending}
+                  onClick={() => handleSubscribe("per-truck")}
+                >
+                  {createCheckoutMutation.isPending
+                    ? "Processing..."
+                    : `Subscribe for ${truckCount} truck${
+                        truckCount > 1 ? "s" : ""
+                      }`}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -517,8 +605,9 @@ export default function PricingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  You pay $24.99 for each truck in your fleet every month. 
-                  Add or remove trucks anytime and your billing adjusts automatically.
+                  You pay $24.99 for each truck in your fleet every month. Add
+                  or remove trucks anytime and your billing adjusts
+                  automatically.
                 </p>
               </CardContent>
             </Card>
@@ -531,8 +620,9 @@ export default function PricingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  Yes! You can add or remove trucks from your subscription at any time. 
-                  Changes take effect immediately with prorated billing.
+                  Yes! You can add or remove trucks from your subscription at
+                  any time. Changes take effect immediately with prorated
+                  billing.
                 </p>
               </CardContent>
             </Card>
@@ -545,7 +635,7 @@ export default function PricingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  Yes! Start with a 14-day free trial. No credit card required. 
+                  Yes! Start with a 14-day free trial. No credit card required.
                   Cancel anytime during the trial period with no charges.
                 </p>
               </CardContent>
@@ -559,8 +649,9 @@ export default function PricingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-300">
-                  You need at least 1 truck to subscribe. If you temporarily have no trucks, 
-                  you can pause your subscription and reactivate when needed.
+                  You need at least 1 truck to subscribe. If you temporarily
+                  have no trucks, you can pause your subscription and reactivate
+                  when needed.
                 </p>
               </CardContent>
             </Card>

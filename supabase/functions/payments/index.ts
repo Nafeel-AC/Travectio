@@ -97,6 +97,59 @@ serve(async (req) => {
       )
     }
 
+    if (req.method === 'POST') {
+      // Create a payment confirmation record
+      const body = await req.json()
+      const { subscriptionId, stripeInvoiceId, amount, status = 'paid', paidAt, receiptUrl } = body
+
+      if (!subscriptionId || !amount) {
+        throw new Error('subscriptionId and amount are required')
+      }
+
+      // Verify the subscription belongs to the user
+      const { data: subscription, error: subError } = await supabase
+        .from('subscriptions')
+        .select('userId')
+        .eq('id', subscriptionId)
+        .single()
+
+      if (subError) {
+        throw new Error('Subscription not found')
+      }
+
+      // Check if user can create payment for this subscription
+      if (!isFounder && subscription.userId !== user.id) {
+        throw new Error('Access denied')
+      }
+
+      // Create payment record
+      const { data: payment, error } = await supabase
+        .from('payments')
+        .insert({
+          subscriptionId,
+          stripeInvoiceId,
+          amount,
+          status,
+          paidAt: paidAt || new Date().toISOString(),
+          receiptUrl,
+          createdAt: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        throw error
+      }
+
+      return new Response(
+        JSON.stringify(payment),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 201,
+        },
+      )
+    }
+
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       {

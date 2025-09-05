@@ -5,9 +5,19 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
 // Helper function to call Supabase Edge Functions
-const callSupabaseFunction = async (functionName: string, data: any) => {
+const callSupabaseFunction = async (
+  functionName: string, 
+  data: any = {}, 
+  method: string = 'GET',
+  pathParams?: string
+) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const url = `${supabaseUrl}/functions/v1/${functionName}`;
+  let url = `${supabaseUrl}/functions/v1/${functionName}`;
+  
+  // Add path parameters if provided
+  if (pathParams) {
+    url += `/${pathParams}`;
+  }
   
   // Get current session
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -19,14 +29,20 @@ const callSupabaseFunction = async (functionName: string, data: any) => {
     throw new Error('No valid session found. Please log in again.');
   }
   
-  const response = await fetch(url, {
-    method: 'POST',
+  const options: RequestInit = {
+    method,
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify(data),
-  });
+  };
+  
+  // Only add body for non-GET requests
+  if (method !== 'GET' && Object.keys(data).length > 0) {
+    options.body = JSON.stringify(data);
+  }
+  
+  const response = await fetch(url, options);
   
   if (!response.ok) {
     const errorText = await response.text();
@@ -84,7 +100,7 @@ export const usePricingPlans = () => {
     queryKey: ['pricing-plans'],
     queryFn: async () => {
       try {
-        return await callSupabaseFunction('pricing-plans', {});
+        return await callSupabaseFunction('pricing-plans', {}, 'GET');
       } catch (error: any) {
         // If Edge Functions are not available, return default plans
         if (error.message?.includes('404') || error.message?.includes('not found')) {
@@ -120,7 +136,7 @@ export const useSubscription = () => {
     queryFn: async () => {
       if (!user?.id) return null;
       try {
-        return await callSupabaseFunction('subscriptions', { userId: user.id });
+        return await callSupabaseFunction('subscriptions', {}, 'GET', user.id);
       } catch (error: any) {
         if (error.message?.includes('404') || error.message?.includes('not found')) {
           return null; // No subscription found
@@ -142,7 +158,7 @@ export const usePaymentHistory = () => {
     queryFn: async () => {
       if (!user?.id) return [];
       try {
-        return await callSupabaseFunction('payments', { userId: user.id });
+        return await callSupabaseFunction('payments', {}, 'GET', user.id);
       } catch (error: any) {
         if (error.message?.includes('404') || error.message?.includes('not found')) {
           return []; // No payments found
@@ -174,7 +190,7 @@ export const useCreateCheckoutSession = () => {
       }
       
       try {
-        return await callSupabaseFunction('create-checkout-session', { planId, truckCount });
+        return await callSupabaseFunction('create-checkout-session', { planId, truckCount }, 'POST');
       } catch (error: any) {
         // If Edge Functions are not deployed, show helpful message
         if (error.message?.includes('404') || error.message?.includes('not found')) {
@@ -199,6 +215,42 @@ export const useCreateCheckoutSession = () => {
   });
 };
 
+// Create or update subscription
+export const useCreateSubscription = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async ({ planId, truckCount }: { planId: string; truckCount: number }) => {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      return await callSupabaseFunction('subscriptions', {
+        userId: user.id,
+        planId,
+        truckCount,
+        status: 'active'
+      }, 'POST');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
+      toast({
+        title: "Subscription Created",
+        description: "Your subscription has been created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Creation Error",
+        description: error.message || "Failed to create subscription",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
 // Update subscription (change truck count or plan)
 export const useUpdateSubscription = () => {
   const { toast } = useToast();
@@ -207,8 +259,15 @@ export const useUpdateSubscription = () => {
   
   return useMutation({
     mutationFn: async ({ planId, truckCount }: { planId?: string; truckCount?: number }) => {
-      const response = await apiRequest('/api/update-subscription', 'PUT', { planId, truckCount });
-      return response.json();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      return await callSupabaseFunction('subscriptions', {
+        userId: user.id,
+        planId,
+        truckCount
+      }, 'PUT');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
@@ -235,8 +294,11 @@ export const useCancelSubscription = () => {
   
   return useMutation({
     mutationFn: async ({ immediately = false }: { immediately?: boolean } = {}) => {
-      const response = await apiRequest('/api/cancel-subscription', 'POST', { immediately });
-      return response.json();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      return await callSupabaseFunction('subscriptions', {}, 'DELETE', user.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
@@ -249,6 +311,55 @@ export const useCancelSubscription = () => {
       toast({
         title: "Cancellation Error",
         description: error.message || "Failed to cancel subscription",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+// Create payment confirmation
+export const useCreatePayment = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async ({ 
+      subscriptionId, 
+      amount, 
+      stripeInvoiceId, 
+      status = 'paid',
+      receiptUrl 
+    }: { 
+      subscriptionId: string; 
+      amount: number; 
+      stripeInvoiceId?: string;
+      status?: string;
+      receiptUrl?: string;
+    }) => {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      return await callSupabaseFunction('payments', {
+        subscriptionId,
+        amount,
+        stripeInvoiceId,
+        status,
+        receiptUrl
+      }, 'POST');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payment-history', user?.id] });
+      toast({
+        title: "Payment Confirmed",
+        description: "Payment has been recorded successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Payment Error",
+        description: error.message || "Failed to record payment",
         variant: "destructive",
       });
     },

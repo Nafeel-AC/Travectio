@@ -25,15 +25,10 @@ serve(async (req) => {
     const body = await req.text()
     const signature = req.headers.get('stripe-signature')
 
-    // Temporarily skip signature verification for debugging
-    // if (!signature) {
-    //   throw new Error('No Stripe signature found')
-    // }
-
-    // Skip signature verification for now
+    // Temporarily disable signature verification for debugging
     let event: Stripe.Event
     try {
-      // Parse the event directly without signature verification
+      console.log('Processing webhook without signature verification (for debugging)')
       event = JSON.parse(body) as Stripe.Event
     } catch (err) {
       console.error('Failed to parse webhook body:', err)

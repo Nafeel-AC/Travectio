@@ -34,7 +34,7 @@ serve(async (req) => {
 
     // Extract userId from URL path (last segment)
     const url = new URL(req.url);
-    const pathParts = url.pathname.split("/");
+    const pathParts = url.pathname.split("/").filter(part => part);
     const userIdFromPath = pathParts[pathParts.length - 1];
 
     // Check if user is founder
@@ -58,8 +58,8 @@ serve(async (req) => {
 
     switch (req.method) {
       case "GET": {
-        // For GET, take userId from path
-        const targetUserId = userIdFromPath;
+        // For GET, take userId from path or use current user
+        const targetUserId = userIdFromPath && userIdFromPath !== "subscriptions" ? userIdFromPath : user.id;
         ensureAccess(targetUserId);
 
         const { data: subscription, error } = await supabase
@@ -74,36 +74,135 @@ serve(async (req) => {
       }
 
       case "POST": {
-        // For POST, take userId from body
-        const body = await req.json();
+        // Handle both data creation and data fetching for backwards compatibility
+        const body = await req.json().catch(() => ({}));
+        
+        // If this is a data fetch request (no planId provided)
+        if (!body.planId && body.userId) {
+          const targetUserId = body.userId;
+          ensureAccess(targetUserId);
+
+          const { data: subscription, error } = await supabase
+            .from("subscriptions")
+            .select("*, plan:pricing_plans(*)")
+            .eq("userId", targetUserId)
+            .single();
+
+          if (error && error.code !== "PGRST116") throw error;
+          responseData = subscription || null;
+          break;
+        }
+        
+        // Create or update subscription
         const targetUserId = body.userId || user.id;
         ensureAccess(targetUserId);
 
-        const { data: subscription, error } = await supabase
-          .from("subscriptions")
-          .select("*, plan:pricing_plans(*)")
-          .eq("userId", targetUserId)
+        // Validate required fields for creation
+        if (!body.planId) {
+          throw new Error("planId is required");
+        }
+
+        // Check if plan exists
+        const { data: plan, error: planError } = await supabase
+          .from("pricing_plans")
+          .select("*")
+          .eq("id", body.planId)
+          .eq("isActive", true)
           .single();
 
-        if (error && error.code !== "PGRST116") throw error;
-        responseData = subscription || null;
+        if (planError || !plan) {
+          throw new Error("Invalid or inactive plan");
+        }
+
+        // Prepare subscription data
+        const subscriptionData = {
+          userId: targetUserId,
+          planId: body.planId,
+          status: body.status || "active",
+          startDate: body.startDate || new Date().toISOString(),
+          endDate: body.endDate,
+          stripeCustomerId: body.stripeCustomerId,
+          stripeSubscriptionId: body.stripeSubscriptionId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        // Upsert subscription
+        const { data: subscription, error } = await supabase
+          .from("subscriptions")
+          .upsert(subscriptionData, {
+            onConflict: "userId"
+          })
+          .select("*, plan:pricing_plans(*)")
+          .single();
+
+        if (error) throw error;
+        responseData = subscription;
         break;
       }
 
       case "PUT": {
-        // Example: update subscription
+        // Update existing subscription
         const body = await req.json();
         const targetUserId = body.userId || user.id;
         ensureAccess(targetUserId);
 
-        const { data, error } = await supabase
+        // Check if subscription exists
+        const { data: existingSubscription, error: checkError } = await supabase
           .from("subscriptions")
-          .update({ planId: body.planId })
+          .select("*")
           .eq("userId", targetUserId)
-          .select();
+          .single();
+
+        if (checkError) {
+          throw new Error("Subscription not found");
+        }
+
+        // Prepare update data
+        const updateData = {
+          ...body,
+          userId: targetUserId, // Ensure userId cannot be changed
+          updatedAt: new Date().toISOString()
+        };
+
+        // Remove undefined values
+        Object.keys(updateData).forEach(key => {
+          if (updateData[key] === undefined) {
+            delete updateData[key];
+          }
+        });
+
+        const { data: subscription, error } = await supabase
+          .from("subscriptions")
+          .update(updateData)
+          .eq("userId", targetUserId)
+          .select("*, plan:pricing_plans(*)")
+          .single();
 
         if (error) throw error;
-        responseData = data;
+        responseData = subscription;
+        break;
+      }
+
+      case "DELETE": {
+        // Cancel/delete subscription
+        const targetUserId = userIdFromPath && userIdFromPath !== "subscriptions" ? userIdFromPath : user.id;
+        ensureAccess(targetUserId);
+
+        // Soft delete by updating status to cancelled
+        const { data: subscription, error } = await supabase
+          .from("subscriptions")
+          .update({ 
+            status: "cancelled",
+            endDate: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          })
+          .eq("userId", targetUserId)
+          .select("*, plan:pricing_plans(*)")
+          .single();
+
+        if (error) throw error;
+        responseData = { message: "Subscription cancelled successfully", subscription };
         break;
       }
 
@@ -121,8 +220,12 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Error in subscriptions function:", error);
+    const statusCode = error.message.includes("Authentication required") ? 401 :
+                      error.message.includes("Access denied") ? 403 :
+                      error.message.includes("not found") ? 404 : 400;
+    
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: statusCode,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
