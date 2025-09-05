@@ -18,6 +18,7 @@ import {
   Target,
   Shield,
   Building,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
@@ -139,6 +140,13 @@ const navigationItems: NavigationItem[] = [
     description: "Register new vehicle",
     icon: Plus,
     badge: "Active",
+    customerOnly: true,
+  },
+  {
+    href: "/pricing",
+    label: "Pricing",
+    description: "Subscription plans and billing",
+    icon: CreditCard,
     customerOnly: true,
   },
   {
