@@ -34,6 +34,7 @@ import LoadMatcher from "@/pages/load-matcher";
 import DriversPage from "@/pages/drivers";
 import EnvDebug from "@/components/env-debug";
 import AdminDashboard from "@/pages/admin-dashboard";
+import PricingPage from "@/pages/pricing";
 import RouteGuard from "@/components/route-guard";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
@@ -206,7 +207,7 @@ function Router() {
         </Route>
 
         {/* General routes */}
-        {/* General routes */}
+        <Route path="/pricing" component={PricingPage} />
         <Route
           path="/integration-onboarding"
           component={IntegrationOnboarding}

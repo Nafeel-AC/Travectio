@@ -105,27 +105,55 @@ export const useAuth = () => {
         const token = getClientSessionId(uid);
         const nowIso = new Date().toISOString();
 
-        // Use UPSERT with onConflict to avoid 409s from unique constraint (userId, sessionToken)
-        const { data, error } = await supabase
+        // First try to find existing session
+        const { data: existing } = await supabase
           .from('sessions')
-          .upsert({
-            userId: uid,
-            sessionToken: token,
-            isActive: 1,
-            lastActivity: nowIso,
-            expiresAt: expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-            updatedAt: nowIso,
-          }, { onConflict: '"userId","sessionToken"' })
           .select('id')
+          .eq('userId', uid)
+          .eq('sessionToken', token)
           .single();
 
-        if (error) {
-          console.warn('[useAuth] session upsert error:', error);
-          return;
-        }
-        if (data?.id) {
-          localStorage.setItem('dbSessionId', data.id);
+        if (existing) {
+          // Update existing session
+          const { error: updateError } = await supabase
+            .from('sessions')
+            .update({
+              isActive: 1,
+              lastActivity: nowIso,
+              expiresAt: expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+              updatedAt: nowIso,
+            })
+            .eq('id', existing.id);
+
+          if (updateError) {
+            console.warn('[useAuth] session update error:', updateError);
+            return;
+          }
+          localStorage.setItem('dbSessionId', existing.id);
+        } else {
+          // Insert new session
+          const { data, error } = await supabase
+            .from('sessions')
+            .insert({
+              userId: uid,
+              sessionToken: token,
+              isActive: 1,
+              lastActivity: nowIso,
+              expiresAt: expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+              updatedAt: nowIso,
+            })
+            .select('id')
+            .single();
+
+          if (error) {
+            console.warn('[useAuth] session insert error:', error);
+            return;
+          }
+          if (data?.id) {
+            localStorage.setItem('dbSessionId', data.id);
+          }
         }
       } catch (e) {
         console.warn('[useAuth] upsertSession failed:', e);

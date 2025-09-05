@@ -361,7 +361,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     "ipAddress" TEXT,
     "lastActivity" TIMESTAMP WITH TIME ZONE NOT NULL,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE("userId", "sessionToken")
 );
 
 -- Session audit logs table
@@ -670,6 +671,180 @@ INSERT INTO users (
 ) ON CONFLICT (email) DO NOTHING;
 */
 
+-- =====================================================
+-- PAYMENT AND SUBSCRIPTION TABLES
+-- =====================================================
+
+-- Pricing plans table - Define available subscription plans
+CREATE TABLE IF NOT EXISTS pricing_plans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL UNIQUE,
+    "displayName" TEXT NOT NULL,
+    "minTrucks" INTEGER NOT NULL,
+    "maxTrucks" INTEGER, -- NULL for unlimited
+    "basePrice" NUMERIC(10,2), -- Fixed price for tier (NULL for per-truck pricing)
+    "pricePerTruck" NUMERIC(10,2), -- Per truck price (for Enterprise plan)
+    "stripePriceId" TEXT, -- Stripe price ID for this plan
+    "isActive" BOOLEAN DEFAULT TRUE,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default pricing plans
+INSERT INTO pricing_plans (name, "displayName", "minTrucks", "maxTrucks", "basePrice", "pricePerTruck", "isActive") VALUES
+('starter', 'Starter Plan', 1, 5, 99.00, NULL, TRUE),
+('growth', 'Growth Plan', 6, 15, 199.00, NULL, TRUE),
+('enterprise', 'Enterprise Plan', 16, NULL, NULL, 12.00, TRUE)
+ON CONFLICT (name) DO NOTHING;
+
+-- Subscriptions table - Track customer subscription details
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "userId" UUID NOT NULL REFERENCES users(id),
+    "planId" UUID NOT NULL REFERENCES pricing_plans(id),
+    "stripeCustomerId" TEXT,
+    "stripeSubscriptionId" TEXT,
+    "truckCount" INTEGER NOT NULL DEFAULT 0,
+    "calculatedAmount" NUMERIC(10,2) NOT NULL DEFAULT 0, -- Calculated based on plan and truck count
+    status TEXT NOT NULL DEFAULT 'active',
+    "currentPeriodStart" TIMESTAMP WITH TIME ZONE,
+    "currentPeriodEnd" TIMESTAMP WITH TIME ZONE,
+    "cancelAtPeriodEnd" BOOLEAN DEFAULT FALSE,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Payments table - Track payment history and invoices
+CREATE TABLE IF NOT EXISTS payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "subscriptionId" UUID NOT NULL REFERENCES subscriptions(id),
+    "stripeInvoiceId" TEXT,
+    amount NUMERIC(10,2) NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    "paidAt" TIMESTAMP WITH TIME ZONE,
+    "receiptUrl" TEXT,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS Policies for pricing_plans
+ALTER TABLE pricing_plans ENABLE ROW LEVEL SECURITY;
+
+-- Everyone can read active pricing plans
+CREATE POLICY "Anyone can read active pricing plans" ON pricing_plans
+    FOR SELECT USING ("isActive" = TRUE);
+
+-- Only founders can modify pricing plans
+CREATE POLICY "Only founders can modify pricing plans" ON pricing_plans
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE id = auth.uid() AND "isFounder" = 1
+        )
+    );
+
+-- RLS Policies for subscriptions
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own subscriptions
+CREATE POLICY "Users can only see their own subscriptions" ON subscriptions
+    FOR ALL USING (auth.uid() = "userId");
+
+-- Founders can see all subscriptions
+CREATE POLICY "Founders can see all subscriptions" ON subscriptions
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE id = auth.uid() AND "isFounder" = 1
+        )
+    );
+
+-- RLS Policies for payments
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see payments for their subscriptions
+CREATE POLICY "Users can only see their own payments" ON payments
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM subscriptions 
+            WHERE id = "subscriptionId" AND "userId" = auth.uid()
+        )
+    );
+
+-- Founders can see all payments
+CREATE POLICY "Founders can see all payments" ON payments
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE id = auth.uid() AND "isFounder" = 1
+        )
+    );
+
+-- Helper function to calculate subscription amount based on plan and truck count
+CREATE OR REPLACE FUNCTION calculate_subscription_amount(plan_id UUID, truck_count INTEGER)
+RETURNS NUMERIC(10,2) AS $$
+DECLARE
+    plan_record pricing_plans%ROWTYPE;
+    calculated_amount NUMERIC(10,2);
+BEGIN
+    -- Get the pricing plan details
+    SELECT * INTO plan_record FROM pricing_plans WHERE id = plan_id;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Pricing plan not found';
+    END IF;
+    
+    -- Validate truck count is within plan limits
+    IF truck_count < plan_record."minTrucks" THEN
+        RAISE EXCEPTION 'Truck count % is below minimum % for plan %', truck_count, plan_record."minTrucks", plan_record."displayName";
+    END IF;
+    
+    IF plan_record."maxTrucks" IS NOT NULL AND truck_count > plan_record."maxTrucks" THEN
+        RAISE EXCEPTION 'Truck count % exceeds maximum % for plan %', truck_count, plan_record."maxTrucks", plan_record."displayName";
+    END IF;
+    
+    -- Calculate amount based on plan type
+    IF plan_record."basePrice" IS NOT NULL THEN
+        -- Fixed price plan (Starter/Growth)
+        calculated_amount = plan_record."basePrice";
+    ELSE
+        -- Per-truck pricing (Enterprise)
+        calculated_amount = plan_record."pricePerTruck" * truck_count;
+    END IF;
+    
+    RETURN calculated_amount;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper function to get recommended plan for a truck count
+CREATE OR REPLACE FUNCTION get_recommended_plan(truck_count INTEGER)
+RETURNS UUID AS $$
+DECLARE
+    plan_id UUID;
+BEGIN
+    -- Get the most cost-effective plan for the truck count
+    SELECT p.id INTO plan_id
+    FROM pricing_plans p
+    WHERE p."isActive" = TRUE
+      AND truck_count >= p."minTrucks"
+      AND (p."maxTrucks" IS NULL OR truck_count <= p."maxTrucks")
+    ORDER BY 
+        CASE 
+            WHEN p."basePrice" IS NOT NULL THEN p."basePrice"
+            ELSE p."pricePerTruck" * truck_count
+        END
+    LIMIT 1;
+    
+    RETURN plan_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Index for better performance
+CREATE INDEX IF NOT EXISTS idx_pricing_plans_active ON pricing_plans("isActive");
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions("userId");
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan_id ON subscriptions("planId");
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer_id ON subscriptions("stripeCustomerId");
+CREATE INDEX IF NOT EXISTS idx_payments_subscription_id ON payments("subscriptionId");
+
 -- Table comments for documentation
 COMMENT ON TABLE users IS 'User accounts and authentication data';
 COMMENT ON TABLE trucks IS 'Fleet vehicles and configurations';
@@ -690,6 +865,9 @@ COMMENT ON TABLE system_metrics IS 'System-wide performance metrics';
 COMMENT ON TABLE feature_analytics IS 'Feature usage analytics';
 COMMENT ON TABLE sessions IS 'User session management';
 COMMENT ON TABLE session_audit_logs IS 'Session activity audit trail';
+COMMENT ON TABLE pricing_plans IS 'Available subscription plans and pricing tiers';
+COMMENT ON TABLE subscriptions IS 'Customer subscription plans and billing details';
+COMMENT ON TABLE payments IS 'Payment history and invoice tracking';
 
 -- =====================================================
 -- VERIFICATION QUERY
@@ -705,7 +883,8 @@ AND table_name IN (
     'hos_logs', 'load_board', 'load_plans', 'load_plan_legs',
     'fleet_metrics', 'truck_cost_breakdown', 'fuel_purchases',
     'activities', 'user_analytics', 'data_input_tracking',
-    'system_metrics', 'feature_analytics', 'sessions', 'session_audit_logs'
+    'system_metrics', 'feature_analytics', 'sessions', 'session_audit_logs',
+    'pricing_plans', 'subscriptions', 'payments'
 )
 GROUP BY table_name
 ORDER BY table_name;

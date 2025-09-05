@@ -1,14 +1,15 @@
 import { cn } from "@/lib/utils";
-import { 
-  Home, 
-  Clock, 
-  Package, 
+import {
+  Home,
+  Clock,
+  Package,
   Plus,
   User,
   Users,
   X,
   Fuel,
-  Truck
+  Truck,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -22,25 +23,56 @@ interface SidebarProps {
 const getNavigation = (isAdmin: boolean) => {
   const baseNavigation = [
     { name: "Dashboard", href: "/", icon: Home, current: true },
-    { name: "HOS Management", href: "/hos-management", icon: Clock, current: false },
-    { name: "Load Management", href: "/load-management", icon: Package, current: false },
-    { name: "Truck Profiles", href: "/truck-profiles", icon: Truck, current: false },
-    { name: "Fuel Management", href: "/fuel-management", icon: Fuel, current: false },
+    {
+      name: "HOS Management",
+      href: "/hos-management",
+      icon: Clock,
+      current: false,
+    },
+    {
+      name: "Load Management",
+      href: "/load-management",
+      icon: Package,
+      current: false,
+    },
+    {
+      name: "Truck Profiles",
+      href: "/truck-profiles",
+      icon: Truck,
+      current: false,
+    },
+    {
+      name: "Fuel Management",
+      href: "/fuel-management",
+      icon: Fuel,
+      current: false,
+    },
     { name: "Add Truck", href: "/add-truck", icon: Plus, current: false },
+    { name: "Pricing", href: "/pricing", icon: CreditCard, current: false },
   ];
 
   if (isAdmin) {
-    baseNavigation.push({ name: "User Management", href: "/user-management", icon: Users, current: false });
+    baseNavigation.push({
+      name: "User Management",
+      href: "/user-management",
+      icon: Users,
+      current: false,
+    });
   }
 
-  baseNavigation.push({ name: "Profile", href: "/profile", icon: User, current: false });
-  
+  baseNavigation.push({
+    name: "Profile",
+    href: "/profile",
+    icon: User,
+    current: false,
+  });
+
   return baseNavigation;
 };
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user } = useAuth();
-  
+
   const navigation = getNavigation((user as any)?.isAdmin || false);
   return (
     <>
