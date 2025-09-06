@@ -90,6 +90,13 @@ export default function PricingPage() {
   const updateSubscriptionMutation = useUpdateSubscription();
   const cancelSubscriptionMutation = useCancelSubscription();
 
+  // Initialize truck count from current subscription when managing
+  useEffect(() => {
+    if (currentSubscription && isManagingSubscription) {
+      setTruckCount(currentSubscription.truckCount);
+    }
+  }, [currentSubscription, isManagingSubscription]);
+
   // Handle success callback from Stripe
   useEffect(() => {
     const urlParams = new URLSearchParams(search);
@@ -395,13 +402,25 @@ export default function PricingPage() {
                         <Input
                           id="update-trucks"
                           type="number"
-                          min="1"
-                          max="200"
                           value={truckCount}
                           onChange={(e) => {
-                            const value = parseInt(e.target.value) || 1;
-                            if (value > 0 && value <= 200) {
+                            const inputValue = e.target.value;
+                            // Allow empty input while typing
+                            if (inputValue === '') {
+                              setTruckCount(1);
+                              return;
+                            }
+                            const value = parseInt(inputValue);
+                            // Only update if it's a valid number within range
+                            if (!isNaN(value) && value > 0 && value <= 200) {
                               setTruckCount(value);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // Ensure minimum value on blur (when user leaves the field)
+                            const value = parseInt(e.target.value);
+                            if (isNaN(value) || value < 1) {
+                              setTruckCount(1);
                             }
                           }}
                           className="w-32 bg-slate-700 border-slate-600 text-white"
