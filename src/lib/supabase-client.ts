@@ -297,6 +297,28 @@ class TruckService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Check subscription limits
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('truckCount, status')
+      .eq('userId', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (!subscription) {
+      throw new Error('Active subscription required to add trucks. Please subscribe to a plan first.');
+    }
+
+    // Get current truck count
+    const { count: currentTruckCount } = await supabase
+      .from('trucks')
+      .select('*', { count: 'exact', head: true })
+      .eq('userId', user.id);
+
+    if (currentTruckCount >= subscription.truckCount) {
+      throw new Error(`Truck limit reached. You can only have ${subscription.truckCount} trucks with your current subscription. Please upgrade to add more trucks.`);
+    }
+
     // Check if truck with same name already exists for this user
     const { data: existingTruck } = await supabase
       .from('trucks')

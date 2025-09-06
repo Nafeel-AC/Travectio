@@ -19,9 +19,12 @@ import {
   Shield,
   Building,
   CreditCard,
+  Lock,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
+import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
 import { supabase } from "@/lib/supabase";
 
 interface NavigationItem {
@@ -161,6 +164,7 @@ export default function ModernSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { isFounder, isAdmin } = useFounderAccess();
+  const { isSubscribed, truckLimit, currentTruckCount, canAddTrucks, remainingTrucks, isLoading } = useSubscriptionLimits();
   
 
   // Debug logs to troubleshoot the demo switcher visibility
@@ -192,6 +196,46 @@ export default function ModernSidebar() {
           <p className="text-sm text-slate-400">Fleet Management</p>
         </div>
       </div>
+
+      {/* Subscription Status */}
+      {!isFounder && !isAdmin && (
+        <div className="px-6 py-4 border-b border-slate-700">
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-700 rounded mb-2"></div>
+              <div className="h-3 bg-slate-700 rounded w-2/3"></div>
+            </div>
+          ) : isSubscribed ? (
+            <div className="bg-green-900/20 border border-green-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <span className="text-sm font-medium text-green-400">Active Subscription</span>
+              </div>
+              <div className="text-xs text-slate-300">
+                {currentTruckCount} / {truckLimit} trucks used
+                {remainingTrucks > 0 && (
+                  <span className="text-green-400 ml-1">({remainingTrucks} remaining)</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-orange-900/20 border border-orange-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-orange-400" />
+                <span className="text-sm font-medium text-orange-400">No Active Subscription</span>
+              </div>
+              <div className="text-xs text-slate-300 mb-2">
+                Subscribe to access fleet management features
+              </div>
+              <Link href="/pricing">
+                <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700">
+                  View Plans
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

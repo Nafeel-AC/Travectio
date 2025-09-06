@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useTrucks } from "@/hooks/useSupabase";
-import { Plus, Truck, DollarSign, Calculator, Info } from "lucide-react";
+import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
+import { Plus, Truck, DollarSign, Calculator, Info, AlertCircle, Lock } from "lucide-react";
 
 interface AddTruckDialogProps {
   trigger?: React.ReactNode;
@@ -16,6 +17,7 @@ interface AddTruckDialogProps {
 
 export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { canAddTrucks, isSubscribed, truckLimit, currentTruckCount, remainingTrucks } = useSubscriptionLimits();
   const [truckInfo, setTruckInfo] = useState({
     name: "",
     make: "",
@@ -62,6 +64,25 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check subscription limits
+    if (!isSubscribed) {
+      toast({
+        title: "Subscription Required",
+        description: "You need an active subscription to add trucks. Please subscribe to a plan first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!canAddTrucks) {
+      toast({
+        title: "Truck Limit Reached",
+        description: `You have reached your truck limit of ${truckLimit}. Please upgrade your subscription to add more trucks.`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       // Calculate total costs for database
@@ -549,6 +570,51 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
             </CardContent>
           </Card>
 
+          {/* Subscription Status */}
+          {!isSubscribed ? (
+            <div className="bg-orange-900/20 border border-orange-800 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Lock className="w-5 h-5 text-orange-400" />
+                <span className="font-medium text-orange-400">Subscription Required</span>
+              </div>
+              <p className="text-sm text-slate-300 mb-3">
+                You need an active subscription to add trucks to your fleet.
+              </p>
+              <Button 
+                onClick={() => window.location.href = '/pricing'}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                View Subscription Plans
+              </Button>
+            </div>
+          ) : !canAddTrucks ? (
+            <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+                <span className="font-medium text-red-400">Truck Limit Reached</span>
+              </div>
+              <p className="text-sm text-slate-300 mb-3">
+                You have reached your truck limit of {truckLimit} trucks. Upgrade your subscription to add more trucks.
+              </p>
+              <Button 
+                onClick={() => window.location.href = '/pricing'}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Upgrade Subscription
+              </Button>
+            </div>
+          ) : (
+            <div className="bg-green-900/20 border border-green-800 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <span className="font-medium text-green-400">Ready to Add Truck</span>
+              </div>
+              <p className="text-sm text-slate-300">
+                You can add {remainingTrucks} more truck{remainingTrucks !== 1 ? 's' : ''} to your fleet.
+              </p>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 relative z-[10000]">
             <Button
@@ -560,9 +626,10 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
             </Button>
             <Button
               onClick={handleSubmit}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!isSubscribed || !canAddTrucks}
+              className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add Truck to Fleet
+              {!isSubscribed ? 'Subscription Required' : !canAddTrucks ? 'Truck Limit Reached' : 'Add Truck to Fleet'}
             </Button>
           </div>
         </div>
