@@ -150,7 +150,6 @@ const navigationItems: NavigationItem[] = [
     label: "Pricing",
     description: "Subscription plans and billing",
     icon: CreditCard,
-    customerOnly: true,
   },
   {
     href: "/profile",
@@ -245,38 +244,58 @@ export default function ModernSidebar() {
             location === item.href ||
             (item.href !== "/" && location.startsWith(item.href));
 
+          // Check if this item should be disabled due to no subscription
+          // Only disable customer-only features for non-subscribers (not for admins or founders)
+          const isDisabled = !isFounder && !isAdmin && !isSubscribed && item.customerOnly;
+
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={isDisabled ? "#" : item.href}>
               <div
                 className={`
-                flex items-center gap-3 p-3 rounded-lg transition-all duration-200 cursor-pointer group
+                flex items-center gap-3 p-3 rounded-lg transition-all duration-200 group
                 ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
-                    : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  isDisabled
+                    ? "text-slate-500 cursor-not-allowed opacity-50"
+                    : isActive
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25 cursor-pointer"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-white cursor-pointer"
                 }
               `}
+                onClick={(e) => {
+                  if (isDisabled) {
+                    e.preventDefault();
+                  }
+                }}
               >
                 <Icon
                   className={`w-5 h-5 ${
-                    isActive
+                    isDisabled
+                      ? "text-slate-600"
+                      : isActive
                       ? "text-white"
                       : "text-slate-400 group-hover:text-white"
                   }`}
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-sm">{item.label}</div>
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    {item.label}
+                    {isDisabled && (
+                      <Lock className="w-3 h-3 text-slate-600" />
+                    )}
+                  </div>
                   <div
                     className={`text-xs ${
-                      isActive
+                      isDisabled
+                        ? "text-slate-600"
+                        : isActive
                         ? "text-blue-100"
                         : "text-slate-500 group-hover:text-slate-400"
                     }`}
                   >
-                    {item.description}
+                    {isDisabled ? "Subscription required" : item.description}
                   </div>
                 </div>
-                {item.badge && (
+                {item.badge && !isDisabled && (
                   <Badge variant="secondary" className="text-xs">
                     {item.badge}
                   </Badge>
