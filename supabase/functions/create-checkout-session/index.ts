@@ -103,21 +103,12 @@ serve(async (req) => {
       stripeCustomerId = customer.id
     }
 
-    // Create dynamic price for per-truck pricing
-    const unitAmount = Math.round(plan.pricePerTruck * 100) // Convert to cents
+    // Use Stripe Price ID for trial period support
+    // TODO: Replace with your actual Stripe Price ID from dashboard
+    const STRIPE_PRICE_ID = 'price_YOUR_STRIPE_PRICE_ID_HERE' // Get this from Stripe Dashboard
 
     const priceData = {
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: 'Travectio Subscription',
-          description: `Fleet management for ${truckCount} truck${truckCount > 1 ? 's' : ''}`,
-        },
-        unit_amount: unitAmount,
-        recurring: {
-          interval: 'month',
-        },
-      },
+      price: STRIPE_PRICE_ID,
       quantity: truckCount,
     }
 
