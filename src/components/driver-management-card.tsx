@@ -134,11 +134,11 @@ export function DriverManagementCard({ driver, assignedTrucks = 0, onUpdate }: D
               <span className="text-white font-medium">{driver.cdlNumber}</span>
             </div>
             
-            {driver.phone && (
+            {driver.phoneNumber && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="w-4 h-4 text-slate-400" />
                 <span className="text-slate-300">Phone:</span>
-                <span className="text-white">{driver.phone}</span>
+                <span className="text-white">{driver.phoneNumber}</span>
               </div>
             )}
             

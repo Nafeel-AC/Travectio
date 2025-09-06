@@ -25,9 +25,8 @@ export function AddDriverForm({ onSuccess, onCancel }: AddDriverFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     cdlNumber: "",
-    phone: "",
+    phoneNumber: "",
     email: "",
-    payPerMile: 0.50,
     isActive: true
   });
   
@@ -42,11 +41,14 @@ export function AddDriverForm({ onSuccess, onCancel }: AddDriverFormProps) {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
       
-      // Convert boolean isActive to integer for database
+      // Map form data to database schema
       const driverData = {
-        ...data,
+        name: data.name,
         firstName,
         lastName,
+        cdlNumber: data.cdlNumber,
+        phoneNumber: data.phoneNumber,
+        email: data.email,
         isActive: data.isActive ? 1 : 0
       };
       return DriverService.createDriver(driverData);
@@ -91,12 +93,8 @@ export function AddDriverForm({ onSuccess, onCancel }: AddDriverFormProps) {
       newErrors.email = "Please enter a valid email address";
     }
     
-    if (formData.phone && formData.phone.length > 0 && formData.phone.length < 10) {
-      newErrors.phone = "Please enter a valid phone number";
-    }
-    
-    if (formData.payPerMile < 0.10 || formData.payPerMile > 5.00) {
-      newErrors.payPerMile = "Pay per mile should be between $0.10 and $5.00";
+    if (formData.phoneNumber && formData.phoneNumber.length > 0 && formData.phoneNumber.length < 10) {
+      newErrors.phoneNumber = "Please enter a valid phone number";
     }
     
     setErrors(newErrors);
@@ -162,21 +160,21 @@ export function AddDriverForm({ onSuccess, onCancel }: AddDriverFormProps) {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="phone" className="text-slate-200 flex items-center gap-2">
+          <Label htmlFor="phoneNumber" className="text-slate-200 flex items-center gap-2">
             <Phone className="w-4 h-4" />
             Phone Number
           </Label>
           <Input
-            id="phone"
-            value={formData.phone}
-            onChange={(e) => handleInputChange("phone", e.target.value)}
+            id="phoneNumber"
+            value={formData.phoneNumber}
+            onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
             className="bg-slate-700 border-slate-600 text-white"
             placeholder="(555) 123-4567"
           />
-          {errors.phone && (
+          {errors.phoneNumber && (
             <p className="text-red-400 text-sm flex items-center gap-1">
               <AlertTriangle className="w-4 h-4" />
-              {errors.phone}
+              {errors.phoneNumber}
             </p>
           )}
         </div>

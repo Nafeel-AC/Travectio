@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/useSupabase";
+import { useAuth, useAccountDeletion } from "@/hooks/useSupabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,8 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, User, Shield, Calendar, Mail } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { User as UserType } from "@shared/schema";
 import {
@@ -27,43 +24,11 @@ import {
 
 export default function Profile() {
   const { user, isLoading } = useAuth();
+  const { deleteAccount, isDeleting } = useAccountDeletion();
   
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
-
-  const deleteAccountMutation = useMutation({
-    mutationFn: async ({ reason }: { reason: string }) => {
-      return await apiRequest("/api/user/delete-account", "POST", { reason });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Account Deletion Initiated",
-        description: "Your account has been scheduled for deletion. You will be logged out shortly.",
-        variant: "default",
-      });
-      setTimeout(async () => {
-        try {
-          // Use the proper Supabase logout method
-          await supabase.auth.signOut();
-          // Redirect to landing page after successful logout
-          window.location.href = "/";
-        } catch (error) {
-          console.error('Logout error:', error);
-          // Fallback to redirect even if there's an error
-          window.location.href = "/";
-        }
-      }, 2000);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Account Deletion Failed",
-        description: error?.message || "Failed to delete account. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
 
   if (isLoading) {
     return (
@@ -95,7 +60,7 @@ export default function Profile() {
   // Cast the Supabase user to our custom User type
   const userProfile = user as unknown as UserType;
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (deleteConfirmation !== "DELETE") {
       toast({
         title: "Confirmation Required",
@@ -114,7 +79,12 @@ export default function Profile() {
       return;
     }
 
-    deleteAccountMutation.mutate({ reason: deleteReason });
+    try {
+      await deleteAccount(deleteReason);
+    } catch (error) {
+      // Error is already handled by the hook
+      console.error('Account deletion error:', error);
+    }
   };
 
   return (
@@ -262,10 +232,10 @@ export default function Profile() {
                   <Button 
                     variant="destructive" 
                     className="w-full"
-                    disabled={deleteAccountMutation.isPending}
+                    disabled={isDeleting}
                   >
                     <AlertTriangle className="h-4 w-4 mr-2" />
-                    Delete My Account
+                    {isDeleting ? "Deleting Account..." : "Delete My Account"}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -301,9 +271,9 @@ export default function Profile() {
                     <AlertDialogAction
                       onClick={handleDeleteAccount}
                       className="bg-red-600 hover:bg-red-700"
-                      disabled={deleteAccountMutation.isPending}
+                      disabled={isDeleting}
                     >
-                      {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
+                      {isDeleting ? "Deleting..." : "Delete Account"}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

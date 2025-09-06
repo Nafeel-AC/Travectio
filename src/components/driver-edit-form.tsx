@@ -41,9 +41,8 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
   const [formData, setFormData] = useState({
     name: driver.name || "",
     cdlNumber: driver.cdlNumber || "",
-    phone: driver.phone || "",
+    phoneNumber: driver.phoneNumber || "",
     email: driver.email || "",
-    payPerMile: driver.payPerMile || 0.50,
     isActive: driver.isActive
   });
   
@@ -59,11 +58,14 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
       
-      // Convert boolean isActive to integer for database
+      // Map form data to database schema
       const driverData = {
-        ...data,
+        name: data.name,
         firstName,
         lastName,
+        cdlNumber: data.cdlNumber,
+        phoneNumber: data.phoneNumber,
+        email: data.email,
         isActive: data.isActive ? 1 : 0
       };
       return updateDriver(driver.id, driverData);
@@ -109,12 +111,8 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
       newErrors.email = "Please enter a valid email address";
     }
     
-    if (formData.phone && formData.phone.length > 0 && formData.phone.length < 10) {
-      newErrors.phone = "Please enter a valid phone number";
-    }
-    
-    if (formData.payPerMile < 0.10 || formData.payPerMile > 5.00) {
-      newErrors.payPerMile = "Pay per mile should be between $0.10 and $5.00";
+    if (formData.phoneNumber && formData.phoneNumber.length > 0 && formData.phoneNumber.length < 10) {
+      newErrors.phoneNumber = "Please enter a valid phone number";
     }
     
     setErrors(newErrors);
@@ -168,12 +166,12 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
             <Label htmlFor="phone" className="text-slate-200">Phone (Optional)</Label>
             <Input
               id="phone"
-              value={formData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
+              value={formData.phoneNumber}
+              onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
               className="bg-slate-700 border-slate-600 text-white"
               placeholder="(555) 123-4567"
             />
-            {errors.phone && <p className="text-red-400 text-xs">{errors.phone}</p>}
+            {errors.phoneNumber && <p className="text-red-400 text-xs">{errors.phoneNumber}</p>}
           </div>
           
           <div className="space-y-2">
@@ -311,15 +309,15 @@ export function DriverEditForm({ driver, onSave, onCancel, compact = false }: Dr
               </Label>
               <Input
                 id="phone"
-                value={formData.phone}
-                onChange={(e) => handleInputChange("phone", e.target.value)}
+                value={formData.phoneNumber}
+                onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white"
                 placeholder="(555) 123-4567"
               />
-              {errors.phone && (
+              {errors.phoneNumber && (
                 <p className="text-red-400 text-sm flex items-center gap-1">
                   <AlertTriangle className="w-4 h-4" />
-                  {errors.phone}
+                  {errors.phoneNumber}
                 </p>
               )}
             </div>

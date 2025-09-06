@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from '../lib/supabase';
 import { 
   UserService, 
@@ -106,12 +108,12 @@ export const useAuth = () => {
         const nowIso = new Date().toISOString();
 
         // First try to find existing session
-        const { data: existing } = await supabase
+        const { data: existing, error: findError } = await supabase
           .from('sessions')
           .select('id')
           .eq('userId', uid)
           .eq('sessionToken', token)
-          .single();
+          .maybeSingle();
 
         if (existing) {
           // Update existing session
@@ -182,13 +184,13 @@ export const useAuth = () => {
           const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionId') : null;
           const uidLocal = (typeof localStorage !== 'undefined') ? localStorage.getItem('clientSessionUserId') : null;
           if (token && uidLocal) {
-            const { data: rows } = await supabase
+            const { data: rows, error: sessionError } = await supabase
               .from('sessions')
               .select('id')
               .eq('userId', uidLocal)
               .eq('sessionToken', token)
               .limit(1);
-            if (rows && rows.length > 0) sid = rows[0].id;
+            if (!sessionError && rows && rows.length > 0) sid = rows[0].id;
           }
         }
         await supabase.from('session_audit_logs').insert({
@@ -1280,6 +1282,51 @@ export const useUserManagement = () => {
     setFounder,
     terminateUser,
     reactivateUser
+  };
+};
+
+// ============================================================================
+// ACCOUNT DELETION HOOK
+// ============================================================================
+
+export const useAccountDeletion = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async ({ reason }: { reason: string }) => {
+      return await UserService.deleteCurrentUserAccount(reason);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Account Deleted Successfully",
+        description: "Your account and all associated data have been permanently deleted.",
+        variant: "default",
+      });
+      // Clear all cached data
+      queryClient.clear();
+      // Redirect to landing page after successful deletion
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 2000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Account Deletion Failed",
+        description: error?.message || "Failed to delete account. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAccount = useCallback(async (reason: string) => {
+    return deleteAccountMutation.mutateAsync({ reason });
+  }, [deleteAccountMutation]);
+
+  return {
+    deleteAccount,
+    isDeleting: deleteAccountMutation.isPending,
+    error: deleteAccountMutation.error
   };
 };
 

@@ -39,7 +39,7 @@ export default function TruckProfile() {
   });
 
   // Fetch cost breakdown data
-  const { data: costBreakdown } = useQuery({
+  const { data: costBreakdown, isLoading: costBreakdownLoading } = useQuery({
     queryKey: ['truck-cost-breakdown', id],
     queryFn: () => TruckService.getLatestCostBreakdown(id!),
     enabled: !!id,
@@ -79,6 +79,72 @@ export default function TruckProfile() {
       toast({
         title: "Error",
         description: error.message || "Failed to update truck information",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createCostBreakdownMutation = useMutation({
+    mutationFn: async (costData: any) => {
+      // Calculate new totals
+      const standardWeeklyMiles = 3000;
+      // Convert driver pay per mile (cents) to weekly dollars at 3000 miles
+      const driverPayWeekly = costData.driverPayPerMile ? (costData.driverPayPerMile / 100) * 3000 : 0;
+      
+      const totalFixedCosts = Object.entries(costData)
+        .filter(([key]) => ['truckPayment', 'trailerPayment', 'elogSubscription', 'liabilityInsurance', 
+                           'physicalInsurance', 'cargoInsurance', 'trailerInterchange', 'bobtailInsurance',
+                           'nonTruckingLiability', 'basePlateDeduction', 'companyPhone'].includes(key))
+        .reduce((sum, [, value]) => sum + (typeof value === 'number' ? value : 0), 0);
+      
+      const totalVariableCosts = driverPayWeekly + Object.entries(costData)
+        .filter(([key]) => ['fuel', 'maintenance', 'tolls', 'dwellTime', 'reeferFuel', 'truckParking'].includes(key))
+        .reduce((sum, [, value]) => sum + (typeof value === 'number' ? value : 0), 0);
+      
+      const totalWeeklyCosts = totalFixedCosts + totalVariableCosts;
+      const costPerMile = totalWeeklyCosts / standardWeeklyMiles;
+
+      // Remove driverPayPerMile and add driverPay (weekly amount)
+      const { driverPayPerMile, ...costsWithoutDriverPay } = costData;
+      
+      const breakdownData = {
+        ...costsWithoutDriverPay,
+        driverPay: driverPayWeekly, // Convert to weekly amount
+        totalFixedCosts,
+        totalVariableCosts,
+        totalWeeklyCosts,
+        costPerMile,
+        weekStarting: new Date().toISOString().slice(0, 10),
+        weekEnding: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        milesThisWeek: 3000
+      };
+
+      // Create cost breakdown
+      const newBreakdown = await TruckService.createCostBreakdown(id!, breakdownData);
+
+      // Also update the truck's summary costs and cost per mile
+      await TruckService.updateTruck(id!, {
+        fixedCosts: totalFixedCosts,
+        variableCosts: totalVariableCosts,
+        costPerMile: costPerMile
+      });
+
+      return newBreakdown;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Cost breakdown created",
+        description: "Your truck costs have been saved successfully",
+      });
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ['truck-cost-breakdown', id] });
+      queryClient.invalidateQueries({ queryKey: ['truck', id] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Creation failed",
+        description: "Could not create cost breakdown. Please try again.",
         variant: "destructive",
       });
     },
@@ -179,8 +245,30 @@ export default function TruckProfile() {
         // Convert weekly driverPay back to cents per mile for editing
         driverPayPerMile: costBreakdown?.driverPay ? ((costBreakdown.driverPay / 3000) * 100).toFixed(1) : '0'
       });
-      setIsEditing(true);
+    } else {
+      // Initialize with default values for new cost breakdown
+      setEditedCosts({
+        truckPayment: 0,
+        trailerPayment: 0,
+        elogSubscription: 0,
+        liabilityInsurance: 0,
+        physicalInsurance: 0,
+        cargoInsurance: 0,
+        trailerInterchange: 0,
+        bobtailInsurance: 0,
+        nonTruckingLiability: 0,
+        basePlateDeduction: 0,
+        companyPhone: 0,
+        driverPayPerMile: '0',
+        fuel: 0,
+        maintenance: 0,
+        tolls: 0,
+        dwellTime: 0,
+        reeferFuel: 0,
+        truckParking: 0
+      });
     }
+    setIsEditing(true);
   };
 
   const cancelEditing = () => {
@@ -189,7 +277,11 @@ export default function TruckProfile() {
   };
 
   const saveChanges = () => {
-    updateCostsMutation.mutate(editedCosts);
+    if (costBreakdown) {
+      updateCostsMutation.mutate(editedCosts);
+    } else {
+      createCostBreakdownMutation.mutate(editedCosts);
+    }
   };
 
   const handleCostChange = (field: string, value: string) => {
@@ -536,16 +628,18 @@ export default function TruckProfile() {
             </CardContent>
           </Card>
 
-          {costBreakdown && (
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-white">Cost Breakdown</CardTitle>
-                    <p className="text-slate-400 text-sm">
-                      Week starting {new Date(costBreakdown.weekStarting).toLocaleDateString()}
-                    </p>
-                  </div>
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-white">Cost Breakdown</CardTitle>
+                  <p className="text-slate-400 text-sm">
+                    {costBreakdown 
+                      ? `Week starting ${new Date(costBreakdown.weekStarting).toLocaleDateString()}`
+                      : "No cost data available - Click Edit to add costs"
+                    }
+                  </p>
+                </div>
                   <div className="flex gap-2">
                     {!isEditing ? (
                       <Button 
@@ -553,9 +647,10 @@ export default function TruckProfile() {
                         size="sm" 
                         variant="outline" 
                         className="border-blue-600 text-blue-400 hover:bg-blue-600/20"
+                        disabled={costBreakdownLoading}
                       >
                         <Edit className="h-4 w-4 mr-2" />
-                        Edit
+                        {costBreakdown ? 'Edit' : 'Add Costs'}
                       </Button>
                     ) : (
                       <>
@@ -563,10 +658,10 @@ export default function TruckProfile() {
                           onClick={saveChanges}
                           size="sm" 
                           className="bg-green-600 hover:bg-green-700 text-white"
-                          disabled={updateCostsMutation.isPending}
+                          disabled={updateCostsMutation.isPending || createCostBreakdownMutation.isPending}
                         >
                           <Save className="h-4 w-4 mr-2" />
-                          Save
+                          {updateCostsMutation.isPending || createCostBreakdownMutation.isPending ? 'Saving...' : 'Save'}
                         </Button>
                         <Button 
                           onClick={cancelEditing}
@@ -608,7 +703,7 @@ export default function TruckProfile() {
                           />
                         ) : (
                           <div className="text-white text-sm font-medium">
-                            ${(costBreakdown[key] || 0).toFixed(2)}
+                            ${(costBreakdown?.[key] || 0).toFixed(2)}
                           </div>
                         )}
                       </div>
@@ -669,7 +764,7 @@ export default function TruckProfile() {
                           />
                         ) : (
                           <div className="text-white text-sm font-medium">
-                            ${(costBreakdown[key] || 0).toFixed(2)}
+                            ${(costBreakdown?.[key] || 0).toFixed(2)}
                           </div>
                         )}
                       </div>
@@ -688,7 +783,7 @@ export default function TruckProfile() {
                                                'physicalInsurance', 'cargoInsurance', 'trailerInterchange', 'bobtailInsurance',
                                                'nonTruckingLiability', 'basePlateDeduction', 'companyPhone'].includes(key))
                             .reduce((sum, [, value]) => sum + (parseFloat(String(value)) || 0), 0)
-                        : costBreakdown.totalFixedCosts || 0
+                        : costBreakdown?.totalFixedCosts || 0
                       ).toFixed(2)}
                     </span>
                   </div>
@@ -700,7 +795,7 @@ export default function TruckProfile() {
                           Object.entries(editedCosts)
                             .filter(([key]) => ['fuel', 'maintenance', 'tolls', 'dwellTime', 'reeferFuel', 'truckParking'].includes(key))
                             .reduce((sum, [, value]) => sum + (parseFloat(String(value)) || 0), 0)
-                        : costBreakdown.totalVariableCosts || 0
+                        : costBreakdown?.totalVariableCosts || 0
                       ).toFixed(2)}
                     </span>
                   </div>
@@ -716,14 +811,13 @@ export default function TruckProfile() {
                                                 'tolls', 'dwellTime', 'reeferFuel', 'truckParking'].includes(key))
                              .reduce((sum, [, value]) => sum + (parseFloat(String(value)) || 0), 0)
                           ) / 3000
-                        : costBreakdown.costPerMile || 0
+                        : costBreakdown?.costPerMile || 0
                       ).toFixed(3)}
                     </span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )}
         </div>
 
         {/* Recent Activity */}

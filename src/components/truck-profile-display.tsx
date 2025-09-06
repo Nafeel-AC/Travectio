@@ -126,10 +126,10 @@ export function TruckProfileDisplay({ truck, compact = false, showProfileLink = 
               <div className="pl-6 space-y-1">
                 <div className="text-white font-medium">{truck.driver.name}</div>
                 <div className="text-slate-400 text-sm">CDL: {truck.driver.cdlNumber}</div>
-                {truck.driver.phone && (
+                {truck.driver.phoneNumber && (
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-3 w-3 text-slate-400" />
-                    <span className="text-slate-400">{truck.driver.phone}</span>
+                    <span className="text-slate-400">{truck.driver.phoneNumber}</span>
                   </div>
                 )}
                 {truck.driver.email && (

@@ -627,34 +627,6 @@ export default function PricingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">
-                  Is there a free trial?
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-300">
-                  Yes! Start with a 14-day free trial. No credit card required.
-                  Cancel anytime during the trial period with no charges.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">
-                  What if I have 0 trucks?
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-300">
-                  You need at least 1 truck to subscribe. If you temporarily
-                  have no trucks, you can pause your subscription and reactivate
-                  when needed.
-                </p>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

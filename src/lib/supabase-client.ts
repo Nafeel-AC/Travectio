@@ -105,6 +105,44 @@ class UserService {
     return true;
   }
 
+  // Delete current user account and all associated data using Edge Function
+  static async deleteCurrentUserAccount(reason?: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    try {
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      // Call the Edge Function for account deletion
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { reason },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        throw new Error(`Edge function error: ${error.message}`);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Account deletion failed');
+      }
+
+      // Sign out the user after successful deletion
+      await supabase.auth.signOut();
+
+      return { success: true, message: data.message || 'Account and all associated data deleted successfully' };
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      throw new Error(`Failed to delete account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   // Set founder status
   static async setFounder(userId: string) {
     const { data, error } = await supabase
@@ -253,7 +291,7 @@ class TruckService {
             .from('drivers')
             .select('id, name, cdlNumber, phone, email')
             .eq('id', truck.currentDriverId)
-            .single();
+            .maybeSingle();
           
           if (!driverError && driver) {
             truck.driver = driver;
@@ -282,7 +320,7 @@ class TruckService {
         .from('drivers')
         .select('id, name, cdlNumber, phone, email')
         .eq('id', truck.currentDriverId)
-        .single();
+        .maybeSingle();
       
       if (!driverError && driver) {
         truck.driver = driver;
@@ -298,12 +336,12 @@ class TruckService {
     if (!user) throw new Error('Not authenticated');
 
     // Check subscription limits
-    const { data: subscription } = await supabase
+    const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
       .select('truckCount, status')
       .eq('userId', user.id)
       .eq('status', 'active')
-      .single();
+      .maybeSingle();
 
     if (!subscription) {
       throw new Error('Active subscription required to add trucks. Please subscribe to a plan first.');
@@ -320,12 +358,12 @@ class TruckService {
     }
 
     // Check if truck with same name already exists for this user
-    const { data: existingTruck } = await supabase
+    const { data: existingTruck, error: checkError } = await supabase
       .from('trucks')
       .select('id, name')
       .eq('userId', user.id)
       .eq('name', truckData.name)
-      .single();
+      .maybeSingle();
 
     if (existingTruck) {
       throw new Error(`A truck with the name "${truckData.name}" already exists. Please use a different name.`);
@@ -500,7 +538,7 @@ class TruckService {
       .eq('truckId', truckId)
       .order('createdAt', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
     return data;
@@ -518,6 +556,35 @@ class TruckService {
       .single();
 
     if (error) throw new Error(error.message);
+    
+    // Update truck's summary fields with the new cost breakdown data
+    if (data) {
+      const updateData: any = {};
+      
+      if (data.costPerMile !== null && data.costPerMile !== undefined) {
+        updateData.costPerMile = data.costPerMile;
+      }
+      
+      if (data.totalFixedCosts !== null && data.totalFixedCosts !== undefined) {
+        updateData.fixedCosts = data.totalFixedCosts;
+      }
+      
+      if (data.totalVariableCosts !== null && data.totalVariableCosts !== undefined) {
+        updateData.variableCosts = data.totalVariableCosts;
+      }
+      
+      if (data.milesThisWeek !== null && data.milesThisWeek !== undefined) {
+        updateData.totalMiles = data.milesThisWeek;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await supabase
+          .from('trucks')
+          .update(updateData)
+          .eq('id', truckId);
+      }
+    }
+    
     return data;
   }
 
@@ -534,6 +601,35 @@ class TruckService {
       .single();
 
     if (error) throw new Error(error.message);
+    
+    // Update truck's summary fields with the updated cost breakdown data
+    if (data) {
+      const updateData: any = {};
+      
+      if (data.costPerMile !== null && data.costPerMile !== undefined) {
+        updateData.costPerMile = data.costPerMile;
+      }
+      
+      if (data.totalFixedCosts !== null && data.totalFixedCosts !== undefined) {
+        updateData.fixedCosts = data.totalFixedCosts;
+      }
+      
+      if (data.totalVariableCosts !== null && data.totalVariableCosts !== undefined) {
+        updateData.variableCosts = data.totalVariableCosts;
+      }
+      
+      if (data.milesThisWeek !== null && data.milesThisWeek !== undefined) {
+        updateData.totalMiles = data.milesThisWeek;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await supabase
+          .from('trucks')
+          .update(updateData)
+          .eq('id', data.truckId);
+      }
+    }
+    
     return data;
   }
 
@@ -561,21 +657,39 @@ class TruckService {
 
     if (trucksError) throw new Error(trucksError.message);
 
-    // For each truck, get the latest cost breakdown and update the truck's costPerMile
+    // For each truck, get the latest cost breakdown and update the truck's summary fields
     for (const truck of trucks || []) {
       const { data: costBreakdowns } = await supabase
         .from('truck_cost_breakdown')
-        .select('costPerMile')
+        .select('costPerMile, totalFixedCosts, totalVariableCosts, milesThisWeek')
         .eq('truckId', truck.id)
         .order('createdAt', { ascending: false })
         .limit(1);
 
       if (costBreakdowns && costBreakdowns.length > 0) {
-        const costPerMile = costBreakdowns[0].costPerMile;
-        if (costPerMile !== null && costPerMile !== undefined) {
+        const breakdown = costBreakdowns[0];
+        const updateData: any = {};
+        
+        if (breakdown.costPerMile !== null && breakdown.costPerMile !== undefined) {
+          updateData.costPerMile = breakdown.costPerMile;
+        }
+        
+        if (breakdown.totalFixedCosts !== null && breakdown.totalFixedCosts !== undefined) {
+          updateData.fixedCosts = breakdown.totalFixedCosts;
+        }
+        
+        if (breakdown.totalVariableCosts !== null && breakdown.totalVariableCosts !== undefined) {
+          updateData.variableCosts = breakdown.totalVariableCosts;
+        }
+        
+        if (breakdown.milesThisWeek !== null && breakdown.milesThisWeek !== undefined) {
+          updateData.totalMiles = breakdown.milesThisWeek;
+        }
+
+        if (Object.keys(updateData).length > 0) {
           await supabase
             .from('trucks')
-            .update({ costPerMile })
+            .update(updateData)
             .eq('id', truck.id);
         }
       }
