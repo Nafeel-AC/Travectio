@@ -583,8 +583,9 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 z-50 p-4">
+      {/* Center using translate to avoid parent layout influence and keep theme context */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden shadow-xl">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

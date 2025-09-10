@@ -97,6 +97,7 @@ export default function GuidedTruckAddition() {
     // Prepare truck data without costBreakdown
     const truckData = {
       ...truckInfo,
+      name: (truckInfo.name || '').trim(),
       ...integrationOptions,
       fixedCosts: totalFixedCosts,
       variableCosts: totalVariableCosts,

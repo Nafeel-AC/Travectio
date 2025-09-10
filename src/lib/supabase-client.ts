@@ -335,6 +335,12 @@ class TruckService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Normalize and validate name to avoid false duplicate matches
+    const normalizedName = (truckData?.name ?? '').trim();
+    if (!normalizedName) {
+      throw new Error('Truck name is required.');
+    }
+
     // Check subscription limits
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
@@ -357,22 +363,23 @@ class TruckService {
       throw new Error(`Truck limit reached. You can only have ${subscription.truckCount} trucks with your current subscription. Please upgrade to add more trucks.`);
     }
 
-    // Check if truck with same name already exists for this user
-    const { data: existingTruck, error: checkError } = await supabase
+    // Check if truck with same name already exists for this user (case-insensitive, trimmed)
+    const { data: existingTruck } = await supabase
       .from('trucks')
       .select('id, name')
       .eq('userId', user.id)
-      .eq('name', truckData.name)
+      .ilike('name', normalizedName)
       .maybeSingle();
 
     if (existingTruck) {
-      throw new Error(`A truck with the name "${truckData.name}" already exists. Please use a different name.`);
+      throw new Error(`A truck with the name "${normalizedName}" already exists. Please use a different name.`);
     }
 
     const { data, error } = await supabase
       .from('trucks')
       .insert({
         ...truckData,
+        name: normalizedName,
         userId: user.id
       })
       .select()
@@ -381,7 +388,7 @@ class TruckService {
     if (error) {
       // Check if it's a unique constraint violation
       if (error.code === '23505' && error.message.includes('name')) {
-        throw new Error(`A truck with the name "${truckData.name}" already exists. Please use a different name.`);
+        throw new Error(`A truck with the name "${normalizedName}" already exists. Please use a different name.`);
       }
       throw new Error(error.message);
     }

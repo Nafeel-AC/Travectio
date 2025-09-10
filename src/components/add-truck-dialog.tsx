@@ -92,6 +92,7 @@ export default function AddTruckDialog({ trigger }: AddTruckDialogProps) {
       // Prepare truck data with all fields
       const truckData = {
         ...truckInfo,
+        name: (truckInfo.name || '').trim(),
         fixedCosts: totalFixedCosts,
         variableCosts: totalVariableCosts,
         totalMiles: 0, // New trucks start with 0 miles
