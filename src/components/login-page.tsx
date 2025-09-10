@@ -171,16 +171,7 @@ export default function LoginPage() {
                    </button>
                  </div>
 
-                {/* Debug Link */}
-                <div className="text-center pt-2">
-                  <a
-                    href="/debug"
-                    className="text-xs text-slate-500 hover:text-slate-700 underline"
-                  >
-                    Debug Environment Variables
-                  </a>
-                </div>
-
+               
                 {/* Features Grid */}
                 <div className="pt-6 border-t border-slate-200">
                   <p className="text-sm text-slate-600 text-center mb-4">
