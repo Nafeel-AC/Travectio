@@ -34,7 +34,10 @@ import LoadMatcher from "@/pages/load-matcher";
 import DriversPage from "@/pages/drivers";
 import EnvDebug from "@/components/env-debug";
 import AdminDashboard from "@/pages/admin-dashboard";
+import BetaInvitesPage from "@/pages/beta-invites";
+import BetaAccessPage from "@/pages/beta-access";
 import PricingPage from "@/pages/pricing";
+import InviteRedeemPage from "@/pages/invite";
 import RouteGuard from "@/components/route-guard";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
@@ -188,6 +191,16 @@ function Router() {
             <SessionManagement />
           </RouteGuard>
         </Route>
+        <Route path="/beta-invites">
+          <RouteGuard requireAdmin>
+            <BetaInvitesPage />
+          </RouteGuard>
+        </Route>
+        <Route path="/beta-access">
+          <RouteGuard requireFounder>
+            <BetaAccessPage />
+          </RouteGuard>
+        </Route>
         <Route path="/integration-management">
           <RouteGuard requireAdmin>
             <IntegrationManagement />
@@ -208,6 +221,7 @@ function Router() {
 
         {/* General routes */}
         <Route path="/pricing" component={PricingPage} />
+        <Route path="/invite" component={InviteRedeemPage} />
         <Route
           path="/integration-onboarding"
           component={IntegrationOnboarding}

@@ -87,6 +87,13 @@ const navigationItems: NavigationItem[] = [
     icon: Settings,
     adminOnly: true,
   },
+  {
+    href: "/beta-access",
+    label: "Beta Access",
+    description: "Manage beta tester allowlist",
+    icon: Shield,
+    founderOnly: true,
+  },
   // Customer-only features (hidden from admins)
   {
     href: "/drivers",
@@ -183,6 +190,7 @@ export default function ModernSidebar() {
     return item.customerOnly || (!item.founderOnly && !item.adminOnly);
   });
 
+
   return (
     <div className="flex flex-col h-screen w-80 bg-slate-800 border-r border-slate-700 overflow-hidden relative">
       {/* Header */}
@@ -195,6 +203,8 @@ export default function ModernSidebar() {
           <p className="text-sm text-slate-400">Fleet Management</p>
         </div>
       </div>
+
+      {/* Removed top-area founder panel; moved into navigation list below */}
 
       {/* Subscription Status */}
       {!isFounder && !isAdmin && (

@@ -89,3 +89,5 @@ Updated Travectio's pricing model from tiered plans to a simple **$24.99 per tru
 - Confirm webhook handling works properly
 - Validate UI displays correct pricing
 - Test truck count changes update billing correctly
+
+
