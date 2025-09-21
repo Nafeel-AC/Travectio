@@ -98,11 +98,12 @@ export function DriverListManager() {
     <>
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-white flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
               <Users className="w-5 h-5" />
-              Driver Management
-              <div className="flex items-center gap-2 ml-4">
+              <span className="hidden sm:inline">Driver Management</span>
+              <span className="sm:hidden">Drivers</span>
+              <div className="flex items-center gap-2 ml-2 sm:ml-4">
                 <div className="flex items-center gap-1 px-2 py-1 bg-green-600/20 rounded-md">
                   <UserCheck className="w-3 h-3 text-green-400" />
                   <span className="text-green-200 text-xs font-medium">{activeDriversCount}</span>
@@ -115,7 +116,7 @@ export function DriverListManager() {
             </CardTitle>
             <Button 
               size="sm" 
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
               onClick={() => setShowAddDriverDialog(true)}
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -124,21 +125,21 @@ export function DriverListManager() {
           </div>
         </CardHeader>
         
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6">
           {/* Search and Filter Controls */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
                 placeholder="Search drivers by name or CDL number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-slate-700 border-slate-600 text-white"
+                className="pl-10 bg-slate-700 border-slate-600 text-white h-10 sm:h-11"
               />
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-full bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -152,12 +153,12 @@ export function DriverListManager() {
 
           {/* Drivers List */}
           {filteredDrivers.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-white mb-2">
+            <div className="text-center py-6 sm:py-8">
+              <Users className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg font-medium text-white mb-2">
                 {searchQuery || statusFilter !== "all" ? "No drivers found" : "No drivers added yet"}
               </h3>
-              <p className="text-slate-400 mb-4">
+              <p className="text-slate-400 text-sm sm:text-base mb-4 px-4">
                 {searchQuery || statusFilter !== "all" 
                   ? "Try adjusting your search or filter criteria" 
                   : "Add your first driver to start managing your team"
@@ -165,7 +166,7 @@ export function DriverListManager() {
               </p>
               {!searchQuery && statusFilter === "all" && (
                 <Button 
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
                   onClick={() => setShowAddDriverDialog(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -174,7 +175,7 @@ export function DriverListManager() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6">
               {filteredDrivers.map((driver) => (
                 <DriverManagementCard
                   key={driver.id}
@@ -188,7 +189,7 @@ export function DriverListManager() {
 
           {/* Summary Stats */}
           {filteredDrivers.length > 0 && (
-            <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-slate-700">
               <div className="text-sm text-slate-400">
                 Showing {filteredDrivers.length} of {drivers.length} drivers
               </div>
@@ -207,13 +208,13 @@ export function DriverListManager() {
 
       {/* Add Driver Dialog */}
       <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl mx-4 sm:mx-0 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Plus className="w-5 h-5" />
               Add New Driver
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-slate-400 text-sm sm:text-base">
               Enter the driver's information to add them to your fleet.
             </DialogDescription>
           </DialogHeader>

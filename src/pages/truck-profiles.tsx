@@ -79,37 +79,38 @@ export default function TruckProfiles() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-                      <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Truck Profiles</h1>
-              <p className="text-gray-400">Manage and view detailed information about your fleet</p>
-            </div>
-            <div className="flex space-x-3">
-              <Button 
-                variant="outline"
-                className="border-gray-600 text-gray-300 hover:bg-[var(--dark-elevated)]"
-                onClick={() => updateCostPerMileMutation.mutate()}
-                disabled={updateCostPerMileMutation.isPending}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${updateCostPerMileMutation.isPending ? 'animate-spin' : ''}`} />
-                Update Cost/Mile
-              </Button>
-              <Button 
-                className="bg-[var(--primary-blue)] hover:bg-[var(--blue-accent)] text-white"
-                onClick={() => window.location.href = '/add-truck'}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add New Truck
-              </Button>
-            </div>
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Truck Profiles</h1>
+            <p className="text-gray-400 text-sm md:text-base">Manage and view detailed information about your fleet</p>
+          </div>
+          <div className="flex flex-col space-y-2 md:flex-row md:space-x-3 md:space-y-0">
+            <Button 
+              variant="outline"
+              className="border-gray-600 text-gray-300 hover:bg-[var(--dark-elevated)] touch-target"
+              onClick={() => updateCostPerMileMutation.mutate()}
+              disabled={updateCostPerMileMutation.isPending}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${updateCostPerMileMutation.isPending ? 'animate-spin' : ''}`} />
+              <span className="mobile-hide">Update Cost/Mile</span>
+              <span className="mobile-show">Update</span>
+            </Button>
+            <Button 
+              className="bg-[var(--primary-blue)] hover:bg-[var(--blue-accent)] text-white touch-target"
+              onClick={() => window.location.href = '/add-truck'}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Truck
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="mobile-grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
         <Card className="bg-[var(--dark-card)] border-gray-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -187,7 +188,7 @@ export default function TruckProfiles() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {trucks.map((truck) => (
             <Card key={truck.id} className="bg-[var(--dark-card)] border-gray-700 hover:border-gray-600 transition-colors">
               <CardHeader className="pb-4">

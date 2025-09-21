@@ -206,13 +206,14 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
     <>
       {/* Onboarding Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <User className="w-5 h-5" />
-              Driver Onboarding
-              <Badge variant="secondary" className="bg-slate-700 text-slate-300 ml-auto">
-                {getCompletedStepsCount()} of {onboardingSteps.length} Complete
+              <span className="hidden sm:inline">Driver Onboarding</span>
+              <span className="sm:hidden">Onboarding</span>
+              <Badge variant="secondary" className="bg-slate-700 text-slate-300 ml-auto text-xs">
+                {getCompletedStepsCount()}/{onboardingSteps.length}
               </Badge>
             </DialogTitle>
           </DialogHeader>
@@ -228,7 +229,7 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
             </div>
 
             {/* Steps */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {onboardingSteps.map((step, index) => {
                 const stepCompleted = isStepCompleted(step);
                 const stepActive = index === currentStep;
@@ -239,41 +240,41 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
                     className={`bg-slate-700 border-slate-600 ${stepActive ? 'ring-2 ring-blue-500' : ''}`}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${stepCompleted ? 'bg-green-600/20' : 'bg-blue-600/20'}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg flex-shrink-0 ${stepCompleted ? 'bg-green-600/20' : 'bg-blue-600/20'}`}>
                           {stepCompleted ? (
-                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                           ) : (
-                            <step.icon className="w-5 h-5 text-blue-400" />
+                            <step.icon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                           )}
                         </div>
-                        <div className="flex-1">
-                          <CardTitle className="text-white text-sm flex items-center gap-2">
-                            {step.title}
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-white text-sm sm:text-base flex items-center gap-2">
+                            <span className="truncate">{step.title}</span>
                             {stepCompleted && (
-                              <Badge className="bg-green-600/20 text-green-200 border-green-600/30 text-xs">
+                              <Badge className="bg-green-600/20 text-green-200 border-green-600/30 text-xs flex-shrink-0">
                                 Complete
                               </Badge>
                             )}
                           </CardTitle>
-                          <p className="text-slate-300 text-xs mt-1">{step.description}</p>
+                          <p className="text-slate-300 text-xs sm:text-sm mt-1">{step.description}</p>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-2 sm:space-y-3">
                       {step.tasks.map((task) => {
                         const taskCompleted = completedTasks.has(task.id);
                         
                         return (
-                          <div key={task.id} className="flex items-center justify-between p-3 bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-3">
+                          <div key={task.id} className="flex items-start sm:items-center justify-between p-2 sm:p-3 bg-slate-800 rounded-lg gap-3">
+                            <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
                               {taskCompleted ? (
-                                <CheckCircle className="w-4 h-4 text-green-400" />
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                               ) : (
-                                <Circle className="w-4 h-4 text-slate-400" />
+                                <Circle className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
                               )}
-                              <div>
-                                <p className="text-white text-sm font-medium">{task.title}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-white text-xs sm:text-sm font-medium">{task.title}</p>
                                 <p className="text-slate-400 text-xs">{task.description}</p>
                               </div>
                             </div>
@@ -286,9 +287,10 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
                                   }
                                   markTaskCompleted(task.id);
                                 }}
-                                className="bg-blue-600 hover:bg-blue-700 text-xs"
+                                className="bg-blue-600 hover:bg-blue-700 text-xs h-7 sm:h-8 flex-shrink-0"
                               >
-                                {task.action}
+                                <span className="hidden sm:inline">{task.action}</span>
+                                <span className="sm:hidden">Go</span>
                               </Button>
                             )}
                           </div>
@@ -301,25 +303,27 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
             </div>
 
             {/* Navigation */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-600">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 pt-4 border-t border-slate-600">
               <div className="flex items-center gap-2">
                 <Button
                   onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
                   disabled={currentStep === 0}
                   variant="outline"
                   size="sm"
-                  className="border-slate-600 text-slate-300"
+                  className="border-slate-600 text-slate-300 flex-1 sm:flex-none"
                 >
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
                 </Button>
                 <Button
                   onClick={() => setCurrentStep(Math.min(onboardingSteps.length - 1, currentStep + 1))}
                   disabled={currentStep === onboardingSteps.length - 1}
                   variant="outline"
                   size="sm"
-                  className="border-slate-600 text-slate-300"
+                  className="border-slate-600 text-slate-300 flex-1 sm:flex-none"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
+                  <span className="sm:hidden">Next</span>
                 </Button>
               </div>
               
@@ -328,18 +332,20 @@ export function DriverOnboarding({ isNew = false, onComplete }: DriverOnboarding
                   onClick={() => setIsOpen(false)}
                   variant="ghost"
                   size="sm"
-                  className="text-slate-400"
+                  className="text-slate-400 flex-1 sm:flex-none"
                 >
-                  Skip for Now
+                  <span className="hidden sm:inline">Skip for Now</span>
+                  <span className="sm:hidden">Skip</span>
                 </Button>
                 
                 {progress >= 80 && (
                   <Button
                     onClick={completeOnboarding}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
                     size="sm"
                   >
-                    Complete Setup
+                    <span className="hidden sm:inline">Complete Setup</span>
+                    <span className="sm:hidden">Complete</span>
                     <CheckCircle className="w-4 h-4 ml-2" />
                   </Button>
                 )}

@@ -13,43 +13,49 @@ export default function DriversPage() {
     <div className="min-h-screen bg-slate-900">
       <div className="flex">
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 sm:p-6">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 lg:mb-8 gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => window.history.back()}
-                  className="text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-white p-2 sm:p-3"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
+                  <ArrowLeft className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Back</span>
                 </Button>
-                <div>
-                  <h1 className="text-3xl font-bold text-white mb-2">Driver Management</h1>
-                  <p className="text-slate-400">Manage your fleet drivers, track their status, and handle assignments</p>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Driver Management</h1>
+                  <p className="text-slate-400 text-sm sm:text-base">Manage your fleet drivers, track their status, and handle assignments</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Button
                   onClick={() => setShowOnboarding(true)}
                   variant="outline"
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  size="sm"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700 flex-1 sm:flex-none"
                 >
-                  <Users className="w-4 h-4 mr-2" />
-                  Driver Guide
+                  <Users className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Driver Guide</span>
+                  <span className="sm:hidden">Guide</span>
                 </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Driver
+                <Button 
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
+                >
+                  <Plus className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Driver</span>
+                  <span className="sm:hidden">Add</span>
                 </Button>
               </div>
             </div>
 
             {/* Driver Management Section */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <DriverListManager />
             </div>
           </div>

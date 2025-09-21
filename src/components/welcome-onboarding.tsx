@@ -84,24 +84,24 @@ export default function WelcomeOnboarding() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Welcome Header */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800/50">
-        <CardHeader>
-          <div className="flex items-center space-x-3">
-            <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary-foreground" />
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex items-start sm:items-center space-x-3">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+              <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
             </div>
-            <div>
-              <CardTitle className="text-2xl">Welcome to Travectio!</CardTitle>
-              <CardDescription className="text-lg">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-xl sm:text-2xl">Welcome to Travectio!</CardTitle>
+              <CardDescription className="text-base sm:text-lg mt-1">
                 {(user as any)?.firstName ? `Hi ${(user as any).firstName}! ` : "Hi! "}
                 Let's get your fleet management system set up for maximum efficiency.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-300">Setup Progress</span>
@@ -116,7 +116,7 @@ export default function WelcomeOnboarding() {
       </Card>
 
       {/* Onboarding Steps */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {onboardingSteps.map((step, index) => {
           const IconComponent = step.icon;
           const isCompleted = step.completed;
@@ -129,48 +129,50 @@ export default function WelcomeOnboarding() {
               }`}
             >
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                    <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isCompleted ? 'bg-green-100 dark:bg-green-800/50' : 'bg-blue-100 dark:bg-blue-900/50'
                     }`}>
                       {isCompleted ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
                       ) : (
-                        <IconComponent className="h-5 w-5 text-primary" />
+                        <IconComponent className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       )}
                     </div>
-                    <div className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300 flex-shrink-0">
                       Step {index + 1}
                     </div>
                   </div>
                   <Badge 
                     variant="secondary" 
-                    className={`${priorityColors[step.priority]} text-white text-xs`}
+                    className={`${priorityColors[step.priority]} text-white text-xs flex-shrink-0`}
                   >
                     {priorityLabels[step.priority]}
                   </Badge>
                 </div>
-                <CardTitle className={`text-lg ${isCompleted ? 'text-green-700 dark:text-green-300' : 'text-gray-900 dark:text-gray-100'}`}>
+                <CardTitle className={`text-base sm:text-lg mt-2 ${isCompleted ? 'text-green-700 dark:text-green-300' : 'text-gray-900 dark:text-gray-100'}`}>
                   {step.title}
                 </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-300">{step.description}</CardDescription>
+                <CardDescription className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1">{step.description}</CardDescription>
               </CardHeader>
               <CardContent className="pt-0">
                 <Link href={step.href}>
                   <Button 
                     variant={isCompleted ? "outline" : "default"} 
-                    className="w-full group"
+                    className="w-full group h-9 sm:h-10"
                     disabled={isCompleted}
                   >
                     {isCompleted ? (
                       <>
                         <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Completed
+                        <span className="hidden sm:inline">Completed</span>
+                        <span className="sm:hidden">Done</span>
                       </>
                     ) : (
                       <>
-                        Get Started
+                        <span className="hidden sm:inline">Get Started</span>
+                        <span className="sm:hidden">Start</span>
                         <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
@@ -184,32 +186,32 @@ export default function WelcomeOnboarding() {
 
       {/* Quick Stats Overview */}
       <Card className="bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="pb-3 sm:pb-6">
+          <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
             <TrendingUp className="h-5 w-5" />
             <span>Platform Overview</span>
           </CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-300">
+          <CardDescription className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
             Key benefits you'll unlock with Travectio fleet management
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">Real-time</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Cost Tracking</div>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="text-center p-3 sm:p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+              <div className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">Real-time</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Cost Tracking</div>
             </div>
-            <div className="text-center p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">Automated</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Calculations</div>
+            <div className="text-center p-3 sm:p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+              <div className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">Automated</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Calculations</div>
             </div>
-            <div className="text-center p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">Smart</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Load Matching</div>
+            <div className="text-center p-3 sm:p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
+              <div className="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400">Smart</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Load Matching</div>
             </div>
-            <div className="text-center p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">Complete</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Fleet Insights</div>
+            <div className="text-center p-3 sm:p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800">
+              <div className="text-lg sm:text-2xl font-bold text-orange-600 dark:text-orange-400">Complete</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Fleet Insights</div>
             </div>
           </div>
         </CardContent>
@@ -217,17 +219,18 @@ export default function WelcomeOnboarding() {
 
       {/* Support Section */}
       <Card className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800/50 dark:to-blue-900/20 border-gray-200 dark:border-gray-700">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold mb-1 text-gray-900 dark:text-gray-100">Need Help Getting Started?</h3>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold mb-1 text-gray-900 dark:text-gray-100 text-base sm:text-lg">Need Help Getting Started?</h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Our support team is here to help you maximize your fleet's potential.
               </p>
             </div>
-            <Button variant="outline">
+            <Button variant="outline" className="w-full sm:w-auto">
               <Users className="h-4 w-4 mr-2" />
-              Contact Support
+              <span className="hidden sm:inline">Contact Support</span>
+              <span className="sm:hidden">Support</span>
             </Button>
           </div>
         </CardContent>

@@ -174,33 +174,35 @@ export default function LoadManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6">
+    <div className="min-h-screen bg-slate-900 text-white p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Load Management</h1>
-            <p className="text-slate-400">Track and manage freight loads across your fleet</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Load Management</h1>
+            <p className="text-slate-400 text-sm sm:text-base">Track and manage freight loads across your fleet</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <Button
               onClick={() => {
                 setShowEntryForm(!showEntryForm);
                 setShowMultiStopForm(false);
               }}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
-              {showEntryForm ? "Hide Form" : "Single Load"}
+              <span className="hidden sm:inline">{showEntryForm ? "Hide Form" : "Single Load"}</span>
+              <span className="sm:hidden">{showEntryForm ? "Hide" : "Single"}</span>
             </Button>
             <Button
               onClick={() => {
                 setShowMultiStopForm(!showMultiStopForm);
                 setShowEntryForm(false);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
             >
               <Route className="h-4 w-4 mr-2" />
-              {showMultiStopForm ? "Hide Form" : "Multi-Stop Load"}
+              <span className="hidden sm:inline">{showMultiStopForm ? "Hide Form" : "Multi-Stop Load"}</span>
+              <span className="sm:hidden">{showMultiStopForm ? "Hide" : "Multi"}</span>
             </Button>
             <Button
               onClick={() => {
@@ -211,10 +213,11 @@ export default function LoadManagement() {
                   description: "Load data is being refreshed...",
                 });
               }}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
             >
               <Search className="h-4 w-4 mr-2" />
-              Refresh Loads
+              <span className="hidden sm:inline">Refresh Loads</span>
+              <span className="sm:hidden">Refresh</span>
             </Button>
           </div>
         </div>
@@ -265,58 +268,58 @@ export default function LoadManagement() {
         )}
 
         {/* Load Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-600 p-3 rounded-lg">
-                  <Package className="h-6 w-6 text-white" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-blue-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                  <Package className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">{loadStats.total}</div>
-                  <div className="text-slate-400 text-sm">Total Loads</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg sm:text-2xl font-bold text-white">{loadStats.total}</div>
+                  <div className="text-slate-400 text-xs sm:text-sm">Total Loads</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-green-600 p-3 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-white" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-green-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                  <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">${loadStats.totalRevenue.toLocaleString()}</div>
-                  <div className="text-slate-400 text-sm">Total Revenue</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-purple-600 p-3 rounded-lg">
-                  <MapPin className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">{loadStats.totalMiles.toLocaleString()}</div>
-                  <div className="text-slate-400 text-sm">Total Miles</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg sm:text-2xl font-bold text-white">${loadStats.totalRevenue.toLocaleString()}</div>
+                  <div className="text-slate-400 text-xs sm:text-sm">Total Revenue</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-orange-600 p-3 rounded-lg">
-                  <Truck className="h-6 w-6 text-white" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-purple-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                  <MapPin className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">${avgRatePerMile}</div>
-                  <div className="text-slate-400 text-sm">Avg Rate/Mile</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg sm:text-2xl font-bold text-white">{loadStats.totalMiles.toLocaleString()}</div>
+                  <div className="text-slate-400 text-xs sm:text-sm">Total Miles</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-orange-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                  <Truck className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg sm:text-2xl font-bold text-white">${avgRatePerMile}</div>
+                  <div className="text-slate-400 text-xs sm:text-sm">Avg Rate/Mile</div>
                 </div>
               </div>
             </CardContent>
@@ -324,30 +327,30 @@ export default function LoadManagement() {
         </div>
 
         {/* Status Summary */}
-        <Card className="bg-slate-800 border-slate-700 mb-6">
+        <Card className="bg-slate-800 border-slate-700 mb-4 sm:mb-6">
           <CardHeader>
-            <CardTitle className="text-white">Load Status Summary</CardTitle>
+            <CardTitle className="text-white text-lg sm:text-xl">Load Status Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-yellow-600/20 border border-yellow-600 rounded-lg p-4">
-                <div className="text-yellow-400 text-sm font-medium">Pending</div>
-                <div className="text-white text-2xl font-bold">{loadStats.pending}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-yellow-600/20 border border-yellow-600 rounded-lg p-3 sm:p-4">
+                <div className="text-yellow-400 text-xs sm:text-sm font-medium">Pending</div>
+                <div className="text-white text-lg sm:text-2xl font-bold">{loadStats.pending}</div>
               </div>
               
-              <div className="bg-blue-600/20 border border-blue-600 rounded-lg p-4">
-                <div className="text-blue-400 text-sm font-medium">In Transit</div>
-                <div className="text-white text-2xl font-bold">{loadStats.inTransit}</div>
+              <div className="bg-blue-600/20 border border-blue-600 rounded-lg p-3 sm:p-4">
+                <div className="text-blue-400 text-xs sm:text-sm font-medium">In Transit</div>
+                <div className="text-white text-lg sm:text-2xl font-bold">{loadStats.inTransit}</div>
               </div>
               
-              <div className="bg-green-600/20 border border-green-600 rounded-lg p-4">
-                <div className="text-green-400 text-sm font-medium">Delivered</div>
-                <div className="text-white text-2xl font-bold">{loadStats.delivered}</div>
+              <div className="bg-green-600/20 border border-green-600 rounded-lg p-3 sm:p-4">
+                <div className="text-green-400 text-xs sm:text-sm font-medium">Delivered</div>
+                <div className="text-white text-lg sm:text-2xl font-bold">{loadStats.delivered}</div>
               </div>
               
-              <div className="bg-slate-600/20 border border-slate-600 rounded-lg p-4">
-                <div className="text-slate-400 text-sm font-medium">Available</div>
-                <div className="text-white text-2xl font-bold">
+              <div className="bg-slate-600/20 border border-slate-600 rounded-lg p-3 sm:p-4">
+                <div className="text-slate-400 text-xs sm:text-sm font-medium">Available</div>
+                <div className="text-white text-lg sm:text-2xl font-bold">
                   {loads.filter(l => !l.truckId).length}
                 </div>
               </div>
@@ -356,19 +359,19 @@ export default function LoadManagement() {
         </Card>
 
         {/* Filters */}
-        <Card className="bg-slate-800 border-slate-700 mb-6">
+        <Card className="bg-slate-800 border-slate-700 mb-4 sm:mb-6">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
               <Search className="h-5 w-5" />
               Filter Loads
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="text-slate-300 text-sm font-medium mb-2 block">Truck Assignment</label>
                 <Select value={selectedTruck} onValueChange={setSelectedTruck}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
                     <SelectValue placeholder="All trucks" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
@@ -386,7 +389,7 @@ export default function LoadManagement() {
               <div>
                 <label className="text-slate-300 text-sm font-medium mb-2 block">Load Status</label>
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
@@ -402,7 +405,7 @@ export default function LoadManagement() {
               <div>
                 <label className="text-slate-300 text-sm font-medium mb-2 block">Equipment Type</label>
                 <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
                     <SelectValue placeholder="All equipment" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
@@ -418,12 +421,13 @@ export default function LoadManagement() {
         </Card>
 
         {/* Fleet Status - Show trucks and drivers */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
                 <Truck className="h-5 w-5" />
-                Fleet Status ({trucks.length} trucks)
+                <span className="hidden sm:inline">Fleet Status ({trucks.length} trucks)</span>
+                <span className="sm:hidden">Fleet ({trucks.length})</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -432,13 +436,13 @@ export default function LoadManagement() {
                   <div className="text-slate-400">Loading trucks...</div>
                 </div>
               ) : trucks.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {trucks.map((truck) => (
                     <TruckProfileDisplay key={truck.id} truck={truck} compact={true} />
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
+                <div className="text-center py-6 sm:py-8">
                   <div className="text-slate-400 mb-2">No trucks in fleet</div>
                   <div className="text-slate-500 text-sm">Navigate to Add Truck to register your first vehicle</div>
                 </div>
@@ -448,32 +452,33 @@ export default function LoadManagement() {
 
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
                 <Calendar className="h-5 w-5" />
-                Load Assignment Quick Stats
+                <span className="hidden sm:inline">Load Assignment Quick Stats</span>
+                <span className="sm:hidden">Quick Stats</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Trucks with loads</span>
                   <span className="text-white font-medium">
                     {loads.filter(l => l.truckId).length}/{trucks.length}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Unassigned loads</span>
                   <span className="text-yellow-400 font-medium">
                     {loads.filter(l => !l.truckId).length}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Active routes</span>
                   <span className="text-blue-400 font-medium">
                     {loads.filter(l => l.status === "in_transit").length}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Available capacity</span>
                   <span className="text-green-400 font-medium">
                     {trucks.length - loads.filter(l => l.truckId && l.status === "in_transit").length}
@@ -486,206 +491,295 @@ export default function LoadManagement() {
 
         {/* Load Inventory */}
         <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Load Inventory ({filteredLoads.length} of {loads.length})
-                </CardTitle>
-                {/* Debug information */}
-                <div className="text-xs text-slate-400 mt-2">
-                  {loadsLoading ? "Loading..." : loadsError ? `Error: ${(loadsError as Error)?.message || 'Unknown error'}` : `Loaded ${loads.length} loads`}
-                </div>
-              </CardHeader>
-              <CardContent>
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
+              <Package className="h-5 w-5" />
+              <span className="hidden sm:inline">Load Inventory ({filteredLoads.length} of {loads.length})</span>
+              <span className="sm:hidden">Loads ({filteredLoads.length})</span>
+            </CardTitle>
+            {/* Debug information */}
+            <div className="text-xs text-slate-400 mt-2">
+              {loadsLoading ? "Loading..." : loadsError ? `Error: ${(loadsError as Error)?.message || 'Unknown error'}` : `Loaded ${loads.length} loads`}
+            </div>
+          </CardHeader>
+          <CardContent>
             {loadsLoading ? (
               <div className="text-center py-8">
                 <div className="text-slate-400">Loading loads...</div>
               </div>
             ) : filteredLoads.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-600">
-                      <th className="text-left text-slate-300 py-3 px-4">Load Info</th>
-                      <th className="text-left text-slate-300 py-3 px-4">Route</th>
-                      <th className="text-left text-slate-300 py-3 px-4">Truck Assignment</th>
-                      <th className="text-left text-slate-300 py-3 px-4">Financial</th>
-                      <th className="text-left text-slate-300 py-3 px-4">Schedule</th>
-                      <th className="text-left text-slate-300 py-3 px-4">Status</th>
-                      <th className="text-left text-slate-300 py-3 px-4">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLoads.map((load: any) => {
-                      const truck = trucks.find(t => t.id === load.truckId);
-                      const ratePerMile = load.miles > 0 ? (load.pay / load.miles).toFixed(2) : "0.00";
+              <div className="space-y-3 sm:space-y-4">
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-600">
+                        <th className="text-left text-slate-300 py-3 px-4">Load Info</th>
+                        <th className="text-left text-slate-300 py-3 px-4">Route</th>
+                        <th className="text-left text-slate-300 py-3 px-4">Truck Assignment</th>
+                        <th className="text-left text-slate-300 py-3 px-4">Financial</th>
+                        <th className="text-left text-slate-300 py-3 px-4">Schedule</th>
+                        <th className="text-left text-slate-300 py-3 px-4">Status</th>
+                        <th className="text-left text-slate-300 py-3 px-4">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLoads.map((load: any) => {
+                        const truck = trucks.find(t => t.id === load.truckId);
+                        const ratePerMile = load.miles > 0 ? (load.pay / load.miles).toFixed(2) : "0.00";
 
-                      return (
-                        <tr key={load.id} className="border-b border-slate-700 hover:bg-slate-700/50">
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="text-2xl">
-                                {equipmentIcons[load.type as keyof typeof equipmentIcons] || "📦"}
-                              </div>
-                              <div>
-                                <div className="text-white font-medium">{load.type}</div>
-                                <div className="text-slate-400 text-sm">{load.commodity}</div>
-                                <div className="text-slate-500 text-xs">
-                                  {load.weight ? `${load.weight.toLocaleString()} lbs` : 'Weight N/A'}
+                        return (
+                          <tr key={load.id} className="border-b border-slate-700 hover:bg-slate-700/50">
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl">
+                                  {equipmentIcons[load.type as keyof typeof equipmentIcons] || "📦"}
                                 </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="text-white text-sm">
-                                <span className="text-slate-400">From:</span> {load.originCity}, {load.originState}
-                              </div>
-                              <div className="text-white text-sm">
-                                <span className="text-slate-400">To:</span> {load.destinationCity}, {load.destinationState}
-                              </div>
-                              <div className="text-slate-400 text-xs">
-                                {load.miles ? `${load.miles.toLocaleString()} miles` : 'Miles N/A'}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            {load.truckId && truck ? (
-                              <TruckProfileDisplay truck={truck} compact={true} />
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 text-yellow-500" />
-                                <span className="text-yellow-400 text-sm">Unassigned</span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="text-white font-medium">${load.pay?.toLocaleString() || 0}</div>
-                              <div className="text-slate-400 text-sm">${ratePerMile}/mile</div>
-                              
-                              {/* Driver Pay Information */}
-                              {load.calculatedDriverPay && load.calculatedDriverPay > 0 && (
-                                <div className="text-green-400 text-xs">
-                                  Driver: ${load.calculatedDriverPay.toFixed(2)}
-                                  {load.driverPayType === 'percentage' && ` (${load.driverPayPercentage || 70}%)`}
-                                  {load.driverPayType === 'per_mile' && ` (${(load.calculatedDriverPay / load.miles).toFixed(2)}/mi)`}
-                                  {load.driverPayType === 'flat_rate' && ' (flat)'}
-                                </div>
-                              )}
-                              
-                              {/* Comprehensive Cost Breakdown */}
-                              <div className="space-y-1">
-                                {/* Fuel Costs */}
-                                {load.actualFuelCost > 0 ? (
-                                  <div className="text-green-400 text-xs">
-                                    Fuel: ${load.actualFuelCost.toFixed(2)} (${load.actualFuelCostPerMile?.toFixed(3)}/mi)
-                                  </div>
-                                ) : load.estimatedFuelCost > 0 ? (
-                                  <div className="text-yellow-400 text-xs">
-                                    Est. Fuel: ${load.estimatedFuelCost.toFixed(2)} (${load.estimatedFuelCostPerMile?.toFixed(3)}/mi)
-                                  </div>
-                                ) : (
+                                <div>
+                                  <div className="text-white font-medium">{load.type}</div>
+                                  <div className="text-slate-400 text-sm">{load.commodity}</div>
                                   <div className="text-slate-500 text-xs">
-                                    No fuel data
+                                    {load.weight ? `${load.weight.toLocaleString()} lbs` : 'Weight N/A'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="text-white text-sm">
+                                  <span className="text-slate-400">From:</span> {load.originCity}, {load.originState}
+                                </div>
+                                <div className="text-white text-sm">
+                                  <span className="text-slate-400">To:</span> {load.destinationCity}, {load.destinationState}
+                                </div>
+                                <div className="text-slate-400 text-xs">
+                                  {load.miles ? `${load.miles.toLocaleString()} miles` : 'Miles N/A'}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              {load.truckId && truck ? (
+                                <TruckProfileDisplay truck={truck} compact={true} />
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                                  <span className="text-yellow-400 text-sm">Unassigned</span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="text-white font-medium">${load.pay?.toLocaleString() || 0}</div>
+                                <div className="text-slate-400 text-sm">${ratePerMile}/mile</div>
+                                
+                                {/* Driver Pay Information */}
+                                {load.calculatedDriverPay && load.calculatedDriverPay > 0 && (
+                                  <div className="text-green-400 text-xs">
+                                    Driver: ${load.calculatedDriverPay.toFixed(2)}
+                                    {load.driverPayType === 'percentage' && ` (${load.driverPayPercentage || 70}%)`}
+                                    {load.driverPayType === 'per_mile' && ` (${(load.calculatedDriverPay / load.miles).toFixed(2)}/mi)`}
+                                    {load.driverPayType === 'flat_rate' && ' (flat)'}
                                   </div>
                                 )}
                                 
-                                {/* Truck Costs - only show if assigned to truck */}
-                                {load.truckId && load.truckCostPerMile > 0 && (
-                                  <div className="text-blue-400 text-xs">
-                                    Truck: ${load.truckCostPerMile?.toFixed(3)}/mi (Fixed: ${load.truckFixedCostPerMile?.toFixed(3)} + Var: ${load.truckVariableCostPerMile?.toFixed(3)})
-                                  </div>
-                                )}
+                                {/* Comprehensive Cost Breakdown */}
+                                <div className="space-y-1">
+                                  {/* Fuel Costs */}
+                                  {load.actualFuelCost > 0 ? (
+                                    <div className="text-green-400 text-xs">
+                                      Fuel: ${load.actualFuelCost.toFixed(2)} (${load.actualFuelCostPerMile?.toFixed(3)}/mi)
+                                    </div>
+                                  ) : load.estimatedFuelCost > 0 ? (
+                                    <div className="text-yellow-400 text-xs">
+                                      Est. Fuel: ${load.estimatedFuelCost.toFixed(2)} (${load.estimatedFuelCostPerMile?.toFixed(3)}/mi)
+                                    </div>
+                                  ) : (
+                                    <div className="text-slate-500 text-xs">
+                                      No fuel data
+                                    </div>
+                                  )}
+                                  
+                                  {/* Truck Costs - only show if assigned to truck */}
+                                  {load.truckId && load.truckCostPerMile > 0 && (
+                                    <div className="text-blue-400 text-xs">
+                                      Truck: ${load.truckCostPerMile?.toFixed(3)}/mi (Fixed: ${load.truckFixedCostPerMile?.toFixed(3)} + Var: ${load.truckVariableCostPerMile?.toFixed(3)})
+                                    </div>
+                                  )}
+                                  
+                                  {/* Total Cost Per Mile */}
+                                  {load.totalCostPerMile > 0 && (
+                                    <div className="text-purple-400 text-xs font-medium">
+                                      Total CPM: ${load.totalCostPerMile?.toFixed(3)}/mi
+                                    </div>
+                                  )}
+                                </div>
                                 
-                                {/* Total Cost Per Mile */}
-                                {load.totalCostPerMile > 0 && (
-                                  <div className="text-purple-400 text-xs font-medium">
-                                    Total CPM: ${load.totalCostPerMile?.toFixed(3)}/mi
+                                {/* Net Profit - Enhanced Display */}
+                                {load.netProfit !== undefined && load.totalCostPerMile > 0 ? (
+                                  <div className="mt-2 pt-1 border-t border-slate-600">
+                                    <div className={`text-sm font-medium ${load.netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      Net Profit: ${load.netProfit.toFixed(2)}
+                                    </div>
+                                    <div className={`text-xs ${load.profitPerMile >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      ${load.profitPerMile?.toFixed(3)}/mi profit
+                                    </div>
+                                  </div>
+                                ) : load.profit !== undefined && (
+                                  <div className={`text-xs ${load.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    Est. Profit: ${load.profit.toFixed(2)}
                                   </div>
                                 )}
                               </div>
-                              
-                              {/* Net Profit - Enhanced Display */}
-                              {load.netProfit !== undefined && load.totalCostPerMile > 0 ? (
-                                <div className="mt-2 pt-1 border-t border-slate-600">
-                                  <div className={`text-sm font-medium ${load.netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    Net Profit: ${load.netProfit.toFixed(2)}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                {load.pickupDate && (
+                                  <div className="text-white text-sm">
+                                    <span className="text-slate-400">Pickup:</span> {format(new Date(load.pickupDate), "MMM d")}
                                   </div>
-                                  <div className={`text-xs ${load.profitPerMile >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    ${load.profitPerMile?.toFixed(3)}/mi profit
+                                )}
+                                {load.deliveryDate && (
+                                  <div className="text-white text-sm">
+                                    <span className="text-slate-400">Delivery:</span> {format(new Date(load.deliveryDate), "MMM d")}
                                   </div>
-                                </div>
-                              ) : load.profit !== undefined && (
-                                <div className={`text-xs ${load.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  Est. Profit: ${load.profit.toFixed(2)}
+                                )}
+                                {!load.pickupDate && !load.deliveryDate && (
+                                  <div className="text-slate-500 text-sm">No dates set</div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <Select 
+                                value={load.status} 
+                                onValueChange={(newStatus) => handleStatusChange(load.id, newStatus)}
+                                disabled={updateLoadStatusMutation.isPending}
+                              >
+                                <SelectTrigger className={`w-32 ${statusColors[load.status as keyof typeof statusColors] || 'bg-slate-600'} text-white border-0 hover:opacity-80`}>
+                                  <SelectValue>
+                                    {statusLabels[load.status as keyof typeof statusLabels] || load.status}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-700 border-slate-600">
+                                  <SelectItem value="pending" className="text-white hover:bg-yellow-600/20">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                      Pending
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="in_transit" className="text-white hover:bg-blue-600/20">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                      In Transit
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="delivered" className="text-white hover:bg-green-600/20">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                      Delivered
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="cancelled" className="text-white hover:bg-red-600/20">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                      Cancelled
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="delete" className="text-red-400 hover:bg-red-600/20 border-t border-slate-600 mt-1">
+                                    <div className="flex items-center gap-2">
+                                      <Trash2 className="w-3 h-3" />
+                                      Delete Shipment
+                                    </div>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="py-4 px-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingLoad(load);
+                                  setShowEntryForm(false);
+                                }}
+                                className="text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="lg:hidden space-y-3">
+                  {filteredLoads.map((load: any) => {
+                    const truck = trucks.find(t => t.id === load.truckId);
+                    const ratePerMile = load.miles > 0 ? (load.pay / load.miles).toFixed(2) : "0.00";
+
+                    return (
+                      <div key={load.id} className="bg-slate-700 rounded-lg p-3 sm:p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="text-2xl flex-shrink-0">
+                              {equipmentIcons[load.type as keyof typeof equipmentIcons] || "📦"}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-white font-medium text-sm sm:text-base truncate">{load.type}</div>
+                              <div className="text-slate-400 text-xs sm:text-sm truncate">{load.commodity}</div>
+                              {load.weight && (
+                                <div className="text-slate-500 text-xs">
+                                  {load.weight.toLocaleString()} lbs
                                 </div>
                               )}
                             </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              {load.pickupDate && (
-                                <div className="text-white text-sm">
-                                  <span className="text-slate-400">Pickup:</span> {format(new Date(load.pickupDate), "MMM d")}
-                                </div>
-                              )}
-                              {load.deliveryDate && (
-                                <div className="text-white text-sm">
-                                  <span className="text-slate-400">Delivery:</span> {format(new Date(load.deliveryDate), "MMM d")}
-                                </div>
-                              )}
-                              {!load.pickupDate && !load.deliveryDate && (
-                                <div className="text-slate-500 text-sm">No dates set</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <Select 
                               value={load.status} 
                               onValueChange={(newStatus) => handleStatusChange(load.id, newStatus)}
                               disabled={updateLoadStatusMutation.isPending}
                             >
-                              <SelectTrigger className={`w-32 ${statusColors[load.status as keyof typeof statusColors] || 'bg-slate-600'} text-white border-0 hover:opacity-80`}>
+                              <SelectTrigger className={`w-24 h-7 ${statusColors[load.status as keyof typeof statusColors] || 'bg-slate-600'} text-white border-0 text-xs`}>
                                 <SelectValue>
-                                  {statusLabels[load.status as keyof typeof statusLabels] || load.status}
+                                  <span className="truncate">{statusLabels[load.status as keyof typeof statusLabels] || load.status}</span>
                                 </SelectValue>
                               </SelectTrigger>
                               <SelectContent className="bg-slate-700 border-slate-600">
-                                <SelectItem value="pending" className="text-white hover:bg-yellow-600/20">
+                                <SelectItem value="pending" className="text-white hover:bg-yellow-600/20 text-xs">
                                   <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
                                     Pending
                                   </div>
                                 </SelectItem>
-                                <SelectItem value="in_transit" className="text-white hover:bg-blue-600/20">
+                                <SelectItem value="in_transit" className="text-white hover:bg-blue-600/20 text-xs">
                                   <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                     In Transit
                                   </div>
                                 </SelectItem>
-                                <SelectItem value="delivered" className="text-white hover:bg-green-600/20">
+                                <SelectItem value="delivered" className="text-white hover:bg-green-600/20 text-xs">
                                   <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-green-500"></div>
                                     Delivered
                                   </div>
                                 </SelectItem>
-                                <SelectItem value="cancelled" className="text-white hover:bg-red-600/20">
+                                <SelectItem value="cancelled" className="text-white hover:bg-red-600/20 text-xs">
                                   <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
                                     Cancelled
                                   </div>
                                 </SelectItem>
-                                <SelectItem value="delete" className="text-red-400 hover:bg-red-600/20 border-t border-slate-600 mt-1">
+                                <SelectItem value="delete" className="text-red-400 hover:bg-red-600/20 border-t border-slate-600 mt-1 text-xs">
                                   <div className="flex items-center gap-2">
                                     <Trash2 className="w-3 h-3" />
-                                    Delete Shipment
+                                    Delete
                                   </div>
                                 </SelectItem>
                               </SelectContent>
                             </Select>
-                          </td>
-                          <td className="py-4 px-4">
                             <Button
                               variant="outline"
                               size="sm"
@@ -693,22 +787,81 @@ export default function LoadManagement() {
                                 setEditingLoad(load);
                                 setShowEntryForm(false);
                               }}
-                              className="text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white"
+                              className="text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white h-7 w-7 p-0"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-3 w-3" />
                             </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mb-3">
+                          <div className="flex items-center justify-between text-xs sm:text-sm">
+                            <span className="text-slate-300">Route:</span>
+                            <span className="text-white text-right">
+                              {load.originCity}, {load.originState} → {load.destinationCity}, {load.destinationState}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs sm:text-sm">
+                            <span className="text-slate-300">Miles:</span>
+                            <span className="text-white">
+                              {load.miles ? `${load.miles.toLocaleString()}` : 'N/A'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs sm:text-sm">
+                            <span className="text-slate-300">Pay:</span>
+                            <span className="text-white font-medium">
+                              ${load.pay?.toLocaleString() || 0} (${ratePerMile}/mi)
+                            </span>
+                          </div>
+
+                          {load.truckId && truck ? (
+                            <div className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="text-slate-300">Truck:</span>
+                              <span className="text-white">{truck.name}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="text-slate-300">Truck:</span>
+                              <span className="text-yellow-400 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Unassigned
+                              </span>
+                            </div>
+                          )}
+
+                          {(load.pickupDate || load.deliveryDate) && (
+                            <div className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="text-slate-300">Schedule:</span>
+                              <span className="text-white text-right">
+                                {load.pickupDate && format(new Date(load.pickupDate), "MMM d")}
+                                {load.pickupDate && load.deliveryDate && " - "}
+                                {load.deliveryDate && format(new Date(load.deliveryDate), "MMM d")}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Net Profit Display */}
+                          {load.netProfit !== undefined && load.totalCostPerMile > 0 && (
+                            <div className="flex items-center justify-between text-xs sm:text-sm pt-2 border-t border-slate-600">
+                              <span className="text-slate-300">Net Profit:</span>
+                              <span className={`font-medium ${load.netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                ${load.netProfit.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                <div className="text-slate-400 mb-2">No loads found</div>
-                <div className="text-slate-500 text-sm">
+              <div className="text-center py-6 sm:py-8">
+                <Package className="h-10 w-10 sm:h-12 sm:w-12 text-slate-600 mx-auto mb-3 sm:mb-4" />
+                <div className="text-slate-400 mb-2 text-sm sm:text-base">No loads found</div>
+                <div className="text-slate-500 text-xs sm:text-sm px-4">
                   {selectedTruck || selectedStatus || selectedEquipment
                     ? "Try adjusting your filters or create a new load entry"
                     : "Create your first load entry to start tracking freight"
@@ -716,8 +869,8 @@ export default function LoadManagement() {
                 </div>
               </div>
             )}
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
         </div>
       </div>
     );

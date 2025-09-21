@@ -86,12 +86,12 @@ export default function UserManagement() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6 p-4 md:p-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">User Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">User Management</h1>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(3)].map((_, i) => (
             <Card key={i} className="bg-slate-800 border-slate-700">
               <CardHeader>
@@ -114,19 +114,19 @@ export default function UserManagement() {
 
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-white">User Management</h1>
-          <p className="text-slate-400 mt-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-white">User Management</h1>
+          <p className="text-slate-400 mt-2 text-sm md:text-base">
             View all users who have accessed the system
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col space-y-2 md:flex-row md:items-center md:gap-3 md:space-y-0">
           <Badge
             variant="outline"
-            className={`px-3 py-1 ${
+            className={`px-3 py-1 text-xs md:text-sm ${
               isFounder
                 ? "border-purple-600 text-purple-600"
                 : "border-amber-600 text-amber-600"
@@ -134,19 +134,21 @@ export default function UserManagement() {
           >
             {isFounder ? (
               <>
-                <Crown className="h-4 w-4 mr-1" />
-                Founder Access
+                <Crown className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                <span className="mobile-hide">Founder Access</span>
+                <span className="mobile-show">Founder</span>
               </>
             ) : (
               <>
-                <Shield className="h-4 w-4 mr-1" />
-                Admin Access
+                <Shield className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                <span className="mobile-hide">Admin Access</span>
+                <span className="mobile-show">Admin</span>
               </>
             )}
           </Badge>
           <Badge
             variant="secondary"
-            className="bg-blue-900/20 text-blue-400 border-blue-800"
+            className="bg-blue-900/20 text-blue-400 border-blue-800 text-xs md:text-sm"
           >
             {users?.length || 0} registered users
           </Badge>
@@ -161,7 +163,7 @@ export default function UserManagement() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {users.map((user) => (
             <Card
               key={user.id}
@@ -169,11 +171,11 @@ export default function UserManagement() {
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                     <User className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg text-white truncate">
+                    <CardTitle className="text-base md:text-lg text-white truncate">
                       {user.firstName && user.lastName
                         ? `${user.firstName} ${user.lastName}`
                         : user.email
@@ -181,7 +183,7 @@ export default function UserManagement() {
                         : "Deleted User"}
                     </CardTitle>
                     {user.title && (
-                      <p className="text-sm text-slate-400 truncate">
+                      <p className="text-xs md:text-sm text-slate-400 truncate">
                         {user.title}
                       </p>
                     )}
@@ -190,28 +192,28 @@ export default function UserManagement() {
               </CardHeader>
 
               <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-slate-300">
-                  <Mail className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-slate-300">
+                  <Mail className="h-3 w-3 md:h-4 md:w-4 text-slate-500 flex-shrink-0" />
                   <span className="truncate">
                     {user.email || "Email removed"}
                   </span>
                 </div>
 
                 {user.company && (
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <Building className="h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2 text-xs md:text-sm text-slate-300">
+                    <Building className="h-3 w-3 md:h-4 md:w-4 text-slate-500 flex-shrink-0" />
                     <span className="truncate">{user.company}</span>
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <Calendar className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-slate-400">
+                  <Calendar className="h-3 w-3 md:h-4 md:w-4 text-slate-500 flex-shrink-0" />
                   <span>
                     Joined {format(new Date(user.createdAt), "MMM d, yyyy")}
                   </span>
                 </div>
 
-                <div className="pt-2 flex flex-wrap gap-2">
+                <div className="pt-2 flex flex-wrap gap-1 md:gap-2">
                   <Badge
                     variant="secondary"
                     className="bg-green-900/20 text-green-400 border-green-800 text-xs"
@@ -224,7 +226,8 @@ export default function UserManagement() {
                       className="bg-purple-900/20 text-purple-400 border-purple-800 text-xs flex items-center gap-1"
                     >
                       <Crown className="h-3 w-3" />
-                      Founder
+                      <span className="mobile-hide">Founder</span>
+                      <span className="mobile-show">F</span>
                     </Badge>
                   )}
                   {user.isAdmin && !user.isFounder && (
@@ -232,7 +235,8 @@ export default function UserManagement() {
                       variant="secondary"
                       className="bg-amber-900/20 text-amber-400 border-amber-800 text-xs"
                     >
-                      Administrator
+                      <span className="mobile-hide">Administrator</span>
+                      <span className="mobile-show">Admin</span>
                     </Badge>
                   )}
                 </div>
@@ -245,11 +249,12 @@ export default function UserManagement() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full text-red-400 border-red-800 hover:bg-red-900/20 hover:text-red-300"
+                          className="w-full text-red-400 border-red-800 hover:bg-red-900/20 hover:text-red-300 touch-target"
                           disabled={deleteUserMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete User
+                          <span className="mobile-hide">Delete User</span>
+                          <span className="mobile-show">Delete</span>
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent className="bg-slate-900 border-slate-700">
@@ -294,7 +299,7 @@ export default function UserManagement() {
         </div>
       )}
 
-      <div className="text-xs text-slate-500 text-center pt-4">
+      <div className="text-xs text-slate-500 text-center pt-4 px-4">
         User data is displayed based on authentication records and registration
         information.
       </div>

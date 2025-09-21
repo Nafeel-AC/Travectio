@@ -225,6 +225,13 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
   const totalSteps = 4;
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
+  // Reset step when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+    }
+  }, [isOpen]);
+
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories(prev => 
       prev.includes(categoryId) 
@@ -247,29 +254,29 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
     switch (currentStep) {
       case 0:
         return (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <Target className="h-8 w-8 text-white" />
+          <div className="space-y-4 sm:space-y-6">
+            <div className="text-center space-y-3 sm:space-y-4">
+              <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <Target className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   Accurate Cost Setup is Critical
                 </h2>
-                <p className="text-gray-600 dark:text-gray-300 mt-2">
+                <p className="text-gray-600 dark:text-gray-300 mt-2 text-sm sm:text-base">
                   The value and accuracy of Travectio depends entirely on precise cost data
                 </p>
               </div>
             </div>
 
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-amber-800 dark:text-amber-300">
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start space-x-2 sm:space-x-3">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-amber-800 dark:text-amber-300 text-sm sm:text-base">
                     Why Accurate Costs Matter
                   </h3>
-                  <ul className="mt-2 text-sm text-amber-700 dark:text-amber-400 space-y-1">
+                  <ul className="mt-2 text-xs sm:text-sm text-amber-700 dark:text-amber-400 space-y-1">
                     <li>• <strong>Profitability Analysis:</strong> Know if loads are actually profitable</li>
                     <li>• <strong>Accurate CPM:</strong> True cost per mile for better decision making</li>
                     <li>• <strong>Load Pricing:</strong> Price loads correctly to ensure profit margins</li>
@@ -279,30 +286,30 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <Card>
-                <CardContent className="p-4 text-center">
-                  <Calculator className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-                  <h3 className="font-semibold">Cost Per Mile</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <Calculator className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mx-auto mb-2" />
+                  <h3 className="font-semibold text-sm sm:text-base">Cost Per Mile</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     Calculate true operational costs
                   </p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4 text-center">
-                  <TrendingUp className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                  <h3 className="font-semibold">Profit Margins</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mx-auto mb-2" />
+                  <h3 className="font-semibold text-sm sm:text-base">Profit Margins</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     Identify profitable vs losing loads
                   </p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4 text-center">
-                  <DollarSign className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-                  <h3 className="font-semibold">Load Pricing</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500 mx-auto mb-2" />
+                  <h3 className="font-semibold text-sm sm:text-base">Load Pricing</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     Price loads to guarantee profit
                   </p>
                 </CardContent>
@@ -313,61 +320,63 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
 
       case 1:
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 Fixed Costs (Monthly)
               </h2>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
                 These costs remain the same regardless of miles driven
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {costCategories.map((category) => (
                 <Card key={category.id} className="border-2">
                   <CardHeader 
-                    className="cursor-pointer"
+                    className="cursor-pointer p-3 sm:p-6"
                     onClick={() => toggleCategory(category.id)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {category.icon}
-                        <div>
-                          <CardTitle className="text-lg">{category.title}</CardTitle>
-                          <CardDescription>{category.description}</CardDescription>
+                      <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                        <div className="flex-shrink-0">{category.icon}</div>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-base sm:text-lg">{category.title}</CardTitle>
+                          <CardDescription className="text-xs sm:text-sm">{category.description}</CardDescription>
                         </div>
                       </div>
-                      {expandedCategories.includes(category.id) ? 
-                        <ChevronDown className="h-5 w-5" /> : 
-                        <ChevronRight className="h-5 w-5" />
-                      }
+                      <div className="flex-shrink-0 ml-2">
+                        {expandedCategories.includes(category.id) ? 
+                          <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" /> : 
+                          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                        }
+                      </div>
                     </div>
                   </CardHeader>
                   
                   {expandedCategories.includes(category.id) && (
-                    <CardContent className="pt-0">
-                      <div className="space-y-4">
+                    <CardContent className="pt-0 p-3 sm:p-6">
+                      <div className="space-y-3 sm:space-y-4">
                         {category.items.map((item) => (
-                          <div key={item.name} className="border rounded-lg p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <h4 className="font-semibold">{item.name}</h4>
+                          <div key={item.name} className="border rounded-lg p-3 sm:p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-2 flex-wrap">
+                                  <h4 className="font-semibold text-sm sm:text-base">{item.name}</h4>
                                   <Badge 
                                     variant={
                                       item.importance === 'critical' ? 'destructive' :
                                       item.importance === 'high' ? 'default' : 'secondary'
                                     }
-                                    className="text-xs"
+                                    className="text-xs flex-shrink-0"
                                   >
                                     {item.importance}
                                   </Badge>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                                   {item.description}
                                 </p>
-                                <div className="text-sm">
+                                <div className="text-xs sm:text-sm">
                                   <div className="font-medium text-green-600 dark:text-green-400">
                                     Typical Range: {item.typicalRange}
                                   </div>
@@ -380,7 +389,7 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => toggleItem(item.name)}
-                                className={checkedItems.includes(item.name) ? 'text-green-600' : ''}
+                                className={`flex-shrink-0 ${checkedItems.includes(item.name) ? 'text-green-600' : ''}`}
                               >
                                 <CheckCircle className={`h-4 w-4 ${
                                   checkedItems.includes(item.name) 
@@ -402,61 +411,63 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
 
       case 2:
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 Variable Costs (Per Mile)
               </h2>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
                 These costs increase with miles driven and load activity
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {variableCostCategories.map((category) => (
                 <Card key={category.id} className="border-2">
                   <CardHeader 
-                    className="cursor-pointer"
+                    className="cursor-pointer p-3 sm:p-6"
                     onClick={() => toggleCategory(category.id)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {category.icon}
-                        <div>
-                          <CardTitle className="text-lg">{category.title}</CardTitle>
-                          <CardDescription>{category.description}</CardDescription>
+                      <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                        <div className="flex-shrink-0">{category.icon}</div>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-base sm:text-lg">{category.title}</CardTitle>
+                          <CardDescription className="text-xs sm:text-sm">{category.description}</CardDescription>
                         </div>
                       </div>
-                      {expandedCategories.includes(category.id) ? 
-                        <ChevronDown className="h-5 w-5" /> : 
-                        <ChevronRight className="h-5 w-5" />
-                      }
+                      <div className="flex-shrink-0 ml-2">
+                        {expandedCategories.includes(category.id) ? 
+                          <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" /> : 
+                          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                        }
+                      </div>
                     </div>
                   </CardHeader>
                   
                   {expandedCategories.includes(category.id) && (
-                    <CardContent className="pt-0">
-                      <div className="space-y-4">
+                    <CardContent className="pt-0 p-3 sm:p-6">
+                      <div className="space-y-3 sm:space-y-4">
                         {category.items.map((item) => (
-                          <div key={item.name} className="border rounded-lg p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <h4 className="font-semibold">{item.name}</h4>
+                          <div key={item.name} className="border rounded-lg p-3 sm:p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-2 flex-wrap">
+                                  <h4 className="font-semibold text-sm sm:text-base">{item.name}</h4>
                                   <Badge 
                                     variant={
                                       item.importance === 'critical' ? 'destructive' :
                                       item.importance === 'high' ? 'default' : 'secondary'
                                     }
-                                    className="text-xs"
+                                    className="text-xs flex-shrink-0"
                                   >
                                     {item.importance}
                                   </Badge>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                                   {item.description}
                                 </p>
-                                <div className="text-sm">
+                                <div className="text-xs sm:text-sm">
                                   <div className="font-medium text-green-600 dark:text-green-400">
                                     Typical Range: {item.typicalRange}
                                   </div>
@@ -469,7 +480,7 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => toggleItem(item.name)}
-                                className={checkedItems.includes(item.name) ? 'text-green-600' : ''}
+                                className={`flex-shrink-0 ${checkedItems.includes(item.name) ? 'text-green-600' : ''}`}
                               >
                                 <CheckCircle className={`h-4 w-4 ${
                                   checkedItems.includes(item.name) 
@@ -487,14 +498,14 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
               ))}
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-blue-800 dark:text-blue-300">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start space-x-2 sm:space-x-3">
+                <Info className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-blue-800 dark:text-blue-300 text-sm sm:text-base">
                     Fuel Cost Tracking
                   </h3>
-                  <p className="mt-1 text-sm text-blue-700 dark:text-blue-400">
+                  <p className="mt-1 text-xs sm:text-sm text-blue-700 dark:text-blue-400">
                     Fuel costs are tracked separately through fuel purchase entries. The system will automatically calculate your actual fuel costs per mile and MPG based on your fuel purchases and miles driven.
                   </p>
                 </div>
@@ -505,24 +516,24 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
 
       case 3:
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 Ready to Add Your Truck
               </h2>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
                 You now understand the importance of accurate cost data
               </p>
             </div>
 
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-green-800 dark:text-green-300 text-lg">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 sm:p-6">
+              <div className="flex items-start space-x-2 sm:space-x-3">
+                <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-green-800 dark:text-green-300 text-base sm:text-lg">
                     Cost Setup Checklist Complete
                   </h3>
-                  <div className="mt-3 space-y-2 text-sm text-green-700 dark:text-green-400">
+                  <div className="mt-3 space-y-2 text-xs sm:text-sm text-green-700 dark:text-green-400">
                     <div>✓ Understand fixed vs variable costs</div>
                     <div>✓ Know typical cost ranges for your operation</div>
                     <div>✓ Ready to enter accurate monthly expenses</div>
@@ -533,42 +544,42 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
             </div>
 
             <Card className="border-2 border-blue-200 dark:border-blue-800">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Calculator className="h-5 w-5 text-blue-500" />
+              <CardHeader className="p-3 sm:p-6">
+                <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                  <Calculator className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
                   <span>What Happens Next</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+              <CardContent className="p-3 sm:p-6 pt-0">
+                <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
+                  <div className="flex items-start space-x-2 sm:space-x-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</div>
                     <span>Enter your truck's basic information (name, VIN, etc.)</span>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div className="flex items-start space-x-2 sm:space-x-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</div>
                     <span>Input accurate monthly fixed costs based on this guide</span>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div className="flex items-start space-x-2 sm:space-x-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</div>
                     <span>Set up weekly cost breakdowns for precise tracking</span>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div className="flex items-start space-x-2 sm:space-x-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">4</div>
                     <span>Begin tracking loads and fuel purchases for accurate profitability</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-amber-800 dark:text-amber-300">
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start space-x-2 sm:space-x-3">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-amber-800 dark:text-amber-300 text-sm sm:text-base">
                     Remember: Garbage In, Garbage Out
                   </h3>
-                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                  <p className="mt-1 text-xs sm:text-sm text-amber-700 dark:text-amber-400">
                     The accuracy of Travectio's profitability analysis, cost per mile calculations, and load recommendations depends entirely on the accuracy of the cost data you enter. Take time to gather your actual monthly expenses.
                   </p>
                 </div>
@@ -583,20 +594,21 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 z-50 p-2 sm:p-4">
       {/* Center using translate to avoid parent layout influence and keep theme context */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden shadow-xl">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Truck Setup Cost Guide
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] h-[90vh] sm:h-auto max-h-[90vh] flex flex-col shadow-xl">
+        <div className="p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
+              <span className="hidden sm:inline">Truck Setup Cost Guide</span>
+              <span className="sm:hidden">Cost Guide</span>
             </h1>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose} className="p-1 sm:p-2">
               ×
             </Button>
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex justify-between text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               <span>Step {currentStep + 1} of {totalSteps}</span>
               <span>{Math.round(progress)}% Complete</span>
             </div>
@@ -604,29 +616,38 @@ export function TruckCostGuide({ isOpen, onClose, onProceed }: TruckCostGuidePro
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 min-h-0">
           {renderStep()}
         </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-between">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-            disabled={currentStep === 0}
-          >
-            Previous
-          </Button>
-          
-          <div className="flex space-x-3">
-            {currentStep < totalSteps - 1 ? (
-              <Button onClick={() => setCurrentStep(currentStep + 1)}>
-                Next Step
-              </Button>
-            ) : (
-              <Button onClick={onProceed} className="bg-green-600 hover:bg-green-700">
-                I Understand - Add Truck
-              </Button>
-            )}
+        <div className="p-3 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+              disabled={currentStep === 0}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">Prev</span>
+            </Button>
+            
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto order-1 sm:order-2">
+              {currentStep < totalSteps - 1 ? (
+                <Button 
+                  onClick={() => setCurrentStep(currentStep + 1)} 
+                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700"
+                >
+                  <span className="hidden sm:inline">Next Step</span>
+                  <span className="sm:hidden">Next</span>
+                </Button>
+              ) : (
+                <Button onClick={onProceed} className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none">
+                  <span className="hidden sm:inline">I Understand - Add Truck</span>
+                  <span className="sm:hidden">Add Truck</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

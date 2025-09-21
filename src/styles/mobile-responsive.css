@@ -1,0 +1,214 @@
+/* Mobile Responsive Utilities */
+
+/* Mobile-specific grid layouts */
+.mobile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .mobile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Mobile card layouts */
+.mobile-card {
+  @apply bg-slate-800 border border-slate-700 rounded-lg p-4;
+}
+
+.mobile-card-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.mobile-card-title {
+  @apply text-lg font-semibold text-white;
+}
+
+.mobile-card-content {
+  @apply space-y-3;
+}
+
+/* Mobile-friendly buttons */
+.mobile-button {
+  @apply w-full py-3 px-4 text-center font-medium rounded-lg transition-colors;
+}
+
+.mobile-button-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.mobile-button-secondary {
+  @apply bg-slate-700 text-slate-300 hover:bg-slate-600;
+}
+
+/* Mobile-friendly forms */
+.mobile-form {
+  @apply space-y-4;
+}
+
+.mobile-form-group {
+  @apply space-y-2;
+}
+
+.mobile-form-label {
+  @apply block text-sm font-medium text-slate-300;
+}
+
+.mobile-form-input {
+  @apply w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* Mobile-friendly tables */
+.mobile-table {
+  @apply w-full;
+}
+
+.mobile-table-header {
+  @apply bg-slate-700 text-slate-300 text-xs font-medium;
+}
+
+.mobile-table-cell {
+  @apply px-3 py-2 text-sm text-white border-b border-slate-700;
+}
+
+/* Mobile-friendly navigation */
+.mobile-nav-item {
+  @apply flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors;
+}
+
+.mobile-nav-item-active {
+  @apply bg-blue-600 text-white;
+}
+
+/* Mobile-friendly metrics */
+.mobile-metric-card {
+  @apply bg-slate-800 border border-slate-700 rounded-lg p-4;
+}
+
+.mobile-metric-value {
+  @apply text-2xl font-bold text-white;
+}
+
+.mobile-metric-label {
+  @apply text-sm text-slate-400;
+}
+
+/* Mobile-friendly status indicators */
+.mobile-status-indicator {
+  @apply inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.mobile-status-active {
+  @apply bg-green-900/20 text-green-400 border border-green-800;
+}
+
+.mobile-status-inactive {
+  @apply bg-gray-900/20 text-gray-400 border border-gray-800;
+}
+
+.mobile-status-warning {
+  @apply bg-orange-900/20 text-orange-400 border border-orange-800;
+}
+
+/* Mobile-friendly spacing */
+.mobile-section {
+  @apply space-y-4;
+}
+
+.mobile-section-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.mobile-section-title {
+  @apply text-xl font-semibold text-white;
+}
+
+/* Mobile-friendly modals and overlays */
+.mobile-overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40;
+}
+
+.mobile-modal {
+  @apply fixed inset-x-4 top-1/2 -translate-y-1/2 bg-slate-800 border border-slate-700 rounded-lg p-6 z-50;
+}
+
+/* Mobile-friendly scroll areas */
+.mobile-scroll-area {
+  @apply max-h-96 overflow-y-auto;
+}
+
+/* Mobile-friendly touch targets */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}
+
+/* Mobile-friendly text */
+.mobile-text-sm {
+  @apply text-sm;
+}
+
+.mobile-text-xs {
+  @apply text-xs;
+}
+
+.mobile-text-lg {
+  @apply text-lg;
+}
+
+.mobile-text-xl {
+  @apply text-xl;
+}
+
+/* Mobile-friendly flex layouts */
+.mobile-flex-col {
+  @apply flex flex-col space-y-2;
+}
+
+.mobile-flex-row {
+  @apply flex flex-row items-center space-x-2;
+}
+
+.mobile-flex-between {
+  @apply flex items-center justify-between;
+}
+
+/* Mobile-friendly responsive utilities */
+@media (max-width: 767px) {
+  .mobile-hide {
+    display: none !important;
+  }
+  
+  .mobile-show {
+    display: block !important;
+  }
+  
+  .mobile-full-width {
+    width: 100% !important;
+  }
+  
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+  
+  .mobile-center {
+    text-align: center !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-hide {
+    display: block !important;
+  }
+  
+  .mobile-show {
+    display: none !important;
+  }
+}

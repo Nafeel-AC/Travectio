@@ -85,20 +85,20 @@ export default function LoginPage() {
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
       
-      <div className="relative min-h-screen flex items-center justify-center px-4">
+      <div className="relative min-h-screen flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-4xl">
           {/* Header */}
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center space-x-3 mb-6">
-              <div className="bg-blue-600 p-3 rounded-xl">
-                <Truck className="h-8 w-8 text-white" />
+          <div className="text-center mb-8 md:mb-12">
+            <div className="flex items-center justify-center space-x-3 mb-4 md:mb-6">
+              <div className="bg-blue-600 p-2 md:p-3 rounded-xl">
+                <Truck className="h-6 w-6 md:h-8 md:w-8 text-white" />
               </div>
-              <h1 className="text-4xl font-bold text-white">Travectio</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-white">Travectio</h1>
             </div>
-            <p className="text-xl text-slate-300 mb-2">
+            <p className="text-lg md:text-xl text-slate-300 mb-2">
               Fleet Management Solutions
             </p>
-            <p className="text-slate-400 max-w-2xl mx-auto">
+            <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base px-4">
               Comprehensive trucking operations management platform for real-time decision-making and maximum profitability
             </p>
           </div>
@@ -232,7 +232,7 @@ export default function LoginPage() {
           </Card>
 
           {/* Feature Highlights */}
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
               <CardContent className="p-6">
                 <div className="flex items-center space-x-3 mb-3">

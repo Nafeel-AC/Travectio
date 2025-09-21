@@ -198,34 +198,44 @@ export default function IntegrationManagement() {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Integration Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Integration Management</h1>
+          <p className="text-muted-foreground text-sm md:text-base">
             Configure and manage your DAT load board and ELD/HOS integrations
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.location.href = '/api-credentials-guide'}>
+        <div className="flex flex-col space-y-2 md:flex-row md:gap-2 md:space-y-0">
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.href = '/api-credentials-guide'}
+            className="touch-target"
+          >
             <Key className="h-4 w-4 mr-2" />
-            API Setup Guide
+            <span className="mobile-hide">API Setup Guide</span>
+            <span className="mobile-show">API Guide</span>
           </Button>
-          <Button variant="outline" onClick={() => window.location.reload()}>
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            className="touch-target"
+          >
             <Settings className="h-4 w-4 mr-2" />
-            Refresh Status
+            <span className="mobile-hide">Refresh Status</span>
+            <span className="mobile-show">Refresh</span>
           </Button>
         </div>
       </div>
 
       {/* Integration Status Overview */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <Zap className="h-4 w-4 md:h-5 md:w-5" />
             Integration Status
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm md:text-base">
             Current connection status for your external integrations
           </CardDescription>
         </CardHeader>
@@ -234,7 +244,7 @@ export default function IntegrationManagement() {
           {integrationStatus?.summary && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-semibold text-blue-800 mb-2">Integration Summary</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-xs md:text-sm">
                 <div>
                   <span className="text-blue-600 font-medium">Load Boards:</span>
                   <p className="text-blue-800">{integrationStatus.summary.connectedLoadBoards} of {integrationStatus.summary.totalLoadBoards} connected</p>
@@ -260,11 +270,11 @@ export default function IntegrationManagement() {
 
           {/* Load Board Providers */}
           <div className="mb-6">
-            <h4 className="font-semibold mb-3 flex items-center gap-2">
+            <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
               <Truck className="h-4 w-4" />
               Load Board Providers
             </h4>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {integrationStatus?.loadBoards && Object.entries(integrationStatus.loadBoards).map(([provider, status]) => (
                 <div key={provider} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
@@ -291,11 +301,11 @@ export default function IntegrationManagement() {
 
           {/* ELD Providers */}
           <div>
-            <h4 className="font-semibold mb-3 flex items-center gap-2">
+            <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
               <Clock className="h-4 w-4" />
               ELD/HOS Providers
             </h4>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {integrationStatus?.eldProviders && Object.entries(integrationStatus.eldProviders).map(([provider, status]) => (
                 <div key={provider} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
@@ -334,7 +344,7 @@ export default function IntegrationManagement() {
               To connect your external systems, you'll need API credentials from each provider. 
               These are obtained directly from the service providers and are required for secure data access.
             </p>
-            <div className="grid md:grid-cols-2 gap-4 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
                 <p className="font-semibold text-yellow-800 mb-1">Load Board Providers:</p>
                 <div className="space-y-1 text-yellow-700">
@@ -358,15 +368,15 @@ export default function IntegrationManagement() {
         </CardContent>
       </Card>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* DAT Load Board Configuration */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Truck className="h-4 w-4 md:h-5 md:w-5" />
               DAT Load Board
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm md:text-base">
               Search for loads and manage your DAT integration settings
             </CardDescription>
           </CardHeader>
@@ -393,9 +403,9 @@ export default function IntegrationManagement() {
 
             {/* Load Search Form */}
             <div className="space-y-3">
-              <h4 className="font-medium">Search Available Loads</h4>
+              <h4 className="font-medium text-sm md:text-base">Search Available Loads</h4>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="originCity">Origin City</Label>
                   <Input
@@ -422,7 +432,7 @@ export default function IntegrationManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="equipmentType">Equipment Type</Label>
                   <Select
@@ -462,7 +472,7 @@ export default function IntegrationManagement() {
               <Button 
                 onClick={handleDATSearch}
                 disabled={datLoadSearch.isPending || !datSearchParams.originCity || !datSearchParams.originState}
-                className="w-full"
+                className="w-full touch-target"
               >
                 {datLoadSearch.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -506,12 +516,12 @@ export default function IntegrationManagement() {
 
         {/* ELD/HOS Configuration */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Clock className="h-4 w-4 md:h-5 md:w-5" />
               ELD/HOS Integration
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm md:text-base">
               Configure your electronic logging device and HOS compliance
             </CardDescription>
           </CardHeader>
@@ -539,7 +549,7 @@ export default function IntegrationManagement() {
             {/* Provider Selection */}
             <div className="space-y-3">
               <div>
-                <Label htmlFor="eldProvider">ELD Provider</Label>
+                <Label htmlFor="eldProvider" className="text-sm">ELD Provider</Label>
                 <Select value={eldProvider} onValueChange={setEldProvider}>
                   <SelectTrigger>
                     <SelectValue />
@@ -570,7 +580,7 @@ export default function IntegrationManagement() {
 
               {/* Features List */}
               <div className="space-y-2">
-                <h4 className="font-medium">Available Features</h4>
+                <h4 className="font-medium text-sm md:text-base">Available Features</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -601,14 +611,14 @@ export default function IntegrationManagement() {
 
       {/* Configuration Help */}
       <Card>
-        <CardHeader>
-          <CardTitle>Integration Setup Help</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg md:text-xl">Integration Setup Help</CardTitle>
+          <CardDescription className="text-sm md:text-base">
             Need help configuring your integrations? Follow these guides.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* DAT Setup */}
             <div className="space-y-3">
               <h3 className="font-semibold flex items-center gap-2">

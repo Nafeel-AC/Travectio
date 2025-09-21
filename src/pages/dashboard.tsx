@@ -113,11 +113,11 @@ export default function Dashboard() {
       <div className="flex">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
-        <main className="flex-1 p-8 space-y-8 lg:ml-64 max-w-7xl mx-auto">
+        <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 lg:ml-64 max-w-7xl mx-auto">
           {/* Welcome Section */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-            <p className="text-gray-400">Monitor your fleet performance and manage operations</p>
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Dashboard</h1>
+            <p className="text-gray-400 text-sm md:text-base">Monitor your fleet performance and manage operations</p>
           </div>
 
           {/* KPI Cards */}
@@ -126,7 +126,7 @@ export default function Dashboard() {
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
             {/* Left Column - Primary Tools */}
             <div className="xl:col-span-8 space-y-8">
               {/* Load Calculator - Full Width */}
