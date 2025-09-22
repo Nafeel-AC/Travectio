@@ -289,7 +289,7 @@ class TruckService {
         if (truck.currentDriverId) {
           const { data: driver, error: driverError } = await supabase
             .from('drivers')
-            .select('id, name, cdlNumber, phone, email')
+            .select('id, name, cdlNumber, phoneNumber, email')
             .eq('id', truck.currentDriverId)
             .maybeSingle();
           
@@ -313,20 +313,18 @@ class TruckService {
       .single();
 
     if (error) throw new Error(error.message);
-    
-    // If truck has a currentDriverId, fetch the driver data
-    if (truck.currentDriverId) {
-      const { data: driver, error: driverError } = await supabase
+
+    if (truck?.currentDriverId) {
+      const { data: driver } = await supabase
         .from('drivers')
-        .select('id, name, cdlNumber, phone, email')
+        .select('id, name, cdlNumber, phoneNumber, email')
         .eq('id', truck.currentDriverId)
         .maybeSingle();
-      
-      if (!driverError && driver) {
-        truck.driver = driver;
+      if (driver) {
+        (truck as any).driver = driver;
       }
     }
-    
+
     return truck;
   }
 
@@ -359,7 +357,7 @@ class TruckService {
       .select('*', { count: 'exact', head: true })
       .eq('userId', user.id);
 
-    if (currentTruckCount >= subscription.truckCount) {
+    if ((currentTruckCount ?? 0) >= subscription.truckCount) {
       throw new Error(`Truck limit reached. You can only have ${subscription.truckCount} trucks with your current subscription. Please upgrade to add more trucks.`);
     }
 
@@ -413,6 +411,26 @@ class TruckService {
 
   // Assign driver to truck (updates both truck and driver records)
   static async assignDriverToTruck(truckId: string, driverId: string | null) {
+    // Ensure a driver is not assigned to multiple trucks: unassign this driver elsewhere first
+    if (driverId) {
+      const { data: trucksWithDriver } = await supabase
+        .from('trucks')
+        .select('id')
+        .eq('currentDriverId', driverId);
+
+      if (Array.isArray(trucksWithDriver) && trucksWithDriver.length > 0) {
+        const otherTruckIds = trucksWithDriver
+          .map((t: any) => t.id)
+          .filter((idVal: string) => idVal !== truckId);
+
+        if (otherTruckIds.length > 0) {
+          await supabase
+            .from('trucks')
+            .update({ currentDriverId: null, updatedAt: new Date().toISOString() })
+            .in('id', otherTruckIds);
+        }
+      }
+    }
     // First, remove any existing driver assignment from this truck
     const { data: currentTruck } = await supabase
       .from('trucks')
@@ -452,6 +470,12 @@ class TruckService {
         .eq('id', driverId);
 
       if (driverError) throw new Error(driverError.message);
+    } else {
+      // If unassigning, clear any driver that references this truck
+      await supabase
+        .from('drivers')
+        .update({ currentTruckId: null, updatedAt: new Date().toISOString() })
+        .eq('currentTruckId', truckId);
     }
 
     return updatedTruck;
@@ -1735,8 +1759,9 @@ class BusinessAnalyticsService {
       const avgSystemRevenuePerMile = totalMiles > 0 ? totalRevenue / totalMiles : 0;
 
       // Calculate average cost per mile across all trucks
-      const avgCostPerMile = costBreakdowns?.length > 0 
-        ? costBreakdowns.reduce((sum, breakdown) => sum + (breakdown.costPerMile || 0), 0) / costBreakdowns.length
+      const cbAll = costBreakdowns ?? [];
+      const avgCostPerMile = cbAll.length > 0 
+        ? cbAll.reduce((sum, breakdown) => sum + (breakdown.costPerMile || 0), 0) / cbAll.length
         : 0;
 
       // Calculate equipment distribution
@@ -1790,8 +1815,9 @@ class BusinessAnalyticsService {
       
       const avgUserRevenuePerMile = userMiles > 0 ? userRevenue / userMiles : 0;
 
-      const avgCostPerMile = costBreakdowns?.length > 0 
-        ? costBreakdowns.reduce((sum, breakdown) => sum + (breakdown.costPerMile || 0), 0) / costBreakdowns.length
+      const cbUser = costBreakdowns ?? [];
+      const avgCostPerMile = cbUser.length > 0 
+        ? cbUser.reduce((sum, breakdown) => sum + (breakdown.costPerMile || 0), 0) / cbUser.length
         : 0;
 
       return {

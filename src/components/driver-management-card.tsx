@@ -5,10 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DriverEditForm } from "./driver-edit-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useDrivers } from "@/hooks/useSupabase";
+import { TruckService } from "@/lib/supabase-client";
+import { TruckAssignmentSelect } from "./truck-assignment-select";
 import { 
   User, 
   Phone, 
@@ -47,6 +49,16 @@ export function DriverManagementCard({ driver, assignedTrucks = 0, onUpdate }: D
   const { updateDriver, deleteDriver } = useDrivers();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: trucks = [] } = useQuery({
+    queryKey: ["trucks"],
+    queryFn: () => TruckService.getTrucks(),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+  const currentlyAssignedTruckId: string | null = (trucks.find((t: any) => t.currentDriverId === driver.id)?.id) || null;
+  const [selectedTruckId, setSelectedTruckId] = useState<string | null>(currentlyAssignedTruckId);
 
   const deleteDriverMutation = useMutation({
     mutationFn: async () => {
@@ -97,6 +109,41 @@ export function DriverManagementCard({ driver, assignedTrucks = 0, onUpdate }: D
       });
     }
   };
+
+  const assignDriverMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedTruckId) {
+        // If no truck chosen, unassign from any currently assigned truck (if any)
+        if (currentlyAssignedTruckId) {
+          return await TruckService.assignDriverToTruck(currentlyAssignedTruckId, null);
+        }
+        return null;
+      }
+      return await TruckService.assignDriverToTruck(selectedTruckId, driver.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      // Invalidate the specific truck profiles affected
+      if (selectedTruckId) {
+        queryClient.invalidateQueries({ queryKey: ["truck", selectedTruckId] });
+      }
+      if (currentlyAssignedTruckId && currentlyAssignedTruckId !== selectedTruckId) {
+        queryClient.invalidateQueries({ queryKey: ["truck", currentlyAssignedTruckId] });
+      }
+      toast({
+        title: "Assignment updated",
+        description: selectedTruckId ? `${driver.name} assigned successfully` : `${driver.name} unassigned from truck`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Assignment failed",
+        description: error?.message || "Could not update assignment",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <>
@@ -161,16 +208,38 @@ export function DriverManagementCard({ driver, assignedTrucks = 0, onUpdate }: D
           </div>
 
           {/* Assignment Info */}
-          {assignedTrucks > 0 && (
-            <div className="p-3 bg-blue-600/10 rounded-lg border border-blue-600/20">
+          <div className="space-y-2">
+            {assignedTrucks > 0 && (
+              <div className="p-3 bg-blue-600/10 rounded-lg border border-blue-600/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                  <span className="text-blue-200 text-sm">
+                    Assigned to {assignedTrucks} truck{assignedTrucks !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <div className="text-slate-300 text-sm">Assign to Truck</div>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                <span className="text-blue-200 text-sm">
-                  Assigned to {assignedTrucks} truck{assignedTrucks !== 1 ? 's' : ''}
-                </span>
+                <div className="flex-1">
+                  <TruckAssignmentSelect
+                    selectedTruckId={selectedTruckId}
+                    onTruckChange={setSelectedTruckId}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => assignDriverMutation.mutate()}
+                  disabled={assignDriverMutation.isPending}
+                >
+                  {assignDriverMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Save
+                </Button>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-slate-700">

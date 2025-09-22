@@ -32,10 +32,10 @@ export default function TruckProfile() {
       return result;
     },
     enabled: !!id,
-    staleTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Fetch cost breakdown data
@@ -43,10 +43,10 @@ export default function TruckProfile() {
     queryKey: ['truck-cost-breakdown', id],
     queryFn: () => TruckService.getLatestCostBreakdown(id!),
     enabled: !!id,
-    staleTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   const updateTruckMutation = useMutation({
