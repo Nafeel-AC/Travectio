@@ -747,7 +747,85 @@ class LoadService {
       .order('createdAt', { ascending: false });
 
     if (error) throw new Error(error.message);
-    return data;
+
+    const loads = data || [];
+
+    if (loads.length === 0) return loads;
+
+    // Fetch trucks to compute CPM benchmarks
+    const { data: trucks } = await supabase
+      .from('trucks')
+      .select('id, fixedCosts, variableCosts, totalMiles, costPerMile')
+      .eq('userId', user.id);
+
+    const truckById = new Map<string, any>((trucks || []).map((t: any) => [t.id, t]));
+
+    // Sum attached fuel per load
+    const loadIds = loads.map(l => l.id).filter(Boolean);
+    const { data: fuelRows } = await supabase
+      .from('fuel_purchases')
+      .select('loadId, totalCost, gallons')
+      .in('loadId', loadIds);
+
+    const fuelAgg = new Map<string, { totalCost: number; gallons: number }>();
+    for (const row of fuelRows || []) {
+      if (!row.loadId) continue;
+      const agg = fuelAgg.get(row.loadId) || { totalCost: 0, gallons: 0 };
+      agg.totalCost += Number(row.totalCost || 0);
+      agg.gallons += Number(row.gallons || 0);
+      fuelAgg.set(row.loadId, agg);
+    }
+
+    // Enrich loads with computed financials
+    const enriched = loads.map((load: any) => {
+      const truck = load.truckId ? truckById.get(load.truckId) : null;
+      const milesRevenueOnly = Number(load.miles || 0);
+      const deadheadMiles = Number(load.deadheadMiles || 0);
+      const totalMilesForCalc = milesRevenueOnly || Number(load.totalMilesWithDeadhead || 0) || 0;
+
+      // Truck CPM baseline
+      const truckTotalMiles = Math.max(Number(truck?.totalMiles || 3000), 1);
+      const fixedCPM = truck ? Number(truck.fixedCosts || 0) / truckTotalMiles : 0;
+      const variableCPM = truck ? Number(truck.variableCosts || 0) / truckTotalMiles : 0;
+      const truckCostPerMile = truck?.costPerMile ?? (fixedCPM + variableCPM);
+
+      // Actual fuel attached to this load
+      const agg = fuelAgg.get(load.id) || { totalCost: 0, gallons: 0 };
+      const actualFuelCost = Number(agg.totalCost || 0);
+      const actualFuelCostPerMile = totalMilesForCalc > 0 ? actualFuelCost / totalMilesForCalc : 0;
+
+      // Estimated fuel may already exist on the load; prefer actual when available
+      const estimatedFuelCost = Number(load.estimatedFuelCost || 0);
+      const estimatedFuelCostPerMile = totalMilesForCalc > 0 ? estimatedFuelCost / totalMilesForCalc : 0;
+
+      // Total CPM: truck baseline + actual fuel CPM when present; otherwise include estimate if present
+      const fuelCPM = actualFuelCost > 0 ? actualFuelCostPerMile : estimatedFuelCostPerMile;
+      const totalCostPerMile = Number((Number(truckCostPerMile || 0) + Number(fuelCPM || 0)).toFixed(3));
+
+      const pay = Number(load.pay || 0);
+      const revenueRPM = totalMilesForCalc > 0 ? pay / totalMilesForCalc : 0;
+      const profitPerMile = Number((revenueRPM - totalCostPerMile).toFixed(3));
+      const netProfit = Number((pay - (totalCostPerMile * totalMilesForCalc)).toFixed(2));
+
+      return {
+        ...load,
+        // Fuel
+        actualFuelCost,
+        actualFuelCostPerMile: Number(actualFuelCostPerMile.toFixed(3)),
+        estimatedFuelCost,
+        estimatedFuelCostPerMile: Number(estimatedFuelCostPerMile.toFixed(3)),
+        // Truck costs
+        truckFixedCostPerMile: Number(fixedCPM.toFixed(3)) || 0,
+        truckVariableCostPerMile: Number(variableCPM.toFixed(3)) || 0,
+        truckCostPerMile: Number((truckCostPerMile || 0).toFixed(3)) || 0,
+        // Totals & profit
+        totalCostPerMile,
+        profitPerMile,
+        netProfit
+      };
+    });
+
+    return enriched;
   }
 
   // Get load by ID
