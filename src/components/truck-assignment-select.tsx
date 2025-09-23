@@ -42,3 +42,4 @@ export function TruckAssignmentSelect({ selectedTruckId, onTruckChange }: TruckA
 }
 
 
+

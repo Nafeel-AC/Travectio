@@ -100,35 +100,42 @@ export default function LoadCalculator() {
         setWeeklyMiles(selectedTruck.totalMiles?.toString() || "3312");
         
         // Calculate MPG and fuel price from actual operational data
-        const totalMiles = selectedTruck.totalMiles || 0;
-        
-        // Use operational fuel data if available
+        // Prefer miles from loads that the fuel purchases are attached to,
+        // rather than lifetime truck miles (prevents inflated MPG)
         if (fuelPurchases && Array.isArray(fuelPurchases) && fuelPurchases.length > 0) {
           const truckFuelPurchases = fuelPurchases.filter((purchase: any) => 
             purchase.truckId === selectedTruckId && purchase.loadId
           );
-          
+
           if (truckFuelPurchases.length > 0) {
-            const totalGallons = truckFuelPurchases.reduce((sum: number, purchase: any) => sum + purchase.gallons, 0);
-            const totalFuelCost = truckFuelPurchases.reduce((sum: number, purchase: any) => sum + purchase.totalCost, 0);
-            
-            if (totalGallons > 0 && totalMiles > 0) {
-              const calculatedMPG = totalMiles / totalGallons;
+            const totalGallons = truckFuelPurchases.reduce((sum: number, purchase: any) => sum + (purchase.gallons || 0), 0);
+            const totalFuelCost = truckFuelPurchases.reduce((sum: number, purchase: any) => sum + (purchase.totalCost || 0), 0);
+
+            // Sum miles from the loads referenced by these purchases
+            const loadIds = new Set(truckFuelPurchases.map((p: any) => p.loadId));
+            const milesFromLinkedLoads = (loads as any[])
+              .filter((ld: any) => ld && loadIds.has(ld.id))
+              .reduce((sum: number, ld: any) => sum + (ld.miles || 0) + (ld.deadheadMiles || 0), 0);
+
+            // If no linked loads found, fall back to truck's recent totalMiles
+            const milesForMPG = milesFromLinkedLoads > 0 ? milesFromLinkedLoads : (selectedTruck.totalMiles || 0);
+
+            if (totalGallons > 0 && milesForMPG > 0) {
+              const calculatedMPG = milesForMPG / totalGallons;
               const avgFuelPrice = totalFuelCost / totalGallons;
               setMilesPerGallon(calculatedMPG.toFixed(2));
               setFuelPrice(avgFuelPrice.toFixed(4));
-              
             } else {
-              setMilesPerGallon("6.5"); // Industry standard for Class 8 trucks
-              setFuelPrice("3.75"); // Current national average
+              setMilesPerGallon("6.5");
+              setFuelPrice("3.75");
             }
           } else {
-            setMilesPerGallon("6.5"); // Industry standard for Class 8 trucks
-            setFuelPrice("3.75"); // Current national average
+            setMilesPerGallon("6.5");
+            setFuelPrice("3.75");
           }
         } else {
-          setMilesPerGallon("6.5"); // Industry standard for Class 8 trucks
-          setFuelPrice("3.75"); // Current national average
+          setMilesPerGallon("6.5");
+          setFuelPrice("3.75");
         }
       }
     }

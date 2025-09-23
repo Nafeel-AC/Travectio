@@ -527,6 +527,12 @@ export default function LoadManagement() {
                       {filteredLoads.map((load: any) => {
                         const truck = trucks.find(t => t.id === load.truckId);
                         const ratePerMile = load.miles > 0 ? (load.pay / load.miles).toFixed(2) : "0.00";
+                        const numericRPM = parseFloat(ratePerMile);
+                        const fallbackCPM = truck ? ((truck.fixedCosts || 0) + (truck.variableCosts || 0)) / Math.max(truck.totalMiles || 3000, 1) : 0;
+                        const costPerMileBenchmark = (load.totalCostPerMile || load.truckCostPerMile || fallbackCPM) as number;
+                        const rpmColor = numericRPM > 0 && costPerMileBenchmark > 0
+                          ? (numericRPM >= costPerMileBenchmark ? 'text-green-400' : 'text-red-400')
+                          : 'text-blue-300';
 
                         return (
                           <tr key={load.id} className="border-b border-slate-700 hover:bg-slate-700/50">
@@ -552,8 +558,11 @@ export default function LoadManagement() {
                                 <div className="text-white text-sm">
                                   <span className="text-slate-400">To:</span> {load.destinationCity}, {load.destinationState}
                                 </div>
-                                <div className="text-slate-400 text-xs">
-                                  {load.miles ? `${load.miles.toLocaleString()} miles` : 'Miles N/A'}
+                                <div className="text-xs">
+                                  <span className="text-slate-400">Miles:</span>{' '}
+                                  <span className="text-blue-300 font-medium">
+                                    {load.miles ? `${load.miles.toLocaleString()}` : 'N/A'}
+                                  </span>
                                 </div>
                               </div>
                             </td>
@@ -569,8 +578,8 @@ export default function LoadManagement() {
                             </td>
                             <td className="py-4 px-4">
                               <div className="space-y-1">
-                                <div className="text-white font-medium">${load.pay?.toLocaleString() || 0}</div>
-                                <div className="text-slate-400 text-sm">${ratePerMile}/mile</div>
+                                <div className="text-green-300 font-semibold">${load.pay?.toLocaleString() || 0}</div>
+                                <div className={`text-sm font-medium ${rpmColor}`}>${ratePerMile}/mile</div>
                                 
                                 {/* Driver Pay Information */}
                                 {load.calculatedDriverPay && load.calculatedDriverPay > 0 && (
@@ -718,6 +727,12 @@ export default function LoadManagement() {
                   {filteredLoads.map((load: any) => {
                     const truck = trucks.find(t => t.id === load.truckId);
                     const ratePerMile = load.miles > 0 ? (load.pay / load.miles).toFixed(2) : "0.00";
+                    const numericRPM = parseFloat(ratePerMile);
+                    const fallbackCPM = truck ? ((truck.fixedCosts || 0) + (truck.variableCosts || 0)) / Math.max(truck.totalMiles || 3000, 1) : 0;
+                    const costPerMileBenchmark = (load.totalCostPerMile || load.truckCostPerMile || fallbackCPM) as number;
+                    const rpmColor = numericRPM > 0 && costPerMileBenchmark > 0
+                      ? (numericRPM >= costPerMileBenchmark ? 'text-green-400' : 'text-red-400')
+                      : 'text-blue-300';
 
                     return (
                       <div key={load.id} className="bg-slate-700 rounded-lg p-3 sm:p-4">
@@ -804,15 +819,15 @@ export default function LoadManagement() {
 
                           <div className="flex items-center justify-between text-xs sm:text-sm">
                             <span className="text-slate-300">Miles:</span>
-                            <span className="text-white">
+                            <span className="text-blue-300 font-medium">
                               {load.miles ? `${load.miles.toLocaleString()}` : 'N/A'}
                             </span>
                           </div>
 
                           <div className="flex items-center justify-between text-xs sm:text-sm">
                             <span className="text-slate-300">Pay:</span>
-                            <span className="text-white font-medium">
-                              ${load.pay?.toLocaleString() || 0} (${ratePerMile}/mi)
+                            <span className="text-green-300 font-semibold">
+                              ${load.pay?.toLocaleString() || 0} <span className={rpmColor}>({ratePerMile}/mi)</span>
                             </span>
                           </div>
 

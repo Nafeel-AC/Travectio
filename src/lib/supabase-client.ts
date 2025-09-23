@@ -793,6 +793,12 @@ class LoadService {
       .single();
 
     if (error) throw new Error(error.message);
+    // Keep truck totals up-to-date for dashboards
+    try {
+      if ((data as any)?.truckId) {
+        await TruckService.recalculateTruckMiles((data as any).truckId);
+      }
+    } catch {}
     return data;
   }
 
@@ -825,6 +831,12 @@ class LoadService {
       .single();
 
     if (error) throw new Error(error.message);
+    // Recompute truck miles when load changes
+    try {
+      if ((data as any)?.truckId) {
+        await TruckService.recalculateTruckMiles((data as any).truckId);
+      }
+    } catch {}
     return data;
   }
 
