@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth, useAccountDeletion } from "@/hooks/useSupabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, User, Shield, Calendar, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { User as UserType } from "@shared/schema";
+import { supabase } from "@/lib/supabase";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,14 +24,74 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function Profile() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const { deleteAccount, isDeleting } = useAccountDeletion();
   
   const { toast } = useToast();
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [userRow, setUserRow] = useState<any | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  if (isLoading) {
+  // Cast the Supabase user to our custom User type
+  const userProfile = user as unknown as UserType;
+
+  // Load latest user row from DB and initialize edit fields
+  useEffect(() => {
+    const load = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', (user as any).id)
+        .maybeSingle();
+      setUserRow(data || null);
+      setFirstName((data as any)?.firstName || "");
+      setLastName((data as any)?.lastName || "");
+      setCompany((data as any)?.company || "");
+      setTitle((data as any)?.title || "");
+      setPhone((data as any)?.phone || "");
+    };
+    load();
+  }, [userProfile?.id]);
+
+  const saveProfile = async () => {
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('users')
+        .update({
+          firstName: firstName || null,
+          lastName: lastName || null,
+          company: company || null,
+          title: title || null,
+          phone: phone || null,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', (user as any).id);
+      if (error) throw error;
+      // Refresh local view from DB to persist across reloads
+      const { data: refreshed } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', (user as any).id)
+        .maybeSingle();
+      setUserRow(refreshed || null);
+      toast({ title: 'Profile updated', description: 'Your profile information was saved.' });
+    } catch (e: any) {
+      toast({ title: 'Update failed', description: e?.message || 'Could not save profile', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Early returns AFTER hooks are declared to keep hook order stable
+  if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -56,9 +117,6 @@ export default function Profile() {
       </div>
     );
   }
-
-  // Cast the Supabase user to our custom User type
-  const userProfile = user as unknown as UserType;
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmation !== "DELETE") {
@@ -122,7 +180,7 @@ export default function Profile() {
                   Member Since
                 </Label>
                 <Input 
-                  value={userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : "Unknown"} 
+                  value={userRow?.createdAt ? new Date(userRow.createdAt).toLocaleDateString() : "Unknown"} 
                   disabled 
                 />
               </div>
@@ -133,15 +191,36 @@ export default function Profile() {
               <div className="flex gap-2">
                 <Input 
                   placeholder="First Name" 
-                  value={userProfile?.firstName || ""} 
-                  disabled 
+                  value={firstName} 
+                  onChange={(e) => setFirstName(e.target.value)}
                 />
                 <Input 
                   placeholder="Last Name" 
-                  value={userProfile?.lastName || ""} 
-                  disabled 
+                  value={lastName} 
+                  onChange={(e) => setLastName(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Company</Label>
+                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Title</Label>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Phone</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={saveProfile} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -150,12 +229,12 @@ export default function Profile() {
                 Account Status:
               </Label>
               <div className="flex gap-2">
-                {userProfile?.isFounder === 1 && (
+                {userRow?.isFounder === 1 && (
                   <Badge variant="default" className="bg-gradient-to-r from-purple-600 to-blue-600">
                     Founder
                   </Badge>
                 )}
-                {userProfile?.isAdmin === 1 && (
+                {userRow?.isAdmin === 1 && (
                   <Badge variant="secondary">
                     Admin
                   </Badge>

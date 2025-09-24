@@ -13,6 +13,9 @@ import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { LoadService, TruckService } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 const statusColors = {
   "pending": "bg-yellow-600",
@@ -41,6 +44,10 @@ export default function LoadManagement() {
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showMultiStopForm, setShowMultiStopForm] = useState(false);
   const [editingLoad, setEditingLoad] = useState<any>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importFilters, setImportFilters] = useState({ origin: "", destination: "", minRpm: "", maxMiles: "" });
+  const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(new Set());
+  const [assignTruckId, setAssignTruckId] = useState<string>("");
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -63,6 +70,77 @@ export default function LoadManagement() {
     refetchOnWindowFocus: false,
     refetchOnMount: true,
     refetchOnReconnect: true,
+  });
+
+  // Fetch available mock load board rows when the dialog is open or filters change
+  const { data: boardLoads = [], isLoading: boardLoading, refetch: refetchBoard } = useQuery({
+    queryKey: ['mock-load-board', importFilters, isImportOpen],
+    queryFn: async () => {
+      if (!isImportOpen) return [] as any[];
+      let q = supabase.from('mock_load_board').select('*').eq('status', 'available').order('createdAt', { ascending: false });
+      if (importFilters.origin) q = q.ilike('originCity', `%${importFilters.origin}%`);
+      if (importFilters.destination) q = q.ilike('destinationCity', `%${importFilters.destination}%`);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      let rows = data || [];
+      if (importFilters.minRpm) {
+        const min = parseFloat(importFilters.minRpm);
+        rows = rows.filter((r: any) => (Number(r.ratePerMile || 0) >= min));
+      }
+      if (importFilters.maxMiles) {
+        const max = parseInt(importFilters.maxMiles);
+        rows = rows.filter((r: any) => (Number(r.miles || 0) <= max));
+      }
+      return rows;
+    },
+    staleTime: 1000 * 60,
+    enabled: isImportOpen,
+    refetchOnWindowFocus: false,
+  });
+
+  const toggleSelectBoardId = (id: string) => {
+    setSelectedBoardIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const importSelectedLoads = useMutation({
+    mutationFn: async () => {
+      const rows = (boardLoads as any[]).filter(r => selectedBoardIds.has(r.id));
+      for (const row of rows) {
+        const payload: any = {
+          truckId: assignTruckId || null,
+          type: row.equipmentType || 'Dry Van',
+          pay: Number(row.rate || 0),
+          miles: Number(row.miles || 0),
+          isProfitable: 1,
+          originCity: row.originCity,
+          originState: row.originState,
+          destinationCity: row.destinationCity,
+          destinationState: row.destinationState,
+          pickupDate: row.pickupDate || null,
+          deliveryDate: row.deliveryDate || null,
+          ratePerMile: Number(row.ratePerMile || 0),
+          status: 'pending'
+        };
+        await LoadService.createLoad(payload);
+        // Mark the board load as assigned so it doesn't reappear
+        await supabase.from('mock_load_board').update({ status: 'assigned', updatedAt: new Date().toISOString() }).eq('id', row.id);
+      }
+      return true;
+    },
+    onSuccess: async () => {
+      setSelectedBoardIds(new Set());
+      setIsImportOpen(false);
+      await refetchLoads();
+      await refetchBoard();
+      toast({ title: 'Imported', description: 'Selected loads were imported from the load board.' });
+    },
+    onError: (e: any) => {
+      toast({ title: 'Import failed', description: e?.message || 'Could not import loads', variant: 'destructive' });
+    }
   });
 
   // Mutation for updating load status
@@ -182,6 +260,102 @@ export default function LoadManagement() {
             <p className="text-slate-400 text-sm sm:text-base">Track and manage freight loads across your fleet</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Dialog open={isImportOpen} onOpenChange={(v) => { setIsImportOpen(v); if (v) { setTimeout(() => refetchBoard(), 0); } }}>
+              <DialogTrigger asChild>
+                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto">
+                  <Package className="h-4 w-4 mr-2" />
+                  Import from Load Board
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-800 border-slate-700 max-w-5xl">
+                <DialogHeader>
+                  <DialogTitle className="text-white">Load Board (Mock 123Loadboard)</DialogTitle>
+                  <DialogDescription className="text-slate-300">Select available loads to import into your account. You may assign them to a truck.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    <div>
+                      <label className="text-slate-300 text-sm mb-2 block">Origin</label>
+                      <Input value={importFilters.origin} onChange={(e) => setImportFilters({ ...importFilters, origin: e.target.value })} className="bg-slate-700 border-slate-600 text-white" placeholder="City contains" />
+                    </div>
+                    <div>
+                      <label className="text-slate-300 text-sm mb-2 block">Destination</label>
+                      <Input value={importFilters.destination} onChange={(e) => setImportFilters({ ...importFilters, destination: e.target.value })} className="bg-slate-700 border-slate-600 text-white" placeholder="City contains" />
+                    </div>
+                    <div>
+                      <label className="text-slate-300 text-sm mb-2 block">Min $/mi</label>
+                      <Input type="number" step="0.01" value={importFilters.minRpm} onChange={(e) => setImportFilters({ ...importFilters, minRpm: e.target.value })} className="bg-slate-700 border-slate-600 text-white" placeholder="2.00" />
+                    </div>
+                    <div>
+                      <label className="text-slate-300 text-sm mb-2 block">Max miles</label>
+                      <Input type="number" value={importFilters.maxMiles} onChange={(e) => setImportFilters({ ...importFilters, maxMiles: e.target.value })} className="bg-slate-700 border-slate-600 text-white" placeholder="1000" />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={() => refetchBoard()} className="w-full bg-slate-700 text-white border-slate-600 hover:bg-slate-600">Apply</Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-slate-300 text-sm">{boardLoading ? 'Loading...' : `${(boardLoads as any[]).length} available loads`}</div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-slate-300 text-sm">Assign to truck</label>
+                      <Select value={assignTruckId || undefined} onValueChange={(v) => setAssignTruckId(v === 'none' ? '' : v)}>
+                        <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9">
+                          <SelectValue placeholder="Optional" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700">
+                          <SelectItem value="none" className="text-white">Unassigned</SelectItem>
+                          {trucks.map((t: any) => (
+                            <SelectItem key={t.id} value={t.id} className="text-white">{t.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="max-h-[50vh] overflow-auto border border-slate-700 rounded">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-700/60 text-slate-200">
+                          <th className="text-left p-2">Sel</th>
+                          <th className="text-left p-2">Lane</th>
+                          <th className="text-left p-2">Miles</th>
+                          <th className="text-left p-2">Rate</th>
+                          <th className="text-left p-2">$/mi</th>
+                          <th className="text-left p-2">Pickup</th>
+                          <th className="text-left p-2">Delivery</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(boardLoads as any[]).map((l: any) => (
+                          <tr key={l.id} className="border-t border-slate-700 hover:bg-slate-700/40">
+                            <td className="p-2">
+                              <input type="checkbox" checked={selectedBoardIds.has(l.id)} onChange={() => toggleSelectBoardId(l.id)} />
+                            </td>
+                            <td className="p-2 text-slate-100">{l.originCity}, {l.originState} → {l.destinationCity}, {l.destinationState}</td>
+                            <td className="p-2 text-slate-100">{l.miles?.toLocaleString?.() || l.miles}</td>
+                            <td className="p-2 text-green-300">${Number(l.rate || 0).toLocaleString()}</td>
+                            <td className="p-2">${Number(l.ratePerMile || 0).toFixed(2)}/mi</td>
+                            <td className="p-2">{l.pickupDate ? new Date(l.pickupDate).toLocaleDateString() : '-'}</td>
+                            <td className="p-2">{l.deliveryDate ? new Date(l.deliveryDate).toLocaleDateString() : '-'}</td>
+                          </tr>
+                        ))}
+                        {(!boardLoads || (boardLoads as any[]).length === 0) && !boardLoading && (
+                          <tr><td className="p-4 text-slate-400" colSpan={7}>No loads match filters.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsImportOpen(false)} className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">Cancel</Button>
+                  <Button onClick={() => importSelectedLoads.mutate()} disabled={selectedBoardIds.size === 0 || importSelectedLoads.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    {importSelectedLoads.isPending ? 'Importing...' : `Import ${selectedBoardIds.size || ''}`}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Button
               onClick={() => {
                 setShowEntryForm(!showEntryForm);
