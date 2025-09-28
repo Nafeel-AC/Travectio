@@ -360,7 +360,7 @@ export default function MobileResponsiveLayout({ children }: MobileResponsiveLay
         </header>
 
         {/* Mobile Content */}
-        <main className="p-4 pb-20">
+        <main className="p-4 pb-20 md:pb-4">
           {children}
         </main>
 

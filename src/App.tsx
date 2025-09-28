@@ -30,6 +30,7 @@ import EnhancedLanding from "@/components/enhanced-landing";
 import LoginPage from "@/components/login-page";
 import ModernLayout from "@/components/modern-layout";
 import UnifiedDashboard from "@/components/unified-dashboard";
+import MainTabLayout from "@/components/tab-layouts/main-tab-layout";
 import LoadMatcher from "@/pages/load-matcher";
 import DriversPage from "@/pages/drivers";
 import EnvDebug from "@/components/env-debug";
@@ -110,75 +111,122 @@ function Router() {
   return (
     <ModernLayout>
       <Switch>
-        <Route path="/" component={DashboardRouter} />
-        <Route path="/admin-dashboard" component={AdminDashboard} />
-        <Route path="/customer-dashboard" component={UnifiedDashboard} />
-        <Route path="/fleet-analytics" component={FleetAnalytics} />
-        <Route path="/enhanced-dashboard" component={EnhancedDashboard} />
-        <Route path="/profile" component={Profile} />
+        {/* Routes that use the new tab layout */}
+        <Route path="/">
+          <MainTabLayout>
+            <DashboardRouter />
+          </MainTabLayout>
+        </Route>
+        <Route path="/dashboard">
+          <MainTabLayout>
+            <DashboardRouter />
+          </MainTabLayout>
+        </Route>
+        <Route path="/operations">
+          <MainTabLayout />
+        </Route>
+        <Route path="/compliance">
+          <MainTabLayout />
+        </Route>
+        <Route path="/finance">
+          <MainTabLayout />
+        </Route>
+        <Route path="/marketplace">
+          <MainTabLayout />
+        </Route>
+        <Route path="/settings">
+          <MainTabLayout />
+        </Route>
 
-        {/* Customer-only routes */}
+        {/* Legacy routes that map to new tab system */}
         <Route path="/add-truck">
-          <RouteGuard requireCustomer>
-            <GuidedTruckAddition />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <GuidedTruckAddition />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/truck-profiles">
-          <RouteGuard requireCustomer>
-            <TruckProfiles />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <TruckProfiles />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route
           path="/truck/:id"
           component={(params: any) => (
-            <RouteGuard requireCustomer>
-              <TruckProfile {...params} />
-            </RouteGuard>
+            <MainTabLayout>
+              <RouteGuard requireCustomer>
+                <TruckProfile {...params} />
+              </RouteGuard>
+            </MainTabLayout>
           )}
         />
         <Route
           path="/trucks/:truckId/cost-breakdown"
           component={(params: any) => (
-            <RouteGuard requireCustomer>
-              <TruckCostBreakdown {...params} />
-            </RouteGuard>
+            <MainTabLayout>
+              <RouteGuard requireCustomer>
+                <TruckCostBreakdown {...params} />
+              </RouteGuard>
+            </MainTabLayout>
           )}
         />
         <Route path="/hos-management">
-          <RouteGuard requireCustomer>
-            <HOSManagement />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <HOSManagement />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/load-management">
-          <RouteGuard requireCustomer>
-            <LoadManagement />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <LoadManagement />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/load-matcher">
-          <RouteGuard requireCustomer>
-            <LoadMatcher />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <LoadMatcher />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/drivers">
-          <RouteGuard>
-            <DriversPage />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard>
+              <DriversPage />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/fuel-management">
-          <RouteGuard requireCustomer>
-            <FuelManagement />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <FuelManagement />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/fleet-analytics">
-          <RouteGuard requireCustomer>
-            <FleetAnalytics />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <FleetAnalytics />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
         <Route path="/enhanced-dashboard">
-          <RouteGuard requireCustomer>
-            <EnhancedDashboard />
-          </RouteGuard>
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <EnhancedDashboard />
+            </RouteGuard>
+          </MainTabLayout>
         </Route>
+
+        {/* Admin routes - keep separate from tab layout */}
+        <Route path="/admin-dashboard" component={AdminDashboard} />
+        <Route path="/customer-dashboard" component={UnifiedDashboard} />
+        <Route path="/profile" component={Profile} />
 
         {/* Admin-only routes */}
         <Route path="/user-management">
