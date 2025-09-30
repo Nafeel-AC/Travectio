@@ -238,7 +238,7 @@ export default function OperationsTab() {
           <p className="text-slate-400">Manage loads, drivers, and fleet operations</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Link href="/operations?action=add-load">
+          <Link href="/load-management">
             <Button className="bg-green-600 hover:bg-green-700 text-white">
               <Plus className="w-4 h-4 mr-2" />
               Add Load

@@ -74,19 +74,19 @@ export default function DashboardTabs() {
     {
       label: "Add Load",
       icon: Package,
-      href: "/operations-tabs?tab=loads",
+      href: "/load-management",
       color: "bg-green-600 hover:bg-green-700"
     },
     {
       label: "Add Truck",
       icon: Truck,
-      href: "/operations-tabs?tab=fleet",
+      href: "/add-truck",
       color: "bg-blue-600 hover:bg-blue-700"
     },
     {
       label: "Add Driver",
       icon: Users,
-      href: "/operations-tabs?tab=drivers",
+      href: "/drivers",
       color: "bg-purple-600 hover:bg-purple-700"
     }
   ];

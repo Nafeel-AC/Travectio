@@ -288,10 +288,10 @@ export default function StreamlinedDashboard() {
                     Fuel Entry
                   </Button>
                 </Link>
-                <Link href="/?tab=calculator">
+                <Link href="/fleet-analytics">
                   <Button variant="outline" size="sm" className="w-full justify-start h-12">
                     <BarChart3 className="h-4 w-4 mr-2" />
-                    Calculator
+                    Analytics
                   </Button>
                 </Link>
               </CardContent>

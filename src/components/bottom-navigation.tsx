@@ -29,38 +29,38 @@ const bottomNavItems = [
     description: 'Fleet overview and KPIs'
   },
   {
-    id: 'operations',
-    label: 'Operations',
+    id: 'fleet-management',
+    label: 'Fleet',
     icon: Package,
-    href: '/operations',
-    description: 'Loads, drivers, and fleet'
+    href: '/truck-profiles',
+    description: 'Fleet, drivers, HOS, loads, fuel'
   },
   {
     id: 'compliance',
     label: 'Compliance',
     icon: Shield,
-    href: '/compliance',
+    href: '/hos-management',
     description: 'HOS and regulations'
   },
   {
     id: 'finance',
     label: 'Finance',
     icon: DollarSign,
-    href: '/finance',
-    description: 'Fuel, expenses, and reports'
+    href: '/fleet-analytics',
+    description: 'Revenue, expenses, and reports'
   },
   {
     id: 'marketplace',
     label: 'Marketplace',
     icon: Globe,
-    href: '/marketplace',
+    href: '/load-matcher',
     description: 'Load matching and boards'
   },
   {
     id: 'settings',
     label: 'Settings',
     icon: Settings,
-    href: '/settings',
+    href: '/profile',
     description: 'Account and preferences'
   }
 ];
@@ -73,11 +73,11 @@ export default function BottomNavigation({ className = "" }: BottomNavProps) {
   // Determine which tab is active based on current route
   const getActiveTab = () => {
     if (location === '/' || location.startsWith('/dashboard')) return 'dashboard';
-    if (location.startsWith('/operations') || location.startsWith('/load-management') || location.startsWith('/drivers') || location.startsWith('/truck-profiles') || location.startsWith('/add-truck')) return 'operations';
-    if (location.startsWith('/compliance') || location.startsWith('/hos-management')) return 'compliance';
-    if (location.startsWith('/finance') || location.startsWith('/fuel-management')) return 'finance';
-    if (location.startsWith('/marketplace') || location.startsWith('/load-matcher')) return 'marketplace';
-    if (location.startsWith('/settings') || location.startsWith('/profile') || location.startsWith('/pricing')) return 'settings';
+    if (location.startsWith('/truck-profiles') || location.startsWith('/add-truck') || location.startsWith('/drivers') || location.startsWith('/load-management') || location.startsWith('/fuel-management')) return 'fleet-management';
+    if (location.startsWith('/hos-management')) return 'compliance';
+    if (location.startsWith('/fleet-analytics')) return 'finance';
+    if (location.startsWith('/load-matcher')) return 'marketplace';
+    if (location.startsWith('/profile') || location.startsWith('/pricing')) return 'settings';
     return 'dashboard';
   };
 
@@ -96,7 +96,7 @@ export default function BottomNavigation({ className = "" }: BottomNavProps) {
 
   return (
     <div className={`fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-50 md:hidden ${className}`}>
-      <div className="flex items-center justify-around px-2 py-1 safe-area-bottom">
+      <div className="flex items-center justify-between px-1 py-1 safe-area-bottom">
         {filteredItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -107,7 +107,7 @@ export default function BottomNavigation({ className = "" }: BottomNavProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                className={`flex flex-col items-center h-auto p-2 min-w-0 max-w-[80px] ${
+                className={`bottom-nav-item flex flex-col items-center h-auto p-1.5 min-w-0 flex-1 ${
                   isActive 
                     ? "text-blue-400 bg-blue-900/20" 
                     : isDisabled 
@@ -117,17 +117,17 @@ export default function BottomNavigation({ className = "" }: BottomNavProps) {
                 disabled={isDisabled}
               >
                 <div className="relative">
-                  <Icon className="w-5 h-5 mb-1" />
+                  <Icon className="bottom-nav-icon w-4 h-4 mb-0.5" />
                   {item.id === 'marketplace' && (
                     <Badge 
                       variant="secondary" 
-                      className="absolute -top-1 -right-1 w-3 h-3 p-0 text-xs bg-orange-500 text-white"
+                      className="absolute -top-1 -right-1 w-2.5 h-2.5 p-0 text-xs bg-orange-500 text-white"
                     >
                       •
                     </Badge>
                   )}
                 </div>
-                <span className="text-xs truncate max-w-[60px] leading-tight">
+                <span className="bottom-nav-text text-xs truncate leading-tight">
                   {item.label}
                 </span>
                 {isDisabled && (
@@ -147,11 +147,11 @@ export const useActiveBottomTab = () => {
   const [location] = useLocation();
   
   if (location === '/' || location.startsWith('/dashboard')) return 'dashboard';
-  if (location.startsWith('/operations') || location.startsWith('/load-management') || location.startsWith('/drivers') || location.startsWith('/truck-profiles') || location.startsWith('/add-truck')) return 'operations';
-  if (location.startsWith('/compliance') || location.startsWith('/hos-management')) return 'compliance';
-  if (location.startsWith('/finance') || location.startsWith('/fuel-management')) return 'finance';
-  if (location.startsWith('/marketplace') || location.startsWith('/load-matcher')) return 'marketplace';
-  if (location.startsWith('/settings') || location.startsWith('/profile') || location.startsWith('/pricing')) return 'settings';
+  if (location.startsWith('/truck-profiles') || location.startsWith('/add-truck') || location.startsWith('/drivers') || location.startsWith('/load-management') || location.startsWith('/fuel-management')) return 'fleet-management';
+  if (location.startsWith('/hos-management')) return 'compliance';
+  if (location.startsWith('/fleet-analytics')) return 'finance';
+  if (location.startsWith('/load-matcher')) return 'marketplace';
+  if (location.startsWith('/profile') || location.startsWith('/pricing')) return 'settings';
   
   return 'dashboard';
 };

@@ -12,6 +12,7 @@ import Profile from "@/pages/profile";
 import GuidedTruckAddition from "@/pages/guided-truck-addition";
 import TruckProfile from "@/pages/truck-profile";
 import TruckProfiles from "@/pages/truck-profiles";
+import FleetManagement from "@/pages/fleet-management";
 import TruckCostBreakdown from "@/pages/truck-cost-breakdown";
 import NotFound from "@/pages/not-found";
 import HOSManagement from "@/pages/hos-management";
@@ -149,7 +150,14 @@ function Router() {
         <Route path="/truck-profiles">
           <MainTabLayout>
             <RouteGuard requireCustomer>
-              <TruckProfiles />
+              <FleetManagement />
+            </RouteGuard>
+          </MainTabLayout>
+        </Route>
+        <Route path="/fleet-management">
+          <MainTabLayout>
+            <RouteGuard requireCustomer>
+              <FleetManagement />
             </RouteGuard>
           </MainTabLayout>
         </Route>

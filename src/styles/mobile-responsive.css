@@ -203,6 +203,26 @@
   }
 }
 
+/* Bottom navigation optimizations */
+@media (max-width: 480px) {
+  .bottom-nav-item {
+    min-width: 0 !important;
+    flex: 1 !important;
+    padding: 0.25rem !important;
+  }
+  
+  .bottom-nav-icon {
+    width: 1rem !important;
+    height: 1rem !important;
+    margin-bottom: 0.125rem !important;
+  }
+  
+  .bottom-nav-text {
+    font-size: 0.625rem !important;
+    line-height: 1 !important;
+  }
+}
+
 @media (min-width: 768px) {
   .mobile-hide {
     display: block !important;

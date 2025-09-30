@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, TrendingUp, TrendingDown, Truck, Package, DollarSign, Fuel, Users, Route, Clock, AlertTriangle } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, Truck, Package, DollarSign, Fuel, Users, Route, Clock, AlertTriangle, BarChart3, Receipt, Plus, Download, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { useDemo } from "@/lib/demo-context";
 import { useFleetMetrics, useTrucks, useLoads } from "@/hooks/useSupabase";
@@ -269,21 +269,190 @@ export default function FleetAnalytics() {
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-8">
-          {/* Temporarily disabled to prevent infinite loops */}
-          <Card className="bg-[var(--dark-card)] border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-green-400" />
-                <span>Financial Analytics</span>
-                <Badge variant="outline" className="bg-yellow-600/20 text-yellow-400 border-yellow-600/40">
-                  Under Maintenance
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-400">Financial analytics temporarily disabled while optimizing data synchronization.</p>
-            </CardContent>
-          </Card>
+          {/* Financial Overview Cards */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="bg-slate-800 border-slate-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Revenue</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      ${(fleetSummary as any)?.totalRevenue?.toLocaleString() || '0'}
+                    </p>
+                  </div>
+                  <DollarSign className="w-8 h-8 text-green-400" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Expenses</p>
+                    <p className="text-2xl font-bold text-red-400">
+                      ${((fleetSummary as any)?.totalRevenue || 0) - ((fleetSummary as any)?.netProfit || 0)}
+                    </p>
+                  </div>
+                  <TrendingDown className="w-8 h-8 text-red-400" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm">Net Profit</p>
+                    <p className={`text-2xl font-bold ${((fleetSummary as any)?.netProfit || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      ${(fleetSummary as any)?.netProfit?.toLocaleString() || '0'}
+                    </p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-blue-400" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm">Profit Margin</p>
+                    <p className={`text-2xl font-bold ${((fleetSummary as any)?.profitMargin || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {(fleetSummary as any)?.profitMargin?.toFixed(1) || 0}%
+                    </p>
+                  </div>
+                  <BarChart3 className="w-8 h-8 text-purple-400" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Financial Management Tabs */}
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-slate-700">
+              <TabsTrigger value="overview" className="text-slate-300 data-[state=active]:text-white">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="expenses" className="text-slate-300 data-[state=active]:text-white">
+                Expense Management
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="text-slate-300 data-[state=active]:text-white">
+                P&L Reports
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card className="bg-slate-800 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white">Revenue Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Load Revenue</span>
+                        <span className="text-white font-semibold">
+                          ${(fleetSummary as any)?.totalRevenue?.toLocaleString() || '0'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Total Loads</span>
+                        <span className="text-white">{(fleetSummary as any)?.totalLoads || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Avg Revenue/Load</span>
+                        <span className="text-white">
+                          ${(fleetSummary as any)?.totalLoads > 0 ? 
+                            (((fleetSummary as any)?.totalRevenue || 0) / (fleetSummary as any)?.totalLoads).toFixed(2) : '0.00'}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white">Cost Analysis</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Cost Per Mile</span>
+                        <span className="text-white font-semibold">
+                          ${(fleetSummary as any)?.avgCostPerMile?.toFixed(2) || '0.00'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Total Miles</span>
+                        <span className="text-white">{(fleetSummary as any)?.totalMiles?.toLocaleString() || '0'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Fleet Utilization</span>
+                        <span className="text-white">{(fleetSummary as any)?.utilizationRate?.toFixed(1) || 0}%</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="expenses" className="space-y-6">
+              <Card className="bg-slate-800 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white">Expense Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Receipt className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">Expense Tracking</h3>
+                    <p className="text-slate-400 mb-4">
+                      Track and manage all fleet expenses including fuel, maintenance, insurance, and more.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Link href="/fuel-management">
+                        <Button className="bg-blue-600 hover:bg-blue-700">
+                          <Fuel className="w-4 h-4 mr-2" />
+                          Fuel Management
+                        </Button>
+                      </Link>
+                      <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Expense
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="reports" className="space-y-6">
+              <Card className="bg-slate-800 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white">P&L Reports</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">Profit & Loss Reports</h3>
+                    <p className="text-slate-400 mb-4">
+                      Generate detailed financial reports and export data for accounting purposes.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button className="bg-green-600 hover:bg-green-700">
+                        <Download className="w-4 h-4 mr-2" />
+                        Export P&L
+                      </Button>
+                      <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Custom Period
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="operational" className="space-y-8">

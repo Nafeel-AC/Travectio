@@ -33,6 +33,7 @@ interface Driver {
   cdlNumber: string;
   phone?: string;
   email?: string;
+  licenseState?: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -180,6 +181,9 @@ export function DriverManagementCard({ driver, assignedTrucks = 0, onUpdate }: D
               <CreditCard className="w-4 h-4 text-slate-400 flex-shrink-0" />
               <span className="text-slate-300">CDL:</span>
               <span className="text-white font-medium truncate">{driver.cdlNumber}</span>
+              {driver.licenseState && (
+                <span className="text-slate-400 text-xs">({driver.licenseState})</span>
+              )}
             </div>
             
             {driver.phoneNumber && (
@@ -211,12 +215,23 @@ export function DriverManagementCard({ driver, assignedTrucks = 0, onUpdate }: D
           <div className="space-y-2">
             {assignedTrucks > 0 && (
               <div className="p-3 bg-blue-600/10 rounded-lg border border-blue-600/20">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                  <span className="text-blue-200 text-sm">
+                  <span className="text-blue-200 text-sm font-medium">
                     Assigned to {assignedTrucks} truck{assignedTrucks !== 1 ? 's' : ''}
                   </span>
                 </div>
+                {currentlyAssignedTruckId && (
+                  <div className="pl-4 space-y-1">
+                    {trucks.filter((t: any) => t.currentDriverId === driver.id).map((truck: any) => (
+                      <div key={truck.id} className="text-blue-100 text-sm">
+                        <div className="font-medium">Truck: {truck.name}</div>
+                        <div className="text-xs text-blue-200">License: {truck.licensePlate}</div>
+                        <div className="text-xs text-blue-200">Type: {truck.equipmentType}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             <div className="space-y-2">

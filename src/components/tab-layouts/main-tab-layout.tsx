@@ -26,12 +26,13 @@ export default function MainTabLayout({ children }: MainTabLayoutProps) {
       return <DashboardTab />;
     }
     
-    if (location.startsWith('/operations') || 
-        location.startsWith('/load-management') || 
-        location.startsWith('/drivers') || 
-        location.startsWith('/truck-profiles') || 
-        location.startsWith('/add-truck')) {
+    if (location.startsWith('/operations')) {
       return <OperationsTab />;
+    }
+    
+    // These routes are handled by dedicated pages in App.tsx, so show children
+    if (children) {
+      return children;
     }
     
     if (location.startsWith('/compliance') || location.startsWith('/hos-management')) {
@@ -63,7 +64,8 @@ export default function MainTabLayout({ children }: MainTabLayoutProps) {
   const shouldShowSubscriptionPrompt = !isSubscribed && 
     (location.startsWith('/operations') || 
      location.startsWith('/finance') || 
-     location.startsWith('/marketplace'));
+     location.startsWith('/marketplace') ||
+     location.startsWith('/fleet-analytics'));
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">

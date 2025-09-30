@@ -138,19 +138,19 @@ export default function DashboardTab() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Link href="/operations?tab=loads">
+            <Link href="/load-management">
               <Button className="bg-green-600 hover:bg-green-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Load
               </Button>
             </Link>
-            <Link href="/operations?tab=fleet">
+            <Link href="/add-truck">
               <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Truck
               </Button>
             </Link>
-            <Link href="/operations?tab=drivers">
+            <Link href="/drivers">
               <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Driver
