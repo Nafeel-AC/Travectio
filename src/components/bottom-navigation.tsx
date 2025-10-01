@@ -32,7 +32,7 @@ const bottomNavItems = [
     id: 'fleet-management',
     label: 'Fleet',
     icon: Package,
-    href: '/truck-profiles',
+    href: '/fleet-management',
     description: 'Fleet, drivers, HOS, loads, fuel'
   },
   {

@@ -176,39 +176,13 @@ export default function StreamlinedDashboard() {
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Cost Per Mile"
-          value={`$${metrics?.costPerMile || '0.00'}`}
-          change={-5.2}
-          description="Average operational cost"
-          icon={DollarSign}
-          trend="down"
-          className="border-primary/20 bg-primary/5"
-        />
-        <MetricCard
-          title="Profit Margin"
-          value={`${fleetSummary?.profitMargin || 0}%`}
-          change={2.1}
-          description="Current profit margin"
-          icon={TrendingUp}
-          trend={(fleetSummary?.profitMargin || 0) >= 0 ? "up" : "down"}
-          className={`${(fleetSummary?.profitMargin || 0) >= 0 ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20'}`}
-        />
+      {/* Summary Metrics (non-financial) */}
+      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
         <MetricCard
           title="Active Trucks"
           value={fleetSummary?.activeTrucks || 0}
           description={`of ${fleetSummary?.totalTrucks || 0} total trucks`}
           icon={Truck}
-        />
-        <MetricCard
-          title="Total Revenue"
-          value={`$${fleetSummary?.totalRevenue?.toLocaleString() || '0'}`}
-          change={8.7}
-          description="This period"
-          icon={BarChart3}
-          trend={(fleetSummary?.totalRevenue || 0) >= 0 ? "up" : "down"}
         />
       </div>
 

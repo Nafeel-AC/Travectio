@@ -84,7 +84,7 @@ export default function TruckProfiles() {
       <div className="mb-6 md:mb-8">
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Truck Profiles</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Fleet Management</h1>
             <p className="text-gray-400 text-sm md:text-base">Manage and view detailed information about your fleet</p>
           </div>
           <div className="flex flex-col space-y-2 md:flex-row md:space-x-3 md:space-y-0">

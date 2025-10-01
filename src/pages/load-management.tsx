@@ -457,19 +457,7 @@ export default function LoadManagement() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-green-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
-                  <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-lg sm:text-2xl font-bold text-white">${loadStats.totalRevenue.toLocaleString()}</div>
-                  <div className="text-slate-400 text-xs sm:text-sm">Total Revenue</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Removed Total Revenue to avoid duplication with Fleet Analytics */}
 
           <Card className="bg-slate-800 border-slate-700">
             <CardContent className="p-3 sm:p-6">
@@ -789,7 +777,7 @@ export default function LoadManagement() {
                                     </div>
                                   )}
                                   
-                                  {/* Total Cost Per Mile */}
+          {/* Remove CPM/Net Profit details from load cards summary; keep within per-load details if essential */}
                                   {load.totalCostPerMile > 0 && (
                                     <div className="text-purple-400 text-xs font-medium">
                                       Total CPM: ${load.totalCostPerMile?.toFixed(3)}/mi

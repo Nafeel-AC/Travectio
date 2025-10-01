@@ -36,8 +36,8 @@ const getNavigation = (isAdmin: boolean) => {
       current: false,
     },
     {
-      name: "Truck Profiles",
-      href: "/truck-profiles",
+      name: "Fleet Management",
+      href: "/fleet-management",
       icon: Truck,
       current: false,
     },
@@ -47,7 +47,7 @@ const getNavigation = (isAdmin: boolean) => {
       icon: Fuel,
       current: false,
     },
-    { name: "Add Truck", href: "/add-truck", icon: Plus, current: false },
+    
     { name: "Pricing", href: "/pricing", icon: CreditCard, current: false },
   ];
 

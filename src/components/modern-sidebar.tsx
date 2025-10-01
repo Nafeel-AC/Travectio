@@ -117,9 +117,9 @@ const navigationItems: NavigationItem[] = [
     customerOnly: true,
   },
   {
-    href: "/truck-profiles",
-    label: "Truck Profiles",
-    description: "View and manage truck details",
+    href: "/fleet-management",
+    label: "Fleet Management",
+    description: "Manage fleet, drivers, HOS, loads, and fuel",
     icon: Truck,
     customerOnly: true,
   },
@@ -144,14 +144,7 @@ const navigationItems: NavigationItem[] = [
     icon: BarChart3,
     customerOnly: true,
   },
-  {
-    href: "/add-truck",
-    label: "Add Truck",
-    description: "Register new vehicle",
-    icon: Plus,
-    badge: "Active",
-    customerOnly: true,
-  },
+  
   {
     href: "/pricing",
     label: "Pricing",

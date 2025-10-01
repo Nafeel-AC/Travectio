@@ -99,29 +99,8 @@ export default function DashboardTab() {
         </div>
       </div>
 
-      {/* Top KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Revenue"
-          value={`$${((metrics as any)?.totalRevenue ?? (fleetSummary as any)?.totalRevenue ?? 0).toLocaleString()}`}
-          description="This period"
-          icon={DollarSign}
-          trend={((metrics as any)?.totalRevenue ?? 0) >= 0 ? "up" : "down"}
-        />
-        <MetricCard
-          title="Cost per Mile"
-          value={`$${((metrics as any)?.costPerMile ?? 0).toFixed(2)}`}
-          description="Fleet average"
-          icon={Truck}
-          trend="neutral"
-        />
-        <MetricCard
-          title="Profit Margin"
-          value={`${((metrics as any)?.profitMargin ?? 0).toFixed(1)}%`}
-          description="Current profitability"
-          icon={TrendingUp}
-          trend={((metrics as any)?.profitMargin ?? 0) >= 0 ? "up" : "down"}
-        />
+      {/* Summary KPI (non-financial) */}
+      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
         <MetricCard
           title="Fleet Utilization"
           value={`${((metrics as any)?.utilizationRate ?? (fleetSummary as any)?.utilizationRate ?? 0).toFixed(1)}%`}

@@ -44,11 +44,11 @@ const getNavigationItems = (isAdmin: boolean) => {
       description: "Load tracking and entry"
     },
     {
-      id: "add-truck",
-      label: "Add Truck",
-      icon: Plus,
-      path: "/add-truck",
-      description: "Register new vehicle"
+      id: "fleet-management",
+      label: "Fleet Management",
+      icon: Truck,
+      path: "/fleet-management",
+      description: "Manage fleet, drivers, HOS, loads, fuel"
     },
     {
       id: "integration-management",

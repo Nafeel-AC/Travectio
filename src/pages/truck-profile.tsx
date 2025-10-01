@@ -94,7 +94,7 @@ export default function TruckProfile() {
       const totalFixedCosts = Object.entries(costData)
         .filter(([key]) => ['truckPayment', 'trailerPayment', 'elogSubscription', 'liabilityInsurance', 
                            'physicalInsurance', 'cargoInsurance', 'trailerInterchange', 'bobtailInsurance',
-                           'nonTruckingLiability', 'basePlateDeduction', 'companyPhone'].includes(key))
+                           'nonTruckingLiability', 'basePlateDeduction', 'companyPhone', 'iftaTaxes'].includes(key))
         .reduce((sum, [, value]) => sum + (typeof value === 'number' ? value : 0), 0);
       
       const totalVariableCosts = driverPayWeekly + Object.entries(costData)
@@ -781,7 +781,7 @@ export default function TruckProfile() {
                         ? Object.entries(editedCosts)
                             .filter(([key]) => ['truckPayment', 'trailerPayment', 'elogSubscription', 'liabilityInsurance', 
                                                'physicalInsurance', 'cargoInsurance', 'trailerInterchange', 'bobtailInsurance',
-                                               'nonTruckingLiability', 'basePlateDeduction', 'companyPhone'].includes(key))
+                                               'nonTruckingLiability', 'basePlateDeduction', 'companyPhone', 'iftaTaxes'].includes(key))
                             .reduce((sum, [, value]) => sum + (parseFloat(String(value)) || 0), 0)
                         : costBreakdown?.totalFixedCosts || 0
                       ).toFixed(2)}

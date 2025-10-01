@@ -9,7 +9,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { DollarSign, Calculator, ArrowLeft, Save, Truck, Info, HelpCircle, TrendingUp } from "lucide-react";
 import { useLocation, useRoute, useParams } from "wouter";
-import { NavigationLayout } from "@/components/global-navigation";
 import { useTrucks } from "@/hooks/useSupabase";
 import { TruckService } from "@/lib/supabase-client";
 
@@ -43,8 +42,9 @@ export default function TruckCostBreakdown() {
   // Variable costs (per mile and weekly basis)
   const [variableCosts, setVariableCosts] = useState({
     driverPayPerMile: "", // cents per mile
+    fuel: "", // weekly
     maintenance: "", // weekly
-    iftaTaxes: "", // weekly
+    iftaTaxes: "", // weekly - moved to fixed costs in UI
     tolls: "", // weekly
     dwellTime: "", // weekly
     reeferFuel: "", // weekly
@@ -102,7 +102,8 @@ export default function TruckCostBreakdown() {
         companyPhone: breakdown.companyPhone?.toString() || ""
       });
       setVariableCosts({
-        driverPayPerMile: breakdown.driverPayPerMile?.toString() || "",
+        driverPayPerMile: breakdown.driverPay ? ((breakdown.driverPay / 3000) * 100).toFixed(1) : "0",
+        fuel: breakdown.fuel?.toString() || "",
         maintenance: breakdown.maintenance?.toString() || "",
         iftaTaxes: breakdown.iftaTaxes?.toString() || "",
         tolls: breakdown.tolls?.toString() || "",
@@ -114,14 +115,16 @@ export default function TruckCostBreakdown() {
   }, [truck]);
 
   const calculateTotalFixedCosts = () => {
-    return Object.values(fixedCosts).reduce((sum, cost) => sum + (parseFloat(cost) || 0), 0);
+    const fixedCostsTotal = Object.values(fixedCosts).reduce((sum, cost) => sum + (parseFloat(cost) || 0), 0);
+    const iftaTaxes = parseFloat(variableCosts.iftaTaxes) || 0;
+    return fixedCostsTotal + iftaTaxes;
   };
 
   const calculateTotalVariableCosts = () => {
     const standardWeeklyMiles = 3000;
     const driverPayWeekly = ((parseFloat(variableCosts.driverPayPerMile) || 0) / 100) * standardWeeklyMiles;
     const otherCosts = Object.entries(variableCosts)
-      .filter(([key]) => key !== 'driverPayPerMile')
+      .filter(([key]) => key !== 'driverPayPerMile' && key !== 'iftaTaxes')
       .reduce((sum, [, cost]) => sum + (parseFloat(cost) || 0), 0);
     return driverPayWeekly + otherCosts;
   };
@@ -207,7 +210,8 @@ export default function TruckCostBreakdown() {
         nonTruckingLiability: parseFloat(fixedCosts.nonTruckingLiability) || 0,
         basePlateDeduction: parseFloat(fixedCosts.basePlateDeduction) || 0,
         companyPhone: parseFloat(fixedCosts.companyPhone) || 0,
-        driverPayPerMile: parseFloat(variableCosts.driverPayPerMile) || 0,
+        driverPay: ((parseFloat(variableCosts.driverPayPerMile) || 0) / 100) * 3000, // Convert cents per mile to weekly amount
+        fuel: parseFloat(variableCosts.fuel) || 0,
         maintenance: parseFloat(variableCosts.maintenance) || 0,
         iftaTaxes: parseFloat(variableCosts.iftaTaxes) || 0,
         tolls: parseFloat(variableCosts.tolls) || 0,
@@ -239,26 +243,21 @@ export default function TruckCostBreakdown() {
 
   if (isLoading) {
     return (
-      <NavigationLayout currentPath="/add-truck">
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="text-white">Loading truck information...</div>
-        </div>
-      </NavigationLayout>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white">Loading truck information...</div>
+      </div>
     );
   }
 
   if (!truck) {
     return (
-      <NavigationLayout currentPath="/add-truck">
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="text-white">Truck not found</div>
-        </div>
-      </NavigationLayout>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white">Truck not found</div>
+      </div>
     );
   }
 
   return (
-    <NavigationLayout currentPath="/add-truck">
       <div className="min-h-screen bg-slate-950 p-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
@@ -428,7 +427,7 @@ export default function TruckCostBreakdown() {
                           className="bg-slate-700 border-slate-600 text-white text-lg"
                           placeholder="350"
                         />
-                        <p className="text-xs text-slate-500">Maintenance, permits, IFTA taxes, tolls, parking</p>
+                        <p className="text-xs text-slate-500">Maintenance, permits, tolls, parking</p>
                       </div>
                     </div>
 
@@ -505,6 +504,18 @@ export default function TruckCostBreakdown() {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label className="text-white">IFTA Taxes (weekly)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={variableCosts.iftaTaxes}
+                        onChange={handleVariableCostChange("iftaTaxes")}
+                        className="bg-slate-700 border-slate-600 text-white"
+                        placeholder="25"
+                      />
+                      <p className="text-xs text-slate-500">Minimal fixed cost for fuel tax reporting</p>
+                    </div>
+                    <div className="space-y-2">
                       <Label className="text-white">Other Fixed Costs</Label>
                       <Input
                         type="number"
@@ -566,15 +577,16 @@ export default function TruckCostBreakdown() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-white">IFTA Taxes (weekly)</Label>
+                      <Label className="text-white">Fuel (weekly)</Label>
                       <Input
                         type="number"
                         step="0.01"
-                        value={variableCosts.iftaTaxes}
-                        onChange={handleVariableCostChange("iftaTaxes")}
+                        value={variableCosts.fuel || ""}
+                        onChange={handleVariableCostChange("fuel")}
                         className="bg-slate-700 border-slate-600 text-white"
-                        placeholder="200"
+                        placeholder="800"
                       />
+                      <p className="text-xs text-slate-500">Tracked separately through fuel purchases</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-white">Permits (weekly)</Label>
@@ -722,6 +734,5 @@ export default function TruckCostBreakdown() {
           </Card>
         </div>
       </div>
-    </NavigationLayout>
   );
 }

@@ -1181,9 +1181,9 @@ class FuelService {
       const latestBreakdown = await TruckService.getLatestCostBreakdown(truckId);
 
       if (latestBreakdown) {
-        // Recalculate total variable costs including fuel
+        // Recalculate total variable costs including fuel (IFTA moved to fixed costs)
         const totalVariableCosts = (latestBreakdown.driverPay || 0) + totalFuelCost + 
-          (latestBreakdown.maintenance || 0) + (latestBreakdown.iftaTaxes || 0) + 
+          (latestBreakdown.maintenance || 0) + 
           (latestBreakdown.tolls || 0) + (latestBreakdown.dwellTime || 0) + 
           (latestBreakdown.reeferFuel || 0) + (latestBreakdown.truckParking || 0);
 
