@@ -32,26 +32,7 @@ export default function DriversPage() {
                   <p className="text-slate-400 text-sm sm:text-base">Manage your fleet drivers, track their status, and handle assignments</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Button
-                  onClick={() => setShowOnboarding(true)}
-                  variant="outline"
-                  size="sm"
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700 flex-1 sm:flex-none"
-                >
-                  <Users className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Driver Guide</span>
-                  <span className="sm:hidden">Guide</span>
-                </Button>
-                <Button 
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
-                >
-                  <Plus className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Add Driver</span>
-                  <span className="sm:hidden">Add</span>
-                </Button>
-              </div>
+              {/* Right-side header actions removed per request (Driver Guide, Add Driver) */}
             </div>
 
             {/* Driver Management Section */}

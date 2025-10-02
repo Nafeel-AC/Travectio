@@ -679,7 +679,7 @@ export default function LoadManagement() {
                         <th className="text-left text-slate-300 py-3 px-4">Load Info</th>
                         <th className="text-left text-slate-300 py-3 px-4">Route</th>
                         <th className="text-left text-slate-300 py-3 px-4">Truck Assignment</th>
-                        <th className="text-left text-slate-300 py-3 px-4">Financial</th>
+                        {/* Financial column removed per request; finances will live in Fleet Analytics */}
                         <th className="text-left text-slate-300 py-3 px-4">Schedule</th>
                         <th className="text-left text-slate-300 py-3 px-4">Status</th>
                         <th className="text-left text-slate-300 py-3 px-4">Actions</th>
@@ -738,70 +738,7 @@ export default function LoadManagement() {
                                 </div>
                               )}
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="space-y-1">
-                                <div className="text-green-300 font-semibold">${load.pay?.toLocaleString() || 0}</div>
-                                <div className={`text-sm font-medium ${rpmColor}`}>${ratePerMile}/mile</div>
-                                
-                                {/* Driver Pay Information */}
-                                {load.calculatedDriverPay && load.calculatedDriverPay > 0 && (
-                                  <div className="text-green-400 text-xs">
-                                    Driver: ${load.calculatedDriverPay.toFixed(2)}
-                                    {load.driverPayType === 'percentage' && ` (${load.driverPayPercentage || 70}%)`}
-                                    {load.driverPayType === 'per_mile' && ` (${(load.calculatedDriverPay / load.miles).toFixed(2)}/mi)`}
-                                    {load.driverPayType === 'flat_rate' && ' (flat)'}
-                                  </div>
-                                )}
-                                
-                                {/* Comprehensive Cost Breakdown */}
-                                <div className="space-y-1">
-                                  {/* Fuel Costs */}
-                                  {load.actualFuelCost > 0 ? (
-                                    <div className="text-green-400 text-xs">
-                                      Fuel: ${load.actualFuelCost.toFixed(2)} (${load.actualFuelCostPerMile?.toFixed(3)}/mi)
-                                    </div>
-                                  ) : load.estimatedFuelCost > 0 ? (
-                                    <div className="text-yellow-400 text-xs">
-                                      Est. Fuel: ${load.estimatedFuelCost.toFixed(2)} (${load.estimatedFuelCostPerMile?.toFixed(3)}/mi)
-                                    </div>
-                                  ) : (
-                                    <div className="text-slate-500 text-xs">
-                                      No fuel data
-                                    </div>
-                                  )}
-                                  
-                                  {/* Truck Costs - only show if assigned to truck */}
-                                  {load.truckId && load.truckCostPerMile > 0 && (
-                                    <div className="text-blue-400 text-xs">
-                                      Truck: ${load.truckCostPerMile?.toFixed(3)}/mi (Fixed: ${load.truckFixedCostPerMile?.toFixed(3)} + Var: ${load.truckVariableCostPerMile?.toFixed(3)})
-                                    </div>
-                                  )}
-                                  
-          {/* Remove CPM/Net Profit details from load cards summary; keep within per-load details if essential */}
-                                  {load.totalCostPerMile > 0 && (
-                                    <div className="text-purple-400 text-xs font-medium">
-                                      Total CPM: ${load.totalCostPerMile?.toFixed(3)}/mi
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {/* Net Profit - Enhanced Display */}
-                                {load.netProfit !== undefined && load.totalCostPerMile > 0 ? (
-                                  <div className="mt-2 pt-1 border-t border-slate-600">
-                                    <div className={`text-sm font-medium ${load.netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                      Net Profit: ${load.netProfit.toFixed(2)}
-                                    </div>
-                                    <div className={`text-xs ${load.profitPerMile >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                      ${load.profitPerMile?.toFixed(3)}/mi profit
-                                    </div>
-                                  </div>
-                                ) : load.profit !== undefined && (
-                                  <div className={`text-xs ${load.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    Est. Profit: ${load.profit.toFixed(2)}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
+                            {/* Financial cell removed to keep finances in Fleet Analytics */}
                             <td className="py-4 px-4">
                               <div className="space-y-1">
                                 {load.pickupDate && (
