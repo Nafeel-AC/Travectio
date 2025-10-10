@@ -75,8 +75,8 @@ export default function FuelManagementPage() {
 
   // Use organization-aware hooks
   const { data: allPurchases = [], isLoading: purchasesLoading, error: purchasesError } = useOrgFuelPurchases();
-  const { data: trucks = [], isLoading: trucksLoading } = useOrgTrucks();
-  const { data: loads = [], isLoading: loadsLoading } = useOrgLoads();
+  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useOrgTrucks();
+  const { data: loads = [], isLoading: loadsLoading, error: loadsError } = useOrgLoads();
   const createFuelPurchaseMutation = useCreateOrgFuelPurchase();
   const updateFuelPurchaseMutation = useUpdateOrgFuelPurchase();
   const deleteFuelPurchaseMutation = useDeleteOrgFuelPurchase();
@@ -124,7 +124,7 @@ export default function FuelManagementPage() {
     const formData = new FormData(e.target as HTMLFormElement);
     const loadId = formData.get("loadId") as string;
     if (selectedPurchase && loadId) {
-      attachPurchaseMutation.mutate({ purchaseId: selectedPurchase.id, loadId });
+      attachPurchaseMutation.mutate({ purchaseId: selectedPurchase.id, updates: { loadId } });
     }
   };
 
@@ -189,7 +189,7 @@ export default function FuelManagementPage() {
       fuelType: editForm.fuelType,
     };
     
-    updatePurchaseMutation.mutate({ purchaseId: editingPurchase.id, data });
+    updatePurchaseMutation.mutate({ purchaseId: editingPurchase.id, updates: data });
   };
 
   if (purchasesLoading) {
@@ -635,7 +635,7 @@ export default function FuelManagementPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => detachPurchaseMutation.mutate(purchase.id)}
+                          onClick={() => detachPurchaseMutation.mutate({ purchaseId: purchase.id, updates: { loadId: null } })}
                           disabled={detachPurchaseMutation.isPending}
                           className="border-slate-600 text-slate-300 hover:bg-slate-700"
                         >

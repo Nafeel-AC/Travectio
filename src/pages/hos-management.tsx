@@ -9,7 +9,7 @@ import EnhancedHOSEntry from "@/components/enhanced-hos-entry";
 
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { useOrgDrivers, useOrgTrucks, useOrgHosLogs, useCreateOrgHosLog, useUpdateOrgHosLogStatus, useRoleAccess } from "@/hooks/useOrgData";
+import { useOrgDrivers, useOrgTrucks, useOrgHosLogs, useCreateOrgHosLog, useUpdateOrgHosLogStatus, useRoleAccess, useDeleteOrgDriver } from "@/hooks/useOrgData";
 import { useOrgRole } from "@/lib/org-role-context";
 
 const dutyStatusColors = {
@@ -40,6 +40,7 @@ export default function HOSManagement() {
   const { data: hosLogs = [], isLoading: logsLoading } = useOrgHosLogs(selectedDriver || undefined, selectedTruck || undefined);
   const createHosLogMutation = useCreateOrgHosLog();
   const updateHosStatusMutation = useUpdateOrgHosLogStatus();
+  const deleteDriverMutation = useDeleteOrgDriver();
 
   // Handle HOS status change with role-based access control
   const handleHosStatusChange = (hosLogId: string, newStatus: string) => {
@@ -99,14 +100,17 @@ export default function HOSManagement() {
               <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mt-3">
                 <div className="flex items-center gap-2 text-blue-300">
                   <Eye className="h-4 w-4" />
-                  <span className="text-sm font-medium">Driver View: Showing your HOS logs only</span>
+                  <span className="text-sm font-medium">Driver View: Create and view your HOS logs</span>
                 </div>
+                <p className="text-blue-400 text-xs mt-1">
+                  Use the "New HOS Entry" button above to log your duty status changes. Only your assigned trucks will be available for selection.
+                </p>
               </div>
             )}
           </div>
           
           <div className="flex gap-2">
-            {roleAccess.canCreateData && (
+            {(roleAccess.canCreateData || role === 'driver') && (
               <Button
                 onClick={() => setShowEntryForm(!showEntryForm)}
                 className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
@@ -114,13 +118,6 @@ export default function HOSManagement() {
                 <Plus className="h-4 w-4 mr-2" />
                 {showEntryForm ? "Hide Entry Form" : "New HOS Entry"}
               </Button>
-            )}
-            
-            {!roleAccess.canCreateData && role === 'driver' && (
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <Clock className="h-4 w-4" />
-                <span>View your HOS logs - Use ELD device to log hours</span>
-              </div>
             )}
             
             {!roleAccess.canCreateData && role !== 'driver' && (
@@ -187,7 +184,7 @@ export default function HOSManagement() {
                         .map((truck: any) => (
                         <SelectItem key={truck.id} value={truck.id} className="text-white">
                           {truck.name} - {truck.equipmentType}
-                          {truck.driver && ` (${truck.driver.name})`}
+                          {truck.drivers && ` (${truck.drivers.name})`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -255,8 +252,8 @@ export default function HOSManagement() {
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
               <Clock className="h-5 w-5" />
-              <span className="hidden sm:inline">Active Trucks Available for Assignment</span>
-              <span className="sm:hidden">Active Trucks</span>
+              <span className="hidden sm:inline">Fleet Overview - Active Trucks</span>
+              <span className="sm:hidden">Fleet Overview</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -278,11 +275,11 @@ export default function HOSManagement() {
                       </Badge>
                     </div>
                     <div className="text-slate-300 text-xs sm:text-sm mb-2">Cost/Mile: ${truck.costPerMile?.toFixed(2) || '0.00'}</div>
-                    {truck.driver ? (
+                    {truck.drivers ? (
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                         <span className="text-slate-300 text-xs sm:text-sm">
-                          Assigned to: {truck.driver.name}
+                          Assigned to: {truck.drivers.name}
                         </span>
                       </div>
                     ) : (
@@ -298,7 +295,7 @@ export default function HOSManagement() {
               </div>
             ) : (
               <div className="text-slate-400 text-center py-6 sm:py-8">
-                No active trucks available for assignment
+                No active trucks in the fleet
               </div>
             )}
           </CardContent>

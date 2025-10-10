@@ -674,7 +674,20 @@ export class OrgHOSService extends OrgAwareService {
 
     if (role === 'driver') {
       // Drivers see only their own HOS logs
-      query = query.eq('driverId', userId);
+      // First, resolve the driver record ID from the auth user ID
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow) {
+        return []; // No driver profile found
+      }
+
+      query = query.eq('driverId', driverRow.id);
     } else {
       // Owners and dispatchers see all organization HOS logs
       query = query.eq('organization_id', orgId);
@@ -695,7 +708,20 @@ export class OrgHOSService extends OrgAwareService {
 
     if (role === 'driver') {
       // Drivers can only create HOS logs for themselves
-      hosLogData.driverId = userId;
+      // First, resolve the driver record ID from the auth user ID
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow) {
+        throw new Error('Driver profile not found. Please contact your dispatcher to set up your driver profile.');
+      }
+
+      hosLogData.driverId = driverRow.id;
     } else if (!this.canAccess(role, ['owner', 'dispatcher'])) {
       throw new Error('Access denied.');
     }
@@ -728,8 +754,19 @@ export class OrgHOSService extends OrgAwareService {
       throw new Error('HOS log not found or access denied.');
     }
 
-    if (role === 'driver' && hosLog.driverId !== userId) {
-      throw new Error('Access denied. You can only update your own HOS logs.');
+    if (role === 'driver') {
+      // For drivers, verify the HOS log belongs to their driver record
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow || hosLog.driverId !== driverRow.id) {
+        throw new Error('Access denied. You can only update your own HOS logs.');
+      }
     }
 
     const { data, error } = await supabase
@@ -805,11 +842,24 @@ export class OrgFuelService extends OrgAwareService {
 
     if (role === 'driver') {
       // Verify driver can only add fuel for their assigned truck
+      // First, resolve the driver record ID from the auth user ID
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow) {
+        throw new Error('Driver profile not found. Please contact your dispatcher.');
+      }
+
       const { data: driverTrucks } = await supabase
         .from('trucks')
         .select('id')
         .eq('organization_id', orgId)
-        .eq('currentDriverId', userId);
+        .eq('currentDriverId', driverRow.id);
 
       const truckIds = driverTrucks?.map(t => t.id) || [];
       if (!truckIds.includes(purchaseData.truckId)) {
@@ -822,7 +872,7 @@ export class OrgFuelService extends OrgAwareService {
       .insert({
         ...purchaseData,
         organization_id: orgId,
-        createdBy: userId
+        userId: userId
       })
       .select()
       .single();
@@ -838,7 +888,7 @@ export class OrgFuelService extends OrgAwareService {
     // Verify fuel purchase belongs to organization
     const { data: purchase } = await supabase
       .from('fuel_purchases')
-      .select('organization_id, createdBy, truckId')
+      .select('organization_id, userId, truckId')
       .eq('id', purchaseId)
       .single();
 
@@ -848,15 +898,28 @@ export class OrgFuelService extends OrgAwareService {
 
     if (role === 'driver') {
       // Drivers can only update their own entries for their assigned truck
-      if (purchase.createdBy !== userId) {
+      if ((purchase as any).userId !== userId) {
         throw new Error('Access denied. You can only update your own fuel entries.');
+      }
+
+      // Resolve the driver record ID from the auth user ID
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow) {
+        throw new Error('Driver profile not found.');
       }
 
       const { data: driverTrucks } = await supabase
         .from('trucks')
         .select('id')
         .eq('organization_id', orgId)
-        .eq('currentDriverId', userId);
+        .eq('currentDriverId', driverRow.id);
 
       const truckIds = driverTrucks?.map(t => t.id) || [];
       if (!truckIds.includes(purchase.truckId)) {
@@ -885,7 +948,7 @@ export class OrgFuelService extends OrgAwareService {
     // Verify fuel purchase belongs to organization
     const { data: purchase } = await supabase
       .from('fuel_purchases')
-      .select('organization_id, createdBy')
+      .select('organization_id, userId')
       .eq('id', purchaseId)
       .single();
 
@@ -893,7 +956,7 @@ export class OrgFuelService extends OrgAwareService {
       throw new Error('Fuel purchase not found or access denied.');
     }
 
-    if (role === 'driver' && purchase.createdBy !== userId) {
+    if (role === 'driver' && (purchase as any).userId !== userId) {
       throw new Error('Access denied. You can only delete your own fuel entries.');
     } else if (!this.canAccess(role, ['owner', 'dispatcher', 'driver'])) {
       throw new Error('Access denied.');

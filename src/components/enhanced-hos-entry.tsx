@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Clock, MapPin, AlertTriangle, CheckCircle, Timer, Car, Bed, Coffee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DriverService, TruckService, HOSService } from "@/lib/supabase-client";
+import { useOrgDrivers, useOrgTrucks, useCreateOrgHosLog } from "@/hooks/useOrgData";
+import { useOrgRole } from "@/lib/org-role-context";
+import { supabase } from "@/lib/supabase";
 
 const dutyStatusOptions = [
   { value: "OFF_DUTY", label: "Off Duty", icon: Coffee, color: "bg-slate-600", description: "Driver is off duty and not available for work" },
@@ -41,74 +43,74 @@ type HOSEntryForm = z.infer<typeof hosEntrySchema>;
 
 export default function EnhancedHOSEntry() {
   const [selectedDutyStatus, setSelectedDutyStatus] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { role, activeOrgId } = useOrgRole();
   
-  // Use Supabase services instead of demo API
-  const { data: drivers = [], isLoading: driversLoading } = useQuery({
-    queryKey: ['drivers'],
-    queryFn: () => DriverService.getDrivers(),
-    staleTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
+  // Use organization-aware hooks
+  const { data: drivers = [], isLoading: driversLoading } = useOrgDrivers();
+  const { data: trucks = [], isLoading: trucksLoading } = useOrgTrucks();
 
-  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    staleTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
+  const defaultFormValues = {
+    timestamp: new Date(),
+    driveTimeRemaining: 11,
+    onDutyRemaining: 14,
+    cycleHoursRemaining: 70,
+    address: "",
+    annotations: "",
+    driverId: "",
+    truckId: "",
+    dutyStatus: undefined as any
+  };
 
   const form = useForm<HOSEntryForm>({
     resolver: zodResolver(hosEntrySchema),
-    defaultValues: {
-      timestamp: new Date(),
-      driveTimeRemaining: 11,
-      onDutyRemaining: 14,
-      cycleHoursRemaining: 70,
-      address: "",
-      annotations: ""
-    }
+    defaultValues: defaultFormValues,
+    mode: "onChange"
   });
 
-  const createHOSMutation = useMutation({
-    mutationFn: async (data: HOSEntryForm) => {
-      // Convert form data to match HOS log schema
-      const hosLogData = {
-        driverId: data.driverId,
-        truckId: data.truckId,
-        dutyStatus: data.dutyStatus,
-        timestamp: data.timestamp.toISOString(),
-        location: data.address,
-        notes: data.annotations || null,
-        violations: [],
-        driveTimeRemaining: data.driveTimeRemaining,
-        onDutyRemaining: data.onDutyRemaining,
-        cycleHoursRemaining: data.cycleHoursRemaining,
-      };
-      return HOSService.createHosLog(hosLogData);
-    },
-    onSuccess: () => {
-      toast({
-        title: "HOS Entry Created",
-        description: "Hours of service entry has been successfully recorded.",
-      });
-      form.reset();
-      setSelectedDutyStatus("");
-      queryClient.invalidateQueries({ queryKey: ["hos-logs"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create HOS entry",
-        variant: "destructive",
-      });
-    },
-  });
+  const createHOSMutation = useCreateOrgHosLog();
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getCurrentUser();
+  }, []);
+
+  // Filter data based on user role
+  // For drivers, find their driver profile by matching their user ID
+  // Check both userId and auth_user_id fields to match the truck service logic
+  const currentDriver = role === 'driver' && currentUserId 
+    ? drivers.find(d => d.userId === currentUserId || d.auth_user_id === currentUserId) 
+    : null;
+  const availableDrivers = role === 'driver' ? (currentDriver ? [currentDriver] : []) : drivers;
+  
+  // For trucks: useOrgTrucks() already filters by role, so we use all returned trucks
+  // For drivers, it only returns their assigned trucks
+  // For dispatchers/owners, it returns all organization trucks
+  const availableTrucks = trucks;
+
+
+
+  // Auto-select driver for driver role
+  useEffect(() => {
+    if (role === 'driver' && currentDriver && !form.getValues('driverId')) {
+      form.setValue('driverId', currentDriver.id);
+    }
+  }, [role, currentDriver, form]);
+
+  // Ensure form is properly initialized with default values
+  useEffect(() => {
+    form.reset({
+      ...defaultFormValues,
+      timestamp: new Date(),
+      driverId: role === 'driver' && currentDriver ? currentDriver.id : "",
+    });
+  }, [form, role, currentDriver]);
 
   const onSubmit = (data: HOSEntryForm) => {
     // Calculate violations before submitting
@@ -118,12 +120,31 @@ export default function EnhancedHOSEntry() {
       70 - data.cycleHoursRemaining
     );
 
-    const hosEntry = {
-      ...data,
+    // Convert form data to match the org HOS log schema
+    const hosLogData = {
+      driverId: data.driverId,
+      truckId: data.truckId,
+      dutyStatus: data.dutyStatus,
+      timestamp: data.timestamp.toISOString(),
+      location: data.address,
+      notes: data.annotations || null,
+      driveTimeRemaining: data.driveTimeRemaining,
+      onDutyRemaining: data.onDutyRemaining,
+      cycleHoursRemaining: data.cycleHoursRemaining,
       violations: violations.length > 0 ? violations : null
     };
 
-    createHOSMutation.mutate(hosEntry);
+    createHOSMutation.mutate(hosLogData, {
+      onSuccess: () => {
+        // Reset form after successful submission
+        form.reset({
+          ...defaultFormValues,
+          timestamp: new Date(),
+          driverId: role === 'driver' && currentDriver ? currentDriver.id : "",
+        });
+        setSelectedDutyStatus("");
+      }
+    });
   };
 
   const calculateViolations = (driveTime: number, onDutyTime: number, cycleTime: number) => {
@@ -161,15 +182,21 @@ export default function EnhancedHOSEntry() {
                 name="driverId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Driver *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel className="text-slate-300">
+                      Driver * {role === 'driver' && '(Your Profile)'}
+                    </FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={role === 'driver'}
+                    >
                       <FormControl>
                         <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                          <SelectValue placeholder="Select driver" />
+                          <SelectValue placeholder={role === 'driver' ? "Auto-selected" : "Select driver"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="bg-slate-700 border-slate-600">
-                        {drivers.map((driver) => (
+                        {availableDrivers.map((driver) => (
                           <SelectItem key={driver.id} value={driver.id} className="text-white">
                             {driver.name} - {driver.cdlNumber}
                           </SelectItem>
@@ -186,17 +213,19 @@ export default function EnhancedHOSEntry() {
                 name="truckId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-300">Truck *</FormLabel>
+                    <FormLabel className="text-slate-300">
+                      Truck * {role === 'driver' && '(Your Assigned Trucks)'}
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                          <SelectValue placeholder="Select truck" />
+                          <SelectValue placeholder={role === 'driver' ? "Select your assigned truck" : "Select truck"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="bg-slate-700 border-slate-600">
-                        {trucks.map((truck) => (
+                        {availableTrucks.map((truck) => (
                           <SelectItem key={truck.id} value={truck.id} className="text-white">
-                            {truck.name} - {truck.equipmentType} {truck.driver ? `(Driver: ${truck.driver.name})` : '(No Driver)'}
+                            {truck.name} - {truck.equipmentType} {truck.drivers ? `(Driver: ${truck.drivers.name})` : '(No Driver)'}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -206,6 +235,31 @@ export default function EnhancedHOSEntry() {
                 )}
               />
             </div>
+
+            {/* Driver Warning Messages */}
+            {role === 'driver' && availableDrivers.length === 0 && (
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-red-300">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span className="font-medium">Driver Profile Not Found</span>
+                </div>
+                <p className="text-red-400 text-sm mt-1">
+                  Your driver profile is not set up in the system. Please contact your dispatcher or owner.
+                </p>
+              </div>
+            )}
+
+            {role === 'driver' && availableTrucks.length === 0 && availableDrivers.length > 0 && (
+              <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-yellow-300">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span className="font-medium">No Trucks Assigned</span>
+                </div>
+                <p className="text-yellow-400 text-sm mt-1">
+                  You don't have any trucks assigned to you. Please contact your dispatcher to assign you a truck before logging HOS entries.
+                </p>
+              </div>
+            )}
 
             {/* Duty Status Selection */}
             <FormField
@@ -305,8 +359,11 @@ export default function EnhancedHOSEntry() {
                           max="14"
                           placeholder="11.0"
                           className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? '' : parseFloat(e.target.value);
+                            field.onChange(value);
+                          }}
                         />
                       </FormControl>
                       <FormMessage className="text-red-400" />
@@ -328,8 +385,11 @@ export default function EnhancedHOSEntry() {
                           max="14"
                           placeholder="14.0"
                           className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? '' : parseFloat(e.target.value);
+                            field.onChange(value);
+                          }}
                         />
                       </FormControl>
                       <FormMessage className="text-red-400" />
@@ -351,8 +411,11 @@ export default function EnhancedHOSEntry() {
                           max="70"
                           placeholder="70.0"
                           className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? '' : parseFloat(e.target.value);
+                            field.onChange(value);
+                          }}
                         />
                       </FormControl>
                       <FormMessage className="text-red-400" />
@@ -455,17 +518,29 @@ export default function EnhancedHOSEntry() {
             <div className="flex gap-4">
               <Button
                 type="submit"
-                disabled={createHOSMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                disabled={
+                  createHOSMutation.isPending || 
+                  (role === 'driver' && (availableDrivers.length === 0 || availableTrucks.length === 0))
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {createHOSMutation.isPending ? "Recording..." : "Record HOS Entry"}
+                {createHOSMutation.isPending 
+                  ? "Recording..." 
+                  : role === 'driver' && (availableDrivers.length === 0 || availableTrucks.length === 0)
+                    ? "Setup Required"
+                    : "Record HOS Entry"
+                }
               </Button>
               
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  form.reset();
+                  form.reset({
+                    ...defaultFormValues,
+                    timestamp: new Date(),
+                    driverId: role === 'driver' && currentDriver ? currentDriver.id : "",
+                  });
                   setSelectedDutyStatus("");
                 }}
                 className="border-slate-600 text-slate-300 hover:bg-slate-700"
