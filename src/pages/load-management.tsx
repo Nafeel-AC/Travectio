@@ -1,21 +1,24 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, DollarSign, Truck, MapPin, Calendar, Plus, Search, AlertCircle, Fuel, Edit, Trash2, Route } from "lucide-react";
+import { Package, DollarSign, Truck, MapPin, Calendar, Plus, Search, AlertCircle, Fuel, Edit, Trash2, Route, Eye, Lock } from "lucide-react";
 import ManualLoadEntry from "@/components/manual-load-entry";
 import { MultiStopLoadEntry } from "@/components/multi-stop-load-entry";
 
 import { TruckProfileDisplay } from "@/components/truck-profile-display";
 import { format } from "date-fns";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { LoadService, TruckService } from "@/lib/supabase-client";
 import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useOrgLoads, useOrgTrucks, useUpdateOrgLoad, useDeleteOrgLoad, useRoleAccess } from "@/hooks/useOrgData";
+import { OrgLoadService } from "@/lib/org-supabase-client";
+import { useOrgRole } from "@/lib/org-role-context";
 
 const statusColors = {
   "pending": "bg-yellow-600",
@@ -49,28 +52,15 @@ export default function LoadManagement() {
   const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(new Set());
   const [assignTruckId, setAssignTruckId] = useState<string>("");
   
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { role } = useOrgRole();
+  const roleAccess = useRoleAccess();
 
-  // Fetch trucks using proper Supabase service
-  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
-
-  // Fetch loads using proper Supabase service
-  const { data: loads = [], isLoading: loadsLoading, error: loadsError, refetch: refetchLoads } = useQuery({
-    queryKey: ['loads'],
-    queryFn: () => LoadService.getLoads(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
+  // Use organization-aware hooks
+  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useOrgTrucks();
+  const { data: loads = [], isLoading: loadsLoading, error: loadsError, refetch: refetchLoads } = useOrgLoads();
+  const updateLoadMutation = useUpdateOrgLoad();
+  const deleteLoadMutation = useDeleteOrgLoad();
 
   // Fetch available mock load board rows when the dialog is open or filters change
   const { data: boardLoads = [], isLoading: boardLoading, refetch: refetchBoard } = useQuery({
@@ -125,7 +115,7 @@ export default function LoadManagement() {
           ratePerMile: Number(row.ratePerMile || 0),
           status: 'pending'
         };
-        await LoadService.createLoad(payload);
+        await OrgLoadService.createLoad(payload);
         // Mark the board load as assigned so it doesn't reappear
         await supabase.from('mock_load_board').update({ status: 'assigned', updatedAt: new Date().toISOString() }).eq('id', row.id);
       }
@@ -143,58 +133,46 @@ export default function LoadManagement() {
     }
   });
 
-  // Mutation for updating load status
-  const updateLoadStatusMutation = useMutation({
-    mutationFn: async ({ loadId, status }: { loadId: string; status: string }) => {
-      return LoadService.updateLoad(loadId, { status });
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['loads'] });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      toast({
-        title: "Status Updated",
-        description: `Load status changed to ${statusLabels[variables.status as keyof typeof statusLabels]}`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Update Failed",
-        description: error.message || "Could not update load status. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Mutation for deleting load
-  const deleteLoadMutation = useMutation({
-    mutationFn: async (loadId: string) => {
-      return LoadService.deleteLoad(loadId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loads'] });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      toast({
-        title: "Load Deleted",
-        description: "Load has been successfully deleted and all numbers updated.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Delete Failed",
-        description: error.message || "Could not delete load. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
 
   const handleStatusChange = (loadId: string, newStatus: string) => {
     if (newStatus === "delete") {
-      // Handle delete action
+      if (!roleAccess.canDeleteData) {
+        toast({
+          title: "Access Denied",
+          description: "Only owners can delete loads.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       if (window.confirm("Are you sure you want to delete this load? This action cannot be undone.")) {
         deleteLoadMutation.mutate(loadId);
       }
     } else {
-      updateLoadStatusMutation.mutate({ loadId, status: newStatus });
+      // Check if user can update load status
+      if (role === 'driver') {
+        // Drivers can only update status of loads assigned to their truck
+        const load = loads.find(l => l.id === loadId);
+        const userTrucks = trucks.filter(t => t.currentDriverId === load?.currentDriverId);
+        
+        if (!userTrucks.some(t => t.id === load?.truckId)) {
+          toast({
+            title: "Access Denied",
+            description: "You can only update loads assigned to your truck.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (!roleAccess.canManageLoads) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to update load status.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      updateLoadMutation.mutate({ loadId, updates: { status: newStatus } });
     }
   };
 
@@ -260,13 +238,24 @@ export default function LoadManagement() {
             <p className="text-slate-400 text-sm sm:text-base">Track and manage freight loads across your fleet</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Dialog open={isImportOpen} onOpenChange={(v) => { setIsImportOpen(v); if (v) { setTimeout(() => refetchBoard(), 0); } }}>
-              <DialogTrigger asChild>
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto">
-                  <Package className="h-4 w-4 mr-2" />
-                  Import from Load Board
-                </Button>
-              </DialogTrigger>
+            {/* Role-based header info */}
+            {role === 'driver' && (
+              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <Eye className="h-4 w-4" />
+                  <span className="text-sm font-medium">Driver View: Showing loads assigned to your truck</span>
+                </div>
+              </div>
+            )}
+            
+            {roleAccess.canManageLoads && (
+              <Dialog open={isImportOpen} onOpenChange={(v) => { setIsImportOpen(v); if (v) { setTimeout(() => refetchBoard(), 0); } }}>
+                <DialogTrigger asChild>
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto">
+                    <Package className="h-4 w-4 mr-2" />
+                    Import from Load Board
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="bg-slate-800 border-slate-700 max-w-5xl">
                 <DialogHeader>
                   <DialogTitle className="text-white">Load Board (Mock 123Loadboard)</DialogTitle>
@@ -355,29 +344,42 @@ export default function LoadManagement() {
                   </Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
-            <Button
-              onClick={() => {
-                setShowEntryForm(!showEntryForm);
-                setShowMultiStopForm(false);
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">{showEntryForm ? "Hide Form" : "Single Load"}</span>
-              <span className="sm:hidden">{showEntryForm ? "Hide" : "Single"}</span>
-            </Button>
-            <Button
-              onClick={() => {
-                setShowMultiStopForm(!showMultiStopForm);
-                setShowEntryForm(false);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
-            >
-              <Route className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">{showMultiStopForm ? "Hide Form" : "Multi-Stop Load"}</span>
-              <span className="sm:hidden">{showMultiStopForm ? "Hide" : "Multi"}</span>
-            </Button>
+              </Dialog>
+            )}
+            
+            {roleAccess.canCreateData && (
+              <>
+                <Button
+                  onClick={() => {
+                    setShowEntryForm(!showEntryForm);
+                    setShowMultiStopForm(false);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">{showEntryForm ? "Hide Form" : "Single Load"}</span>
+                  <span className="sm:hidden">{showEntryForm ? "Hide" : "Single"}</span>
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowMultiStopForm(!showMultiStopForm);
+                    setShowEntryForm(false);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
+                >
+                  <Route className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">{showMultiStopForm ? "Hide Form" : "Multi-Stop Load"}</span>
+                  <span className="sm:hidden">{showMultiStopForm ? "Hide" : "Multi"}</span>
+                </Button>
+              </>
+            )}
+            
+            {!roleAccess.canCreateData && (
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <Lock className="h-4 w-4" />
+                <span>View Only - Contact dispatcher to add loads</span>
+              </div>
+            )}
             <Button
               onClick={() => {
                 refetchLoads();
@@ -600,7 +602,12 @@ export default function LoadManagement() {
               ) : trucks.length > 0 ? (
                 <div className="space-y-3 sm:space-y-4">
                   {trucks.map((truck) => (
-                    <TruckProfileDisplay key={truck.id} truck={truck} compact={true} />
+                    <div key={truck.id} className="space-y-1">
+                      <TruckProfileDisplay truck={truck} compact={true} />
+                      <div className="text-slate-400 text-xs">
+                        Driver: <span className="text-slate-200">{(truck as any)?.drivers?.name || 'Unassigned'}</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -760,7 +767,7 @@ export default function LoadManagement() {
                               <Select 
                                 value={load.status} 
                                 onValueChange={(newStatus) => handleStatusChange(load.id, newStatus)}
-                                disabled={updateLoadStatusMutation.isPending}
+                                disabled={updateLoadMutation.isPending || (!roleAccess.canManageLoads && role !== 'driver')}
                               >
                                 <SelectTrigger className={`w-32 ${statusColors[load.status as keyof typeof statusColors] || 'bg-slate-600'} text-white border-0 hover:opacity-80`}>
                                   <SelectValue>
@@ -854,7 +861,7 @@ export default function LoadManagement() {
                             <Select 
                               value={load.status} 
                               onValueChange={(newStatus) => handleStatusChange(load.id, newStatus)}
-                              disabled={updateLoadStatusMutation.isPending}
+                              disabled={updateLoadMutation.isPending || (!roleAccess.canManageLoads && role !== 'driver')}
                             >
                               <SelectTrigger className={`w-24 h-7 ${statusColors[load.status as keyof typeof statusColors] || 'bg-slate-600'} text-white border-0 text-xs`}>
                                 <SelectValue>

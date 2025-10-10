@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TimeFilterProvider } from "@/lib/time-filter-context";
 import { DemoProvider } from "@/lib/demo-context";
+import { OrgRoleProvider } from "@/lib/org-role-context";
 // import { AntiPollingWrapper } from "@/components/anti-polling-wrapper";
 import EnhancedDashboard from "@/pages/enhanced-dashboard";
 import Profile from "@/pages/profile";
@@ -18,6 +19,8 @@ import NotFound from "@/pages/not-found";
 import HOSManagement from "@/pages/hos-management";
 import LoadManagement from "@/pages/load-management";
 import FuelManagement from "@/pages/fuel-management";
+import MyLoads from "@/pages/my-loads";
+import AssignedTruckPage from "@/pages/assigned-truck";
 import UserManagement from "@/pages/user-management";
 import SessionManagement from "@/pages/session-management";
 import FleetAnalytics from "@/pages/fleet-analytics";
@@ -26,6 +29,7 @@ import IntegrationOnboarding from "@/pages/integration-onboarding";
 import APICredentialsGuide from "@/components/api-credentials-guide";
 import OwnerDashboard from "@/pages/owner-dashboard";
 import FounderDriverOverview from "@/pages/founder-driver-overview";
+import OrgMembersPage from "@/pages/org-members";
 import UserGuide from "@/pages/user-guide";
 import EnhancedLanding from "@/components/enhanced-landing";
 import LoginPage from "@/components/login-page";
@@ -36,11 +40,10 @@ import LoadMatcher from "@/pages/load-matcher";
 import DriversPage from "@/pages/drivers";
 import EnvDebug from "@/components/env-debug";
 import AdminDashboard from "@/pages/admin-dashboard";
-import BetaInvitesPage from "@/pages/beta-invites";
-import BetaAccessPage from "@/pages/beta-access";
 import PricingPage from "@/pages/pricing";
 import InviteRedeemPage from "@/pages/invite";
 import RouteGuard from "@/components/route-guard";
+import PendingInviteHandler from "@/components/pending-invite-handler";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
 
@@ -111,6 +114,7 @@ function Router() {
 
   return (
     <ModernLayout>
+      <PendingInviteHandler />
       <Switch>
         {/* Routes that use the new tab layout */}
         <Route path="/">
@@ -195,6 +199,20 @@ function Router() {
             </RouteGuard>
           </MainTabLayout>
         </Route>
+        <Route path="/my-loads">
+          <MainTabLayout>
+            <RouteGuard requireCustomer requireDriver>
+              <MyLoads />
+            </RouteGuard>
+          </MainTabLayout>
+        </Route>
+        <Route path="/assigned-truck">
+          <MainTabLayout>
+            <RouteGuard requireCustomer requireDriver>
+              <AssignedTruckPage />
+            </RouteGuard>
+          </MainTabLayout>
+        </Route>
         <Route path="/load-matcher">
           <MainTabLayout>
             <RouteGuard requireCustomer>
@@ -247,19 +265,16 @@ function Router() {
             <SessionManagement />
           </RouteGuard>
         </Route>
-        <Route path="/beta-invites">
-          <RouteGuard requireAdmin>
-            <BetaInvitesPage />
-          </RouteGuard>
-        </Route>
-        <Route path="/beta-access">
-          <RouteGuard requireFounder>
-            <BetaAccessPage />
-          </RouteGuard>
-        </Route>
         <Route path="/integration-management">
           <RouteGuard requireAdmin>
             <IntegrationManagement />
+          </RouteGuard>
+        </Route>
+
+        {/* Owner-only: Organization Members */}
+        <Route path="/org-members">
+          <RouteGuard requireOwner>
+            <OrgMembersPage />
           </RouteGuard>
         </Route>
 
@@ -296,6 +311,7 @@ function App() {
     <div className="dark">
       <QueryClientProvider client={queryClient}>
         <DemoProvider>
+          <OrgRoleProvider>
           {/* <AntiPollingWrapper> */}
           <TimeFilterProvider>
             <TooltipProvider>
@@ -304,6 +320,7 @@ function App() {
             </TooltipProvider>
           </TimeFilterProvider>
           {/* </AntiPollingWrapper> */}
+          </OrgRoleProvider>
         </DemoProvider>
       </QueryClientProvider>
     </div>

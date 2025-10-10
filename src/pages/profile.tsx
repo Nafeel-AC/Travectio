@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, User, Shield, Calendar, Mail } from "lucide-react";
+import { AlertTriangle, User, Shield, Calendar, Mail, Building, Users, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { User as UserType } from "@shared/schema";
 import { supabase } from "@/lib/supabase";
+import { useOrgRole } from "@/lib/org-role-context";
+import { OrgDriverService } from "@/lib/org-supabase-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,7 @@ import {
 export default function Profile() {
   const { user, loading } = useAuth();
   const { deleteAccount, isDeleting } = useAccountDeletion();
+  const { refresh, memberships, activeOrgId, role } = useOrgRole();
   
   const { toast } = useToast();
   const [deleteReason, setDeleteReason] = useState("");
@@ -37,9 +40,84 @@ export default function Profile() {
   const [title, setTitle] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creatingOrg, setCreatingOrg] = useState(false);
+  const [orgName, setOrgName] = useState("");
+  const [truckCount, setTruckCount] = useState<number>(1);
+  const [subscribing, setSubscribing] = useState(false);
+  // Driver self-onboarding fields (merged card)
+  const [driverName, setDriverName] = useState("");
+  const [driverCdl, setDriverCdl] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
+  
+  // Organization data state
+  const [orgDetails, setOrgDetails] = useState<any>(null);
+  const [orgMembers, setOrgMembers] = useState<any[]>([]);
+  const [loadingOrgData, setLoadingOrgData] = useState(false);
 
   // Cast the Supabase user to our custom User type
   const userProfile = user as unknown as UserType;
+
+  // Load organization details and members
+  const loadOrganizationData = async () => {
+    if (!activeOrgId || !user?.id) return;
+    
+    setLoadingOrgData(true);
+    try {
+      // Get organization details
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', activeOrgId)
+        .single();
+
+      if (orgError) throw orgError;
+      setOrgDetails(org);
+
+      // Get organization members first (without nested select to avoid RLS issues)
+      const { data: membershipData, error: membersError } = await supabase
+        .from('organization_members')
+        .select('id, role, status, created_at, user_id')
+        .eq('organization_id', activeOrgId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: true });
+
+      if (membersError) throw membersError;
+
+      // Then get user details separately for each member
+      const members = [];
+      if (membershipData) {
+        for (const membership of membershipData) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, email, firstName, lastName')
+            .eq('id', membership.user_id)
+            .single();
+          
+          members.push({
+            ...membership,
+            users: userData
+          });
+        }
+      }
+
+      console.log('Raw members data:', members);
+      if (membersError) {
+        console.error('Members error:', membersError);
+        throw membersError;
+      }
+      setOrgMembers(members || []);
+      
+    } catch (error: any) {
+      console.error('Failed to load organization data:', error);
+      toast({
+        title: "Failed to load organization data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingOrgData(false);
+    }
+  };
 
   // Load latest user row from DB and initialize edit fields
   useEffect(() => {
@@ -56,9 +134,110 @@ export default function Profile() {
       setCompany((data as any)?.company || "");
       setTitle((data as any)?.title || "");
       setPhone((data as any)?.phone || "");
+      // Initialize merged driver fields from user when available
+      const computedFullName = [((data as any)?.firstName || '').trim(), ((data as any)?.lastName || '').trim()].filter(Boolean).join(' ');
+      if (computedFullName) setDriverName(computedFullName);
+      if ((data as any)?.phone) setDriverPhone((data as any)?.phone);
     };
     load();
   }, [userProfile?.id]);
+
+  const saveDriverProfile = async () => {
+    if (!user?.id) return;
+    try {
+      const { data: existing } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('userId', (user as any).id)
+        .maybeSingle();
+
+      if (existing?.id) {
+        await OrgDriverService.updateDriver(existing.id, {
+          name: driverName,
+          cdlNumber: driverCdl,
+          phoneNumber: driverPhone,
+          email: (user as any).email,
+        });
+      } else {
+        await OrgDriverService.createDriver({
+          userId: (user as any).id,
+          name: driverName,
+          cdlNumber: driverCdl,
+          phoneNumber: driverPhone,
+          email: (user as any).email,
+          status: 'active'
+        });
+      }
+      // Also sync "users" profile first/last/phone from merged card
+      const [first, ...rest] = driverName.trim().split(' ');
+      const last = rest.join(' ');
+      await supabase
+        .from('users')
+        .update({ firstName: first || null, lastName: last || null, phone: driverPhone || null })
+        .eq('id', (user as any).id);
+
+      toast({ title: 'Driver profile saved', description: 'Your driver and account details were updated.' });
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  // Load organization data when activeOrgId changes
+  useEffect(() => {
+    loadOrganizationData();
+  }, [activeOrgId, user]);
+
+  const createOrganization = async () => {
+    if (!orgName.trim()) {
+      toast({ title: 'Name required', description: 'Please enter an organization name.', variant: 'destructive' });
+      return;
+    }
+    try {
+      setCreatingOrg(true);
+      const { data, error } = await supabase.rpc('create_organization', { p_name: orgName.trim() });
+      if (error) throw error;
+      await refresh();
+      setOrgName("");
+      toast({ title: 'Organization created', description: 'You are now the owner. Subscribe from Pricing to unlock features.' });
+    } catch (e: any) {
+      toast({ title: 'Creation failed', description: e?.message || 'Could not create organization', variant: 'destructive' });
+    } finally {
+      setCreatingOrg(false);
+    }
+  };
+
+  const startSubscription = async () => {
+    try {
+      if (!activeOrgId && memberships.length === 0) {
+        toast({ title: 'Create an organization first', description: 'You need an organization before subscribing.', variant: 'destructive' });
+        return;
+      }
+      setSubscribing(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+      const resp = await fetch(`${(supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ planId: 'per-truck', truckCount }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to start checkout');
+      }
+      const { url } = await resp.json();
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (e: any) {
+      toast({ title: 'Checkout failed', description: e?.message || 'Could not create checkout session', variant: 'destructive' });
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   const saveProfile = async () => {
     try {
@@ -153,7 +332,42 @@ export default function Profile() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profile Settings</h1>
         </div>
 
-        {/* User Information Card */}
+        {role === 'driver' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">Driver Profile</CardTitle>
+              <CardDescription>Provide your required driver and account details once</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Full Name</Label>
+                  <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Enter your full name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>CDL Number</Label>
+                  <Input value={driverCdl} onChange={(e) => setDriverCdl(e.target.value)} placeholder="CDL-XXXXXXXXXX" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Phone Number</Label>
+                  <Input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="(555) 123-4567" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={(user as any)?.email || ''} disabled />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={saveDriverProfile}>Save</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* User Information Card - hidden for drivers (merged above) */}
+        {role !== 'driver' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -246,9 +460,148 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+        )}
 
-        {/* Account Management Card */}
-        <Card>
+        {/* Organization Information Card */}
+        {activeOrgId && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Organization Information
+              </CardTitle>
+              <CardDescription>
+                Your organization details, role, and team members
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingOrgData ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+                  <div className="h-20 bg-slate-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Organization Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Building className="h-4 w-4" />
+                        Organization Name
+                      </Label>
+                      <Input value={orgDetails?.name || "Loading..."} disabled />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Your Role
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input value={role || "Loading..."} disabled />
+                        <Badge variant={role === 'owner' ? 'default' : role === 'dispatcher' ? 'secondary' : 'outline'}>
+                          {role === 'owner' && <Crown className="h-3 w-3 mr-1" />}
+                          {role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Loading...'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Organization Members */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Team Members ({orgMembers.length})
+                      </Label>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={loadOrganizationData}
+                        disabled={loadingOrgData}
+                      >
+                        {loadingOrgData ? 'Loading...' : 'Refresh'}
+                      </Button>
+                    </div>
+                    
+                    <div className="border rounded-lg divide-y">
+                      {orgMembers.length === 0 ? (
+                        <div className="p-4 text-center text-slate-500">
+                          No team members found
+                        </div>
+                      ) : (
+                        // Sort members to show owner first
+                        [...orgMembers].sort((a, b) => {
+                          if (a.role === 'owner') return -1;
+                          if (b.role === 'owner') return 1;
+                          return 0;
+                        }).map((member: any) => {
+                          const isOwner = member.role === 'owner';
+                          const isCurrentUser = member.users?.id === user?.id;
+                          
+                          return (
+                            <div key={member.id} className={`p-4 flex items-center justify-between ${
+                              isOwner ? 'bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500' : ''
+                            }`}>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                                  isOwner ? 'bg-blue-600 text-white' : 
+                                  member.role === 'dispatcher' ? 'bg-green-100 text-green-700' : 
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {isOwner && <Crown className="h-4 w-4" />}
+                                  {!isOwner && (member.users?.email?.charAt(0).toUpperCase() || '?')}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-medium ${isOwner ? 'text-blue-700 dark:text-blue-300' : ''}`}>
+                                      {member.users?.firstName && member.users?.lastName 
+                                        ? `${member.users.firstName} ${member.users.lastName}`
+                                        : member.users?.email?.split('@')[0] || 'Unknown User'
+                                      }
+                                    </span>
+                                    {isCurrentUser && (
+                                      <Badge variant="outline" className="text-xs">You</Badge>
+                                    )}
+                                    {isOwner && (
+                                      <Badge variant="default" className="text-xs bg-blue-600">Organization Owner</Badge>
+                                    )}
+                                  </div>
+                                  <div className={`text-sm ${isOwner ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}>
+                                    {member.users?.email || 'No email'}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <Badge variant={
+                                  isOwner ? 'default' : 
+                                  member.role === 'dispatcher' ? 'secondary' : 
+                                  'outline'
+                                } className={isOwner ? 'bg-blue-600' : ''}>
+                                  {isOwner && <Crown className="h-3 w-3 mr-1" />}
+                                  {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                </Badge>
+                                <span className="text-xs text-slate-400">
+                                  {new Date(member.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Account Management Card - Only visible to owners */}
+        {role === 'owner' && (
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
@@ -259,6 +612,31 @@ export default function Profile() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Create Organization (no subscription required) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Create Organization</Label>
+              <div className="flex gap-2">
+                <Input placeholder="Organization name" value={orgName} onChange={(e)=>setOrgName(e.target.value)} />
+                <Button onClick={createOrganization} disabled={creatingOrg} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  {creatingOrg ? 'Creating...' : 'Create'}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-400">Create your organization first. You can subscribe after.</p>
+            </div>
+
+            {/* Subscribe (requires an organization) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Subscribe</Label>
+              <div className="flex items-center gap-3">
+                <Input type="number" min={1} value={truckCount} onChange={(e)=>setTruckCount(parseInt(e.target.value || '1'))} className="w-28" />
+                <Button onClick={startSubscription} disabled={subscribing || (memberships.length === 0 && !activeOrgId)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  {subscribing ? 'Redirecting…' : 'Subscribe'}
+                </Button>
+              </div>
+              {(memberships.length === 0 && !activeOrgId) && (
+                <p className="text-xs text-slate-400">Create an organization to enable subscription.</p>
+              )}
+            </div>
             <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 <strong>Data Privacy:</strong> Your fleet data is private and only visible to you. 
@@ -267,10 +645,12 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         <Separator />
 
-        {/* Account Deletion Card */}
+        {/* Account Deletion Card - Only visible to owners */}
+        {role === 'owner' && (
         <Card className="border-red-200 dark:border-red-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
@@ -360,6 +740,7 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );

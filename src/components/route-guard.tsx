@@ -1,5 +1,6 @@
 import React from "react";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
+import { useOrgRole } from "@/lib/org-role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,9 @@ interface RouteGuardProps {
   requireCustomer?: boolean;
   requireAdmin?: boolean;
   requireFounder?: boolean;
+  requireOwner?: boolean;
+  requireDispatcher?: boolean;
+  requireDriver?: boolean;
 }
 
 export default function RouteGuard({
@@ -17,8 +21,12 @@ export default function RouteGuard({
   requireCustomer = false,
   requireAdmin = false,
   requireFounder = false,
+  requireOwner = false,
+  requireDispatcher = false,
+  requireDriver = false,
 }: RouteGuardProps) {
   const { isFounder, isAdmin, isLoading } = useFounderAccess();
+  const { role } = useOrgRole();
 
   if (isLoading) {
     return (
@@ -33,6 +41,9 @@ export default function RouteGuard({
     if (requireFounder) return isFounder;
     if (requireAdmin) return isAdmin || isFounder;
     if (requireCustomer) return !isAdmin && !isFounder;
+    if (requireOwner) return role === "owner" || isFounder;
+    if (requireDispatcher) return role === "dispatcher" || role === "owner" || isFounder;
+    if (requireDriver) return role === "driver" || isFounder; // founders bypass for testing
     return true; // No restrictions
   };
 
@@ -41,6 +52,9 @@ export default function RouteGuard({
       if (requireFounder) return "Founder access required";
       if (requireAdmin) return "Administrator access required";
       if (requireCustomer) return "This feature is for customer accounts only";
+      if (requireOwner) return "Owner access required";
+      if (requireDispatcher) return "Dispatcher access required";
+      if (requireDriver) return "Driver access required";
       return "Access denied";
     };
 

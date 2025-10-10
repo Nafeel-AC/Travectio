@@ -3,8 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { TruckService } from "@/lib/supabase-client";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Truck, 
@@ -17,47 +15,28 @@ import {
   MapPin,
   DollarSign,
   User,
-  Settings
+  Settings,
+  Eye,
+  Lock
 } from "lucide-react";
 import { Link } from "wouter";
 import LoadManagement from "./load-management";
 import HOSManagement from "./hos-management";
 import FuelManagement from "./fuel-management";
 import DriversPage from "./drivers";
+import { useOrgTrucks, useUpdateOrgTruck, useDeleteOrgTruck, useRoleAccess } from "@/hooks/useOrgData";
+import { useOrgRole } from "@/lib/org-role-context";
 
 export default function FleetManagement() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("fleet");
+  const { role } = useOrgRole();
+  const roleAccess = useRoleAccess();
 
-  // Fetch all trucks
-  const { data: trucks = [], isLoading } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
-  // Mutation to update cost per mile for all trucks
-  const updateCostPerMileMutation = useMutation({
-    mutationFn: () => TruckService.updateAllTrucksCostPerMile(),
-    onSuccess: () => {
-      toast({
-        title: "Cost per mile updated",
-        description: "All trucks have been updated with their latest cost per mile values.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Update failed",
-        description: error.message || "Failed to update cost per mile values.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Use organization-aware hooks
+  const { data: trucks = [], isLoading } = useOrgTrucks();
+  const updateTruckMutation = useUpdateOrgTruck();
+  const deleteTruckMutation = useDeleteOrgTruck();
 
   const getStatusColor = (isActive: boolean) => {
     return isActive ? "bg-green-500" : "bg-gray-500";
@@ -93,52 +72,92 @@ export default function FleetManagement() {
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Fleet Management</h1>
-            <p className="text-gray-400 text-sm md:text-base">Manage your fleet, drivers, loads, and fuel operations</p>
+            <p className="text-gray-400 text-sm md:text-base">
+              {role === 'driver' 
+                ? 'View your assigned truck and fleet information' 
+                : 'Manage your fleet, drivers, loads, and fuel operations'
+              }
+            </p>
+            
+            {/* Role-based info */}
+            {role === 'driver' && (
+              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mt-3">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <Eye className="h-4 w-4" />
+                  <span className="text-sm font-medium">Driver View: Read-only access to fleet information</span>
+                </div>
+              </div>
+            )}
           </div>
+          
           <div className="flex flex-col space-y-2 md:flex-row md:space-x-3 md:space-y-0">
-            <Button 
-              variant="outline"
-              className="border-gray-600 text-gray-300 hover:bg-[var(--dark-elevated)] touch-target"
-              onClick={() => updateCostPerMileMutation.mutate()}
-              disabled={updateCostPerMileMutation.isPending}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${updateCostPerMileMutation.isPending ? 'animate-spin' : ''}`} />
-              <span className="mobile-hide">Update Cost/Mile</span>
-              <span className="mobile-show">Update</span>
-            </Button>
-            <Button 
-              className="bg-[var(--primary-blue)] hover:bg-[var(--blue-accent)] text-white touch-target"
-              onClick={() => window.location.href = '/add-truck'}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Truck
-            </Button>
+            {roleAccess.canManageFleet && (
+              <>
+                <Button 
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-[var(--dark-elevated)] touch-target"
+                  onClick={() => {
+                    // Update cost per mile functionality would need to be implemented with org-aware service
+                    toast({
+                      title: "Feature Update",
+                      description: "Cost per mile update will be implemented with organization-aware services.",
+                    });
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <span className="mobile-hide">Update Cost/Mile</span>
+                  <span className="mobile-show">Update</span>
+                </Button>
+                <Button 
+                  className="bg-[var(--primary-blue)] hover:bg-[var(--blue-accent)] text-white touch-target"
+                  onClick={() => window.location.href = '/add-truck'}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add New Truck
+                </Button>
+              </>
+            )}
+            
+            {!roleAccess.canManageFleet && (
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <Lock className="h-4 w-4" />
+                <span>View Only - Contact dispatcher to manage fleet</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Fleet Management Tabs */}
+      {/* Fleet Management Tabs - Role-based visibility */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-slate-800 border-slate-700 mb-6">
+        <TabsList className={`grid w-full ${role === 'driver' ? 'grid-cols-3' : 'grid-cols-5'} bg-slate-800 border-slate-700 mb-6`}>
           <TabsTrigger value="fleet" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <Truck className="h-4 w-4 mr-2" />
-            Fleet
+            {role === 'driver' ? 'My Truck' : 'Fleet'}
           </TabsTrigger>
-          <TabsTrigger value="drivers" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-            <Users className="h-4 w-4 mr-2" />
-            Drivers
-          </TabsTrigger>
+          
+          {roleAccess.canManageDrivers && (
+            <TabsTrigger value="drivers" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <Users className="h-4 w-4 mr-2" />
+              Drivers
+            </TabsTrigger>
+          )}
+          
           <TabsTrigger value="hos" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <Clock className="h-4 w-4 mr-2" />
-            HOS
+            {role === 'driver' ? 'My HOS' : 'HOS'}
           </TabsTrigger>
-          <TabsTrigger value="loads" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-            <Package className="h-4 w-4 mr-2" />
-            Loads
-          </TabsTrigger>
+          
+          {roleAccess.canManageLoads && (
+            <TabsTrigger value="loads" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <Package className="h-4 w-4 mr-2" />
+              Loads
+            </TabsTrigger>
+          )}
+          
           <TabsTrigger value="fuel" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <Fuel className="h-4 w-4 mr-2" />
-            Fuel
+            {role === 'driver' ? 'My Fuel' : 'Fuel'}
           </TabsTrigger>
         </TabsList>
 
@@ -291,22 +310,26 @@ export default function FleetManagement() {
           </Card>
         </TabsContent>
 
-        {/* Drivers Tab */}
-        <TabsContent value="drivers" className="space-y-6">
-          <DriversPage />
-        </TabsContent>
+        {/* Drivers Tab - Owner/Dispatcher only */}
+        {roleAccess.canManageDrivers && (
+          <TabsContent value="drivers" className="space-y-6">
+            <DriversPage />
+          </TabsContent>
+        )}
 
-        {/* HOS Tab */}
+        {/* HOS Tab - All roles with different views */}
         <TabsContent value="hos" className="space-y-6">
           <HOSManagement />
         </TabsContent>
 
-        {/* Loads Tab */}
-        <TabsContent value="loads" className="space-y-6">
-          <LoadManagement />
-        </TabsContent>
+        {/* Loads Tab - Owner/Dispatcher only */}
+        {roleAccess.canManageLoads && (
+          <TabsContent value="loads" className="space-y-6">
+            <LoadManagement />
+          </TabsContent>
+        )}
 
-        {/* Fuel Tab */}
+        {/* Fuel Tab - All roles with different views */}
         <TabsContent value="fuel" className="space-y-6">
           <FuelManagement />
         </TabsContent>

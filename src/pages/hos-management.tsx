@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, AlertTriangle, CheckCircle, Users, Search, Calendar, Plus, Trash2 } from "lucide-react";
+import { Clock, AlertTriangle, CheckCircle, Users, Search, Calendar, Plus, Trash2, Eye, Lock } from "lucide-react";
 import EnhancedHOSEntry from "@/components/enhanced-hos-entry";
 
-import { useStableQuery } from "@/hooks/use-stable-query";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { DriverService, TruckService, HOSService } from "@/lib/supabase-client";
+import { useOrgDrivers, useOrgTrucks, useOrgHosLogs, useCreateOrgHosLog, useUpdateOrgHosLogStatus, useRoleAccess } from "@/hooks/useOrgData";
+import { useOrgRole } from "@/lib/org-role-context";
 
 const dutyStatusColors = {
   "DRIVING": "bg-green-600",
@@ -31,97 +30,40 @@ export default function HOSManagement() {
   const [selectedDriver, setSelectedDriver] = useState<string>("");
   const [selectedTruck, setSelectedTruck] = useState<string>("");
   const [showEntryForm, setShowEntryForm] = useState(false);
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { role } = useOrgRole();
+  const roleAccess = useRoleAccess();
 
-  // ✅ FIXED: Use Supabase services instead of demo API
-  const { data: drivers = [], isLoading: driversLoading } = useQuery({
-    queryKey: ['drivers'],
-    queryFn: () => DriverService.getDrivers(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
+  // Use organization-aware hooks
+  const { data: drivers = [], isLoading: driversLoading } = useOrgDrivers();
+  const { data: trucks = [], isLoading: trucksLoading } = useOrgTrucks();
+  const { data: hosLogs = [], isLoading: logsLoading } = useOrgHosLogs(selectedDriver || undefined, selectedTruck || undefined);
+  const createHosLogMutation = useCreateOrgHosLog();
+  const updateHosStatusMutation = useUpdateOrgHosLogStatus();
 
-  // ✅ FIXED: Use Supabase services instead of demo API
-  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
-  const { data: hosLogs = [], isLoading: logsLoading } = useQuery({
-    queryKey: ['hos-logs', selectedDriver, selectedTruck],
-    queryFn: async () => {
-      const logs = await HOSService.getHosLogs(selectedDriver || undefined, selectedTruck || undefined);
-      console.log('HOS Logs fetched:', logs);
-      return logs;
-    },
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
-  // ✅ FIXED: Use Supabase services instead of demo API
-  const deleteDriverMutation = useMutation({
-    mutationFn: async (driverId: string) => {
-      return DriverService.deleteDriver(driverId);
-    },
-    onSuccess: (_, driverId) => {
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["drivers"] });
-      queryClient.invalidateQueries({ queryKey: ["trucks"] });
-      
-      // Clear selected driver if it was deleted
-      if (selectedDriver === driverId) {
-        setSelectedDriver("");
-      }
-      
-      toast({
-        title: "Driver Deleted",
-        description: "Driver has been successfully removed from the fleet with cascade cleanup.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Delete Failed",
-        description: error.message || "Failed to delete driver. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // HOS status update mutation
-  const updateHosStatusMutation = useMutation({
-    mutationFn: async ({ hosLogId, dutyStatus }: { hosLogId: string; dutyStatus: string }) => {
-      return HOSService.updateHosLogStatus(hosLogId, dutyStatus);
-    },
-    onSuccess: () => {
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["hos-logs"] });
-      
-      toast({
-        title: "Status Updated",
-        description: "HOS status has been successfully updated.",
-      });
-    },
-    onError: (error) => {
-      console.error("Error updating HOS status:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update HOS status. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle HOS status change
+  // Handle HOS status change with role-based access control
   const handleHosStatusChange = (hosLogId: string, newStatus: string) => {
+    const hosLog = hosLogs.find(log => log.id === hosLogId);
+    
+    if (role === 'driver') {
+      // Drivers can only update their own HOS logs
+      if (hosLog?.driverId !== drivers.find(d => d.userId === hosLog?.driverId)?.id) {
+        toast({
+          title: "Access Denied",
+          description: "You can only update your own HOS logs.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!roleAccess.canManageDrivers) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to update HOS logs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateHosStatusMutation.mutate({ hosLogId, dutyStatus: newStatus });
   };
 
@@ -148,15 +90,46 @@ export default function HOSManagement() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Hours of Service Management</h1>
-            <p className="text-slate-400 text-sm sm:text-base">Monitor driver hours and DOT compliance status</p>
+            <p className="text-slate-400 text-sm sm:text-base">
+              {role === 'driver' ? 'Manage your HOS logs and compliance' : 'Monitor driver hours and DOT compliance status'}
+            </p>
+            
+            {/* Role-based info */}
+            {role === 'driver' && (
+              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mt-3">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <Eye className="h-4 w-4" />
+                  <span className="text-sm font-medium">Driver View: Showing your HOS logs only</span>
+                </div>
+              </div>
+            )}
           </div>
-          <Button
-            onClick={() => setShowEntryForm(!showEntryForm)}
-            className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {showEntryForm ? "Hide Entry Form" : "New HOS Entry"}
-          </Button>
+          
+          <div className="flex gap-2">
+            {roleAccess.canCreateData && (
+              <Button
+                onClick={() => setShowEntryForm(!showEntryForm)}
+                className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {showEntryForm ? "Hide Entry Form" : "New HOS Entry"}
+              </Button>
+            )}
+            
+            {!roleAccess.canCreateData && role === 'driver' && (
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <Clock className="h-4 w-4" />
+                <span>View your HOS logs - Use ELD device to log hours</span>
+              </div>
+            )}
+            
+            {!roleAccess.canCreateData && role !== 'driver' && (
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <Lock className="h-4 w-4" />
+                <span>View Only - Contact owner for access</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {showEntryForm && (
@@ -165,55 +138,65 @@ export default function HOSManagement() {
           </div>
         )}
 
-        {/* Filters */}
-        <Card className="bg-slate-800 border-slate-700 mb-4 sm:mb-6">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
-              <Search className="h-5 w-5" />
-              Filter HOS Logs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="text-slate-300 text-sm font-medium mb-2 block">Driver</label>
-                <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
-                    <SelectValue placeholder="All drivers" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="all" className="text-white">All drivers</SelectItem>
-                    {drivers.map((driver: any) => (
-                      <SelectItem key={driver.id} value={driver.id} className="text-white">
-                        {driver.name} - {driver.cdlNumber}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {/* Filters - Role-based visibility */}
+        {(roleAccess.canManageDrivers || role === 'driver') && (
+          <Card className="bg-slate-800 border-slate-700 mb-4 sm:mb-6">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
+                <Search className="h-5 w-5" />
+                {role === 'driver' ? 'Your HOS Logs' : 'Filter HOS Logs'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4">
+                {/* Driver filter - only show for owners/dispatchers */}
+                {roleAccess.canManageDrivers && (
+                  <div>
+                    <label className="text-slate-300 text-sm font-medium mb-2 block">Driver</label>
+                    <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
+                        <SelectValue placeholder="All drivers" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-700 border-slate-600">
+                        <SelectItem value="all" className="text-white">All drivers</SelectItem>
+                        {drivers.map((driver: any) => (
+                          <SelectItem key={driver.id} value={driver.id} className="text-white">
+                            {driver.name} - {driver.cdlNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Truck filter - show for all but limit for drivers */}
+                <div>
+                  <label className="text-slate-300 text-sm font-medium mb-2 block">
+                    {role === 'driver' ? 'Your Truck' : 'Truck'}
+                  </label>
+                  <Select value={selectedTruck} onValueChange={setSelectedTruck}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
+                      <SelectValue placeholder={role === 'driver' ? 'Your assigned truck' : 'All trucks'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      {roleAccess.canManageDrivers && (
+                        <SelectItem value="all" className="text-white">All trucks</SelectItem>
+                      )}
+                      {trucks
+                        .filter((truck: any) => truck.isActive) // Only show active trucks
+                        .map((truck: any) => (
+                        <SelectItem key={truck.id} value={truck.id} className="text-white">
+                          {truck.name} - {truck.equipmentType}
+                          {truck.driver && ` (${truck.driver.name})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              
-              <div>
-                <label className="text-slate-300 text-sm font-medium mb-2 block">Truck</label>
-                <Select value={selectedTruck} onValueChange={setSelectedTruck}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-10 sm:h-11">
-                    <SelectValue placeholder="All trucks" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="all" className="text-white">All trucks</SelectItem>
-                    {trucks
-                      .filter((truck: any) => truck.isActive) // Only show active trucks
-                      .map((truck: any) => (
-                      <SelectItem key={truck.id} value={truck.id} className="text-white">
-                        {truck.name} - {truck.equipmentType}
-                        {truck.driver && ` (${truck.driver.name})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Driver Management Section */}
         <Card className="bg-slate-800 border-slate-700 mb-4 sm:mb-6">

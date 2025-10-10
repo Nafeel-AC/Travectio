@@ -18,6 +18,7 @@ import {
   Target,
   Shield,
   Building,
+  Package,
   CreditCard,
   Lock,
   AlertCircle,
@@ -25,6 +26,7 @@ import {
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
 import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
+import { useOrgRole } from "@/lib/org-role-context";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +39,7 @@ interface NavigationItem {
   founderOnly?: boolean;
   adminOnly?: boolean;
   customerOnly?: boolean;
+  driverOnly?: boolean;
 }
 
 const navigationItems: NavigationItem[] = [
@@ -88,13 +91,6 @@ const navigationItems: NavigationItem[] = [
     icon: Settings,
     adminOnly: true,
   },
-  {
-    href: "/beta-access",
-    label: "Beta Access",
-    description: "Manage beta tester allowlist",
-    icon: Shield,
-    founderOnly: true,
-  },
   // Customer-only features (hidden from admins)
   {
     href: "/drivers",
@@ -116,6 +112,22 @@ const navigationItems: NavigationItem[] = [
     description: "Load tracking and entry",
     icon: Route,
     customerOnly: true,
+  },
+  {
+    href: "/my-loads",
+    label: "My Loads",
+    description: "View and manage your assigned loads",
+    icon: Package,
+    customerOnly: true,
+    driverOnly: true,
+  },
+  {
+    href: "/assigned-truck",
+    label: "Assigned Truck",
+    description: "Details of the truck assigned to you",
+    icon: Truck,
+    customerOnly: true,
+    driverOnly: true,
   },
   {
     href: "/fleet-management",
@@ -170,6 +182,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const { user } = useAuth();
   const { isFounder, isAdmin } = useFounderAccess();
   const { isSubscribed, truckLimit, currentTruckCount, canAddTrucks, remainingTrucks, isLoading } = useSubscriptionLimits();
+  const { role } = useOrgRole();
 
   const filteredItems = navigationItems.filter((item) => {
     // Founder sees everything in a logical order: admin items first, then customer items
@@ -182,8 +195,41 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
       return item.adminOnly || (!item.founderOnly && !item.customerOnly);
     }
 
-    // Regular customers see customer items and general items
-    return item.customerOnly || (!item.founderOnly && !item.adminOnly);
+    // Role-based gating for organization roles
+    const isOwner = role === "owner";
+    const isDispatcher = role === "dispatcher"; 
+    const isDriver = role === "driver";
+
+    // Define allowed items per role based on exact requirements
+    if (isOwner) {
+      // Owner: Full access (Dashboard, Fleet Mgmt, Loads, HOS, Fuel, Analytics, Account/Billing)
+      if (item.driverOnly) return false; // Hide driver-only such as Assigned Truck
+      return !item.founderOnly && !item.adminOnly; // Show all customer + general items
+    }
+    
+    if (isDispatcher) {
+      // Dispatcher: All fleet management, NO billing/account
+      if (item.label === "Pricing") return false; // Hide billing
+      if (item.ownerOnly) return false; // Hide owner-only features
+      if (item.driverOnly) return false; // Hide driver-only features
+      return item.customerOnly || (!item.founderOnly && !item.adminOnly && !item.ownerOnly);
+    }
+    
+    if (isDriver) {
+      // Driver: Only Dashboard, Assigned Truck, My Loads, HOS, Fuel Data, Profile
+      const driverAllowedItems = [
+        "Dashboard", 
+        "Assigned Truck",
+        "My Loads",  // Driver-specific loads view
+        "HOS Management", 
+        "Fuel Management", 
+        "Profile"
+      ];
+      return driverAllowedItems.includes(item.label) && !item.founderOnly && !item.adminOnly && !item.ownerOnly;
+    }
+
+    // Default: regular customer items for users without organization roles
+    return item.customerOnly || (!item.founderOnly && !item.adminOnly && !item.ownerOnly);
   });
 
   const handleLinkClick = () => {

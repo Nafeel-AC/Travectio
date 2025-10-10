@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { useOrgRole } from './org-role-context';
 
 // API client utility that automatically includes JWT token
 export const apiClient = {
@@ -23,6 +24,14 @@ export const apiClient = {
     } else {
       console.log('[API Client] No Authorization header - user not authenticated');
     }
+
+    // Append orgId header if available (frontend hint; RLS still enforces)
+    try {
+      const activeOrgId = (window as any).__travectioActiveOrgId;
+      if (activeOrgId) {
+        (headers as any)['X-Organization-Id'] = activeOrgId;
+      }
+    } catch {}
 
     // Make the request
     const response = await fetch(endpoint, {

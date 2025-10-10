@@ -339,11 +339,26 @@ class TruckService {
       throw new Error('Truck name is required.');
     }
 
-    // Check subscription limits
-    const { data: subscription, error: subError } = await supabase
+    // Resolve active organization for the current user
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('organization_id, role, status')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const orgId = (membership as any)?.organization_id;
+    if (!orgId) {
+      throw new Error('No active organization found. Join or create an organization first.');
+    }
+
+    // Check organization-level subscription limits
+    const { data: subscription } = await supabase
       .from('subscriptions')
       .select('truckCount, status')
-      .eq('userId', user.id)
+      .eq('organization_id', orgId)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -355,7 +370,7 @@ class TruckService {
     const { count: currentTruckCount } = await supabase
       .from('trucks')
       .select('*', { count: 'exact', head: true })
-      .eq('userId', user.id);
+      .eq('organization_id', orgId);
 
     if ((currentTruckCount ?? 0) >= subscription.truckCount) {
       throw new Error(`Truck limit reached. You can only have ${subscription.truckCount} trucks with your current subscription. Please upgrade to add more trucks.`);
@@ -365,7 +380,7 @@ class TruckService {
     const { data: existingTruck } = await supabase
       .from('trucks')
       .select('id, name')
-      .eq('userId', user.id)
+      .eq('organization_id', orgId)
       .ilike('name', normalizedName)
       .maybeSingle();
 
@@ -378,7 +393,8 @@ class TruckService {
       .insert({
         ...truckData,
         name: normalizedName,
-        userId: user.id
+        userId: user.id,
+        organization_id: orgId
       })
       .select()
       .single();
@@ -555,7 +571,7 @@ class TruckService {
       .from('truck_cost_breakdown')
       .select('*')
       .eq('truckId', truckId)
-      .order('createdAt', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
     return data;
@@ -567,7 +583,7 @@ class TruckService {
       .from('truck_cost_breakdown')
       .select('*')
       .eq('truckId', truckId)
-      .order('createdAt', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -577,11 +593,21 @@ class TruckService {
 
   // Create cost breakdown
   static async createCostBreakdown(truckId: string, breakdownData: any) {
+    // Resolve truck organization for RLS and constraints
+    const { data: truck } = await supabase
+      .from('trucks')
+      .select('organization_id')
+      .eq('id', truckId)
+      .maybeSingle();
+
+    const orgId = (truck as any)?.organization_id ?? null;
+
     const { data, error } = await supabase
       .from('truck_cost_breakdown')
       .insert({
         ...breakdownData,
-        truckId
+        truckId,
+        organization_id: orgId
       })
       .select()
       .single();
@@ -694,7 +720,7 @@ class TruckService {
         .from('truck_cost_breakdown')
         .select('costPerMile, totalFixedCosts, totalVariableCosts, milesThisWeek')
         .eq('truckId', truck.id)
-        .order('createdAt', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1);
 
       if (costBreakdowns && costBreakdowns.length > 0) {

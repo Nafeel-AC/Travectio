@@ -85,14 +85,6 @@ export default function AdminDashboard() {
       color: "bg-purple-500",
       count: loading ? "…" : `${counts.integrations} Connected`,
     },
-    {
-      title: "Beta Invites",
-      description: "Invite testers and manage access",
-      icon: Shield,
-      href: "/beta-invites",
-      color: "bg-amber-600",
-      count: "",
-    },
   ];
 
   // System status indicators
@@ -289,15 +281,6 @@ export default function AdminDashboard() {
               >
                 <Settings className="h-4 w-4 mr-2" />
                 System Settings
-              </Button>
-            </Link>
-            <Link href="/beta-invites">
-              <Button
-                variant="outline"
-                className="w-full justify-start text-white border-slate-600 hover:bg-slate-700"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Beta Invites
               </Button>
             </Link>
           </div>

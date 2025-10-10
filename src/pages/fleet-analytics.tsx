@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, TrendingUp, TrendingDown, Truck, Package, DollarSign, Fuel, Users, Route, Clock, AlertTriangle, BarChart3, Receipt, Plus, Download, FileText } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, Truck, Package, DollarSign, Fuel, Users, Route, Clock, AlertTriangle, BarChart3, Receipt, Plus, Download, FileText, Lock, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { useDemo } from "@/lib/demo-context";
 import { useFleetMetrics, useTrucks, useLoads } from "@/hooks/useSupabase";
+import { useRoleAccess } from "@/hooks/useOrgData";
+import { useOrgRole } from "@/lib/org-role-context";
 
 interface MetricCardProps {
   title: string;
@@ -53,6 +55,26 @@ function MetricCard({ title, value, change, description, icon: Icon, trend = 'ne
 export default function FleetAnalytics() {
   const [activeTab, setActiveTab] = useState("performance");
   const { isDemoMode, getDemoUserId } = useDemo();
+  const { role } = useOrgRole();
+  const roleAccess = useRoleAccess();
+
+  // Check if user has access to analytics
+  if (!roleAccess.canViewAnalytics && role !== 'owner') {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-6 text-center">
+          <Lock className="h-12 w-12 mx-auto text-red-400 mb-4" />
+          <h2 className="text-xl font-semibold text-red-300 mb-2">Access Restricted</h2>
+          <p className="text-red-400 mb-4">
+            Analytics are only available to organization owners.
+          </p>
+          <p className="text-slate-400 text-sm">
+            Contact your organization owner for access to fleet analytics and business insights.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Use new Supabase hooks instead of old fetchAPI calls
   const { metrics, summary, loading: metricsLoading } = useFleetMetrics();
@@ -110,14 +132,33 @@ export default function FleetAnalytics() {
             Fleet Analytics
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            Monitor your fleet performance and profitability
+            {role === 'owner' 
+              ? 'Monitor your fleet performance and profitability' 
+              : 'Operational fleet metrics and performance data'
+            }
           </p>
+          
+          {/* Role-based access indicator */}
+          {role === 'owner' && (
+            <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mt-3">
+              <div className="flex items-center gap-2 text-blue-300">
+                <Eye className="h-4 w-4" />
+                <span className="text-sm font-medium">Owner View: Full business analytics and financial insights</span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <Button variant="outline" size="sm">
             <Calendar className="w-4 h-4 mr-2" />
             Current Period: This Week
           </Button>
+          {role === 'owner' && (
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </Button>
+          )}
         </div>
       </div>
 

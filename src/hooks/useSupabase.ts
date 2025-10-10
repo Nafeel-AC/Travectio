@@ -26,54 +26,76 @@ import {
 export const useAuth = () => {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userCreationInProgress, setUserCreationInProgress] = useState<Set<string>>(new Set());
 
   // Helper to ensure user row exists (read-only; avoids RLS insert violations)
   const ensureUserRow = useCallback(async (authUser: any): Promise<boolean> => {
     try {
       if (!authUser) return false;
-      const { data, error } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', authUser.id)
-        .maybeSingle();
+      
+      // Check if user creation is already in progress for this user
+      if (userCreationInProgress.has(authUser.id)) {
+        console.log('[useAuth] User creation already in progress for:', authUser.id);
+        return true; // Assume it will succeed
+      }
+      
+      console.log('[useAuth] Checking user existence for:', authUser.id, authUser.email);
+      
+      // Mark user creation as in progress to prevent race conditions
+      setUserCreationInProgress(prev => new Set(prev).add(authUser.id));
+      
+      try {
+        // First try to select the user to see if they exist
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', authUser.id)
+          .maybeSingle();
 
-      if (data?.id) return true;
-
-      if (error) {
-        // If RLS blocks SELECT, assume exists and proceed
-        if ((error as any).code === '42501' || (error as any).status === 403) {
-          console.warn('[useAuth] users SELECT blocked by RLS; proceeding.');
+        if (existingUser) {
+          console.log('[useAuth] User already exists, skipping creation');
           return true;
         }
-        console.warn('[useAuth] users SELECT error:', error);
-      }
 
-      // Row not found; attempt to create minimal user profile so FK insert will succeed
-      try {
+        // User doesn't exist, create them with INSERT
         const { error: insertErr } = await supabase
           .from('users')
           .insert({
             id: authUser.id,
-            email: authUser.email || null,
+            email: authUser.email?.toLowerCase() || null,
             isFounder: 0,
             isAdmin: 0,
             isActive: 1,
           });
-        if (insertErr) {
-          // If RLS blocks INSERT, log and proceed (session insert may still fail if FK enforced)
-          console.warn('[useAuth] users INSERT error:', insertErr);
+        
+        // Remove from in-progress set
+        setUserCreationInProgress(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(authUser.id);
+          return newSet;
+        });
+        
+        if (upsertErr) {
+          console.warn('[useAuth] users UPSERT error:', upsertErr);
           return false;
         }
+        
+        console.log('[useAuth] User upserted successfully');
         return true;
-      } catch (e) {
-        console.warn('[useAuth] users INSERT failed:', e);
-        return false;
+      } catch (err) {
+        // Remove from in-progress set on error
+        setUserCreationInProgress(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(authUser.id);
+          return newSet;
+        });
+        throw err;
       }
     } catch (err) {
       console.warn('[useAuth] ensureUserRow failed:', err);
       return false;
     }
-  }, []);
+  }, [userCreationInProgress]);
 
   useEffect(() => {
     let mounted = true;

@@ -127,22 +127,57 @@ export const usePricingPlans = () => {
   });
 };
 
-// Fetch user's current subscription
+// Fetch organization's current subscription (shared across all members)
 export const useSubscription = () => {
   const { user } = useAuth();
   
   return useQuery<Subscription | null>({
-    queryKey: ['subscription', user?.id],
+    queryKey: ['org-subscription', user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
-      try {
-        return await callSupabaseFunction('subscriptions', {}, 'GET', user.id);
-      } catch (error: any) {
-        if (error.message?.includes('404') || error.message?.includes('not found')) {
-          return null; // No subscription found
-        }
+      if (!user?.id) {
+        console.log('[useSubscription] No user ID');
+        return null;
+      }
+      
+      console.log('[useSubscription] Fetching membership for user:', user.id);
+      
+      // First, get the user's organization (as owner or member)
+      const { data: membership, error: membershipError } = await supabase
+        .from('organization_members')
+        .select('organization_id, role')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      console.log('[useSubscription] Membership:', membership, 'Error:', membershipError);
+      
+      if (!membership?.organization_id) {
+        console.log('[useSubscription] No organization found');
+        return null;
+      }
+      
+      console.log('[useSubscription] Fetching subscription for org:', membership.organization_id);
+      
+      // Then get the organization's subscription (without nested select to avoid RLS issues)
+      const { data: subscription, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('organization_id', membership.organization_id)
+        .eq('status', 'active')
+        .order('createdAt', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      console.log('[useSubscription] Subscription:', subscription, 'Error:', error);
+      
+      if (error && !error.message.includes('No rows')) {
+        console.error('[useSubscription] Query error:', error);
         throw error;
       }
+      
+      return subscription || null;
     },
     enabled: !!user?.id,
     staleTime: 30 * 1000, // 30 seconds

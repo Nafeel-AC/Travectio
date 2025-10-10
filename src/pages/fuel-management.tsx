@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Fuel, Edit, Trash2, Link, Unlink, Plus, MapPin, Calendar, DollarSign, Truck, ArrowLeft, Save, X } from "lucide-react";
+import { Fuel, Edit, Trash2, Link, Unlink, Plus, MapPin, Calendar, DollarSign, Truck, ArrowLeft, Save, X, Eye, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { FuelService, TruckService, LoadService } from "@/lib/supabase-client";
+import { useOrgFuelPurchases, useOrgTrucks, useOrgLoads, useCreateOrgFuelPurchase, useUpdateOrgFuelPurchase, useDeleteOrgFuelPurchase, useRoleAccess } from "@/hooks/useOrgData";
+import { useOrgRole } from "@/lib/org-role-context";
 
 interface FuelPurchase {
   id: string;
@@ -69,153 +69,36 @@ export default function FuelManagementPage() {
     fuelType: "diesel"
   });
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { role } = useOrgRole();
+  const roleAccess = useRoleAccess();
   const [, setLocation] = useLocation();
 
-  // Fetch all fuel purchases using proper Supabase service
-  const { data: allPurchases = [], isLoading: purchasesLoading, error: purchasesError } = useQuery({
-    queryKey: ['fuel-purchases'],
-    queryFn: async () => {
-      const data = await FuelService.getFuelPurchases();
-      console.log('Fuel purchases fetched:', data);
-      return data;
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
-
-  // Fetch trucks using proper Supabase service
-  const { data: trucks = [], error: trucksError } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
-
-  // Fetch loads using proper Supabase service
-  const { data: loads = [], error: loadsError } = useQuery({
-    queryKey: ['loads'],
-    queryFn: () => LoadService.getLoads(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
+  // Use organization-aware hooks
+  const { data: allPurchases = [], isLoading: purchasesLoading, error: purchasesError } = useOrgFuelPurchases();
+  const { data: trucks = [], isLoading: trucksLoading } = useOrgTrucks();
+  const { data: loads = [], isLoading: loadsLoading } = useOrgLoads();
+  const createFuelPurchaseMutation = useCreateOrgFuelPurchase();
+  const updateFuelPurchaseMutation = useUpdateOrgFuelPurchase();
+  const deleteFuelPurchaseMutation = useDeleteOrgFuelPurchase();
 
   // Filter purchases
   const unattachedPurchases = (allPurchases as FuelPurchase[]).filter(p => !p.loadId);
   const attachedPurchases = (allPurchases as FuelPurchase[]).filter(p => p.loadId);
 
-  // Create fuel purchase mutation using proper Supabase service
-  const createPurchaseMutation = useMutation({
-    mutationFn: (data: any) => FuelService.createFuelPurchase(data),
-    onSuccess: () => {
-      setShowCreateDialog(false);
-      // Invalidate and refetch the fuel purchases query
-      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
-      toast({
-        title: "Success & Synchronized",
-        description: "Fuel purchase created and all fleet metrics updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create fuel purchase",
-        variant: "destructive",
-      });
-    },
-  });
+  // Create fuel purchase mutation (organization-aware)
+  const createPurchaseMutation = createFuelPurchaseMutation;
 
-  // Attach purchase to load mutation using proper Supabase service
-  const attachPurchaseMutation = useMutation({
-    mutationFn: ({ purchaseId, loadId }: { purchaseId: string; loadId: string }) =>
-      FuelService.updateFuelPurchase(purchaseId, { loadId }),
-    onSuccess: () => {
-      setShowAttachDialog(false);
-      setSelectedPurchase(null);
-      // Invalidate and refetch the fuel purchases query
-      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
-      toast({
-        title: "Success & Synchronized",
-        description: "Fuel purchase attached to load and all metrics updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to attach fuel purchase",
-        variant: "destructive",
-      });
-    },
-  });
+  // Attach purchase to load (organization-aware uses update mutation)
+  const attachPurchaseMutation = updateFuelPurchaseMutation;
 
-  // Detach purchase from load mutation using proper Supabase service
-  const detachPurchaseMutation = useMutation({
-    mutationFn: (purchaseId: string) =>
-      FuelService.updateFuelPurchase(purchaseId, { loadId: null }),
-    onSuccess: () => {
-      // Invalidate and refetch the fuel purchases query
-      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
-      toast({
-        title: "Success & Synchronized", 
-        description: "Fuel purchase detached from load and all metrics updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to detach fuel purchase",
-        variant: "destructive",
-      });
-    },
-  });
+  // Detach purchase from load (organization-aware uses update mutation)
+  const detachPurchaseMutation = updateFuelPurchaseMutation;
 
-  // Delete purchase mutation using proper Supabase service
-  const deletePurchaseMutation = useMutation({
-    mutationFn: (purchaseId: string) => FuelService.deleteFuelPurchase(purchaseId),
-    onSuccess: () => {
-      // Invalidate and refetch the fuel purchases query
-      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
-      toast({
-        title: "Success & Synchronized",
-        description: "Fuel purchase deleted and all fleet metrics updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete fuel purchase",
-        variant: "destructive",
-      });
-    },
-  });
+  // Delete purchase mutation (organization-aware)
+  const deletePurchaseMutation = deleteFuelPurchaseMutation;
 
-  // Update purchase mutation using proper Supabase service
-  const updatePurchaseMutation = useMutation({
-    mutationFn: ({ purchaseId, data }: { purchaseId: string; data: any }) =>
-      FuelService.updateFuelPurchase(purchaseId, data),
-    onSuccess: () => {
-      setEditingPurchase(null);
-      // Invalidate and refetch the fuel purchases query
-      queryClient.invalidateQueries({ queryKey: ['fuel-purchases'] });
-      toast({
-        title: "Success & Synchronized",
-        description: "Fuel purchase updated and all fleet metrics refreshed successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update fuel purchase",
-        variant: "destructive",
-      });
-    },
-  });
+  // Update purchase mutation (organization-aware)
+  const updatePurchaseMutation = updateFuelPurchaseMutation;
 
   const handleCreatePurchase = (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,19 +236,49 @@ export default function FuelManagementPage() {
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-2">
             <Fuel className="h-8 w-8" />
-            Fuel Management
+            {role === 'driver' ? 'My Fuel Purchases' : 'Fuel Management'}
           </h1>
           <p className="text-slate-400 mt-2">
-            Complete fuel tracking, purchase management, and load expense allocation
+            {role === 'driver' 
+              ? 'Track your fuel purchases and expenses'
+              : 'Complete fuel tracking, purchase management, and load expense allocation'
+            }
           </p>
+          
+          {/* Role-based info */}
+          {role === 'driver' && (
+            <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mt-3">
+              <div className="flex items-center gap-2 text-blue-300">
+                <Eye className="h-4 w-4" />
+                <span className="text-sm font-medium">Driver View: Showing fuel purchases for your assigned truck only</span>
+              </div>
+            </div>
+          )}
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+        
+        <div className="flex gap-2">
+          {roleAccess.canCreateData && (
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => setShowCreateDialog(true)}
+            >
               <Plus className="h-4 w-4 mr-2" />
-              Create Fuel Purchase
+              {role === 'driver' ? 'Add Fuel Purchase' : 'Create Fuel Purchase'}
             </Button>
-          </DialogTrigger>
+          )}
+          
+          {!roleAccess.canCreateData && (
+            <div className="flex items-center gap-2 text-slate-400 text-sm">
+              <Lock className="h-4 w-4" />
+              <span>View Only - Contact dispatcher to add fuel purchases</span>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Create Fuel Purchase Dialog */}
+      {roleAccess.canCreateData && (
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
             <DialogHeader>
               <DialogTitle className="text-white">Create New Fuel Purchase</DialogTitle>
@@ -505,7 +418,7 @@ export default function FuelManagementPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

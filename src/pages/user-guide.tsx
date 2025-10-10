@@ -312,7 +312,7 @@ export default function UserGuide() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            This system is currently in <strong>beta testing</strong> with comprehensive features 
+            This system provides comprehensive features 
             for fleet management, accurate CPM calculations, and financial intelligence.
           </p>
           <div className="flex flex-wrap gap-4 text-sm">

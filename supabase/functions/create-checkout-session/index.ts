@@ -82,6 +82,22 @@ serve(async (req) => {
     // Calculate subscription amount - always per truck pricing
     const subscriptionAmount = plan.pricePerTruck * truckCount
 
+    // Resolve organization_id for the current user (must exist prior to checkout)
+    const { data: ownerMembership } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .eq('role', 'owner')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const orgId = ownerMembership?.organization_id as string | undefined
+    if (!orgId) {
+      throw new Error('No organization found. Create an organization before subscribing.')
+    }
+
     // Get or create Stripe customer
     let stripeCustomerId: string
 
@@ -98,17 +114,24 @@ serve(async (req) => {
         email: user.email,
         metadata: {
           userId: user.id,
+          org_id: orgId,
         },
       })
       stripeCustomerId = customer.id
     }
 
-    // Use Stripe Price ID for trial period support
-    // TODO: Replace with your actual Stripe Price ID from dashboard
-    const STRIPE_PRICE_ID = 'price_YOUR_STRIPE_PRICE_ID_HERE' // Get this from Stripe Dashboard
-
+    // Build inline price (no trial, per-truck pricing)
+    const unitAmount = Math.round(plan.pricePerTruck * 100)
     const priceData = {
-      price: STRIPE_PRICE_ID,
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: 'Travectio Subscription',
+          description: `Fleet management for ${truckCount} truck${truckCount > 1 ? 's' : ''}`,
+        },
+        unit_amount: unitAmount,
+        recurring: { interval: 'month' },
+      },
       quantity: truckCount,
     }
 
@@ -124,12 +147,14 @@ serve(async (req) => {
         userId: user.id,
         planId: planId,
         truckCount: truckCount.toString(),
+        org_id: orgId,
       },
       subscription_data: {
         metadata: {
           userId: user.id,
           planId: planId,
           truckCount: truckCount.toString(),
+          org_id: orgId,
         },
       },
     })

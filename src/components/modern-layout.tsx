@@ -4,6 +4,7 @@ import MobileSidebar from "./mobile-sidebar";
 import MobileHamburgerMenu from "./mobile-hamburger-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { OfflineStatusIndicator } from "./offline-status-indicator";
+import { useOrgRole } from "@/lib/org-role-context";
 
 interface ModernLayoutProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ interface ModernLayoutProps {
 export default function ModernLayout({ children }: ModernLayoutProps) {
   const isMobile = useIsMobile();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const { activeOrgId } = useOrgRole();
   
   const toggleMobileSidebar = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);

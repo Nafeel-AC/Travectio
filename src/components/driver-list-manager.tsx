@@ -3,16 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DriverManagementCard } from "./driver-management-card";
-import { AddDriverForm } from "./add-driver-form";
 import { useQuery } from "@tanstack/react-query";
-import { DriverService, TruckService } from "@/lib/supabase-client";
+import { OrgDriverService, OrgTruckService } from "@/lib/org-supabase-client";
 import { 
   Users, 
   Search, 
   Filter, 
-  Plus, 
   UserCheck, 
   UserX,
   Loader2
@@ -41,7 +38,7 @@ export function DriverListManager() {
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery({
     queryKey: ['drivers'],
-    queryFn: () => DriverService.getDrivers(),
+    queryFn: () => OrgDriverService.getDrivers(),
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -50,7 +47,7 @@ export function DriverListManager() {
 
   const { data: trucks = [] } = useQuery({
     queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
+    queryFn: () => OrgTruckService.getTrucks(),
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -80,7 +77,7 @@ export function DriverListManager() {
     return matchesSearch && matchesStatus;
   });
 
-  const activeDriversCount = drivers.filter(d => d.isActive).length;
+  const activeDriversCount = drivers.filter((d: any) => d.isActive ?? true).length;
   const inactiveDriversCount = drivers.length - activeDriversCount;
 
   if (driversLoading) {
@@ -114,14 +111,7 @@ export function DriverListManager() {
                 </div>
               </div>
             </CardTitle>
-            <Button 
-              size="sm" 
-              className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-              onClick={() => setShowAddDriverDialog(true)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Driver
-            </Button>
+            {/* No add button; drivers join via invite and self-onboarding */}
           </div>
         </CardHeader>
         
@@ -156,23 +146,15 @@ export function DriverListManager() {
             <div className="text-center py-6 sm:py-8">
               <Users className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-3 sm:mb-4" />
               <h3 className="text-base sm:text-lg font-medium text-white mb-2">
-                {searchQuery || statusFilter !== "all" ? "No drivers found" : "No drivers added yet"}
+                {searchQuery || statusFilter !== "all" ? "No drivers found" : "No drivers in this organization yet"}
               </h3>
               <p className="text-slate-400 text-sm sm:text-base mb-4 px-4">
                 {searchQuery || statusFilter !== "all" 
                   ? "Try adjusting your search or filter criteria" 
-                  : "Add your first driver to start managing your team"
+                  : "Invite drivers from Organization Members. Drivers complete their details in Profile."
                 }
               </p>
-              {!searchQuery && statusFilter === "all" && (
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                  onClick={() => setShowAddDriverDialog(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add First Driver
-                </Button>
-              )}
+              {/* No CTA button here */}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:gap-6">
@@ -206,27 +188,7 @@ export function DriverListManager() {
         </CardContent>
       </Card>
 
-      {/* Add Driver Dialog */}
-      <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl mx-4 sm:mx-0 max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
-              <Plus className="w-5 h-5" />
-              Add New Driver
-            </DialogTitle>
-            <DialogDescription className="text-slate-400 text-sm sm:text-base">
-              Enter the driver's information to add them to your fleet.
-            </DialogDescription>
-          </DialogHeader>
-          <AddDriverForm 
-            onSuccess={() => {
-              setShowAddDriverDialog(false);
-              // The query will automatically refetch
-            }}
-            onCancel={() => setShowAddDriverDialog(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Add Driver Dialog removed */}
     </>
   );
 }

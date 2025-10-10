@@ -18,12 +18,15 @@ import {
   Target,
   Shield,
   Building,
+  Package,
   CreditCard,
   Lock,
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useSupabase";
 import { useFounderAccess } from "@/hooks/useFounderAccess";
+import { useOrgRole } from "@/lib/org-role-context";
+import { Input } from "@/components/ui/input";
 import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
 import { supabase } from "@/lib/supabase";
 
@@ -36,6 +39,8 @@ interface NavigationItem {
   founderOnly?: boolean;
   adminOnly?: boolean;
   customerOnly?: boolean;
+  ownerOnly?: boolean;
+  driverOnly?: boolean;
 }
 
 const navigationItems: NavigationItem[] = [
@@ -87,13 +92,6 @@ const navigationItems: NavigationItem[] = [
     icon: Settings,
     adminOnly: true,
   },
-  {
-    href: "/beta-access",
-    label: "Beta Access",
-    description: "Manage beta tester allowlist",
-    icon: Shield,
-    founderOnly: true,
-  },
   // Customer-only features (hidden from admins)
   {
     href: "/drivers",
@@ -115,6 +113,24 @@ const navigationItems: NavigationItem[] = [
     description: "Load tracking and entry",
     icon: Route,
     customerOnly: true,
+    ownerOnly: false,
+    dispatcherOnly: false,
+  },
+  {
+    href: "/my-loads",
+    label: "My Loads",
+    description: "View and manage your assigned loads",
+    icon: Package,
+    customerOnly: true,
+    driverOnly: true,
+  },
+  {
+    href: "/assigned-truck",
+    label: "Assigned Truck",
+    description: "Details of the truck assigned to you",
+    icon: Truck,
+    customerOnly: true,
+    driverOnly: true,
   },
   {
     href: "/fleet-management",
@@ -146,6 +162,13 @@ const navigationItems: NavigationItem[] = [
   },
   
   {
+    href: "/org-members",
+    label: "Organization Members",
+    description: "Manage members and invites",
+    icon: Users,
+    ownerOnly: true,
+  },
+  {
     href: "/pricing",
     label: "Pricing",
     description: "Subscription plans and billing",
@@ -164,6 +187,10 @@ export default function ModernSidebar() {
   const { user } = useAuth();
   const { isFounder, isAdmin } = useFounderAccess();
   const { isSubscribed, truckLimit, currentTruckCount, canAddTrucks, remainingTrucks, isLoading } = useSubscriptionLimits();
+  const { role, memberships, activeOrgId, setActiveOrgId } = useOrgRole();
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<'dispatcher'|'driver'>('dispatcher');
   
 
   // Debug logs to troubleshoot the demo switcher visibility
@@ -179,13 +206,64 @@ export default function ModernSidebar() {
       return item.adminOnly || (!item.founderOnly && !item.customerOnly);
     }
 
-    // Regular customers see customer items and general items
-    return item.customerOnly || (!item.founderOnly && !item.adminOnly);
+    // Role-based gating for organization roles
+    const isOwner = role === "owner";
+    const isDispatcher = role === "dispatcher"; 
+    const isDriver = role === "driver";
+
+    // Define allowed items per role based on exact requirements
+    if (isOwner) {
+      // Owner: Full access (Dashboard, Fleet Mgmt, Loads, HOS, Fuel, Analytics, Account/Billing)
+      if (item.driverOnly) return false; // Hide driver-only entries like Assigned Truck
+      return !item.founderOnly && !item.adminOnly; // Show all customer + general items
+    }
+    
+    if (isDispatcher) {
+      // Dispatcher: All fleet management, NO billing/account
+      if (item.label === "Pricing") return false; // Hide billing
+      if (item.ownerOnly) return false; // Hide owner-only features
+      if (item.driverOnly) return false; // Hide driver-only entries like Assigned Truck
+      return item.customerOnly || (!item.founderOnly && !item.adminOnly && !item.ownerOnly);
+    }
+    
+    if (isDriver) {
+      // Driver: Only Dashboard, Assigned Truck, My Loads, HOS, Fuel Data, Profile
+      const driverAllowedItems = [
+        "Dashboard", 
+        "Assigned Truck",
+        "My Loads",  // Driver-specific loads view
+        "HOS Management", 
+        "Fuel Management", 
+        "Profile"
+      ];
+      return driverAllowedItems.includes(item.label) && !item.founderOnly && !item.adminOnly && !item.ownerOnly;
+    }
+
+    // Default: regular customer items for users without organization roles
+    return item.customerOnly || (!item.founderOnly && !item.adminOnly && !item.ownerOnly);
   });
 
 
   return (
     <div className="flex flex-col h-screen w-80 bg-slate-800 border-r border-slate-700 overflow-hidden relative">
+      {/* Org switcher (if multiple) */}
+      {memberships.length > 1 && (
+        <div className="p-3 border-b border-slate-700 bg-slate-800">
+          <select
+            className="w-full bg-slate-900 text-slate-200 text-sm p-2 rounded border border-slate-700"
+            value={activeOrgId || ""}
+            onChange={(e) => setActiveOrgId(e.target.value)}
+          >
+            {memberships.map((m) => (
+              <option key={m.organization.id} value={m.organization.id}>
+                {m.organization.name} ({m.membership.role})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Removed embedded members panel; now a dedicated sidebar item routes to /org-members */}
       {/* Header */}
       <div className="flex items-center gap-3 p-6 border-b border-slate-700 flex-shrink-0">
         <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-xl">

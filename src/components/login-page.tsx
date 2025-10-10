@@ -18,34 +18,25 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // Check if email is in beta_testers allowlist
-        const { data: betaTester, error: betaError } = await supabase
-          .from('beta_testers')
-          .select('email, is_active, expires_at')
-          .eq('email', email.toLowerCase())
-          .single();
-
-        if (betaError && betaError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          throw betaError;
-        }
-
-        if (!betaTester) {
-          throw new Error("You are not invited to the beta. Please contact an administrator.");
-        }
-
-        if (!betaTester.is_active) {
-          throw new Error("Your beta access has been deactivated. Please contact an administrator.");
-        }
-
-        if (betaTester.expires_at && new Date(betaTester.expires_at) < new Date()) {
-          throw new Error("Your beta access has expired. Please contact an administrator.");
-        }
-
         const { error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
+        
+        // Check if this email has a pending invitation
+        const { data: pendingInvite } = await supabase
+          .from('invitations')
+          .select('token')
+          .eq('email', email.toLowerCase())
+          .eq('status', 'pending')
+          .single();
+        
+        if (pendingInvite) {
+          // Store the invite token for processing after email confirmation
+          localStorage.setItem('pendingInviteToken', pendingInvite.token);
+        }
+        
         setError("Check your email for the confirmation link!");
       } else {
         const { error } = await supabase.auth.signInWithPassword({

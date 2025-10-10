@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Users, Plus, Search, Filter } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
 import { DriverListManager } from "@/components/driver-list-manager";
 import { DriverOnboarding } from "@/components/driver-onboarding";
 
@@ -32,7 +32,7 @@ export default function DriversPage() {
                   <p className="text-slate-400 text-sm sm:text-base">Manage your fleet drivers, track their status, and handle assignments</p>
                 </div>
               </div>
-              {/* Right-side header actions removed per request (Driver Guide, Add Driver) */}
+              {/* No add button here; drivers are invited and self-onboard in Profile */}
             </div>
 
             {/* Driver Management Section */}

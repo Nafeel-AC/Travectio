@@ -13,11 +13,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { calculateDistance, calculateDistanceBetweenCities } from "@shared/distance-utils";
 import { createSynchronizedMutation } from "@/lib/data-synchronization";
-import { LoadService, TruckService } from "@/lib/supabase-client";
+import { OrgLoadService } from "@/lib/org-supabase-client";
+import { useOrgLoads, useOrgTrucks } from "@/hooks/useOrgData";
 
 const loadEntrySchema = z.object({
   truckId: z.string().optional(),
@@ -99,25 +100,11 @@ export default function ManualLoadEntry({ editMode = false, loadData, onClose }:
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // ✅ FIXED: Use Supabase services instead of demo API
-  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useQuery({
-    queryKey: ['trucks'],
-    queryFn: () => TruckService.getTrucks(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
+  // Org-aware trucks
+  const { data: trucks = [], isLoading: trucksLoading, error: trucksError } = useOrgTrucks();
 
-  // ✅ FIXED: Use Supabase services instead of demo API
-  const { data: loads = [], isLoading: loadsLoading, error: loadsError } = useQuery({
-    queryKey: ['loads'],
-    queryFn: () => LoadService.getLoads(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
+  // Org-aware loads (for helpers)
+  const { data: loads = [], isLoading: loadsLoading, error: loadsError } = useOrgLoads();
 
   // ✅ FIXED: Helper function to get truck's last delivery location
   const getTruckLastKnownLocation = (truckId: string) => {
@@ -218,9 +205,10 @@ export default function ManualLoadEntry({ editMode = false, loadData, onClose }:
       };
       
       if (editMode && loadData?.id) {
-        return await LoadService.updateLoad(loadData.id, loadDataForSubmit);
+        // Use org-aware update via service to keep column names aligned
+        return await OrgLoadService.updateLoad(loadData.id, loadDataForSubmit as any);
       } else {
-        return await LoadService.createLoad(loadDataForSubmit);
+        return await OrgLoadService.createLoad(loadDataForSubmit as any);
       }
     },
     ...createSynchronizedMutation(queryClient, 'all'), // Comprehensive synchronization
@@ -528,7 +516,7 @@ export default function ManualLoadEntry({ editMode = false, loadData, onClose }:
                         <SelectContent className="bg-slate-700 border-slate-600">
                           {(trucks as any[]).map((truck: any) => (
                             <SelectItem key={truck.id} value={truck.id} className="text-white">
-                              {truck.name} - {truck.equipmentType} {truck.driver ? `(Driver: ${truck.driver.name})` : '(No driver)'}
+                              {truck.name} - {truck.equipmentType} {truck.drivers ? `(Driver: ${truck.drivers.name})` : '(No driver)'}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -121,6 +121,11 @@ async function handleCheckoutSessionCompleted(supabase: any, session: Stripe.Che
   // Calculate subscription amount - always per truck pricing
   const calculatedAmount = plan.pricePerTruck * truckCount
 
+  // Determine orgId from Stripe metadata (preferred)
+  const orgId = (subscription.metadata as any)?.org_id
+    || (session.metadata as any)?.org_id
+    || undefined
+
   // Create or update subscription record
   const { error } = await supabase
     .from('subscriptions')
@@ -135,6 +140,7 @@ async function handleCheckoutSessionCompleted(supabase: any, session: Stripe.Che
       currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
       currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
       updatedAt: new Date().toISOString(),
+      organization_id: orgId,
     })
 
   if (error) {
@@ -142,7 +148,7 @@ async function handleCheckoutSessionCompleted(supabase: any, session: Stripe.Che
     throw error
   }
 
-  console.log('Subscription created/updated successfully for user:', userId)
+  console.log('Subscription created/updated successfully for user:', userId, 'org:', orgId)
 }
 
 async function handleInvoicePaymentSucceeded(supabase: any, invoice: Stripe.Invoice) {
@@ -156,7 +162,7 @@ async function handleInvoicePaymentSucceeded(supabase: any, invoice: Stripe.Invo
   // Get subscription record
   const { data: subscription, error: subError } = await supabase
     .from('subscriptions')
-    .select('id')
+    .select('id, organization_id')
     .eq('stripeSubscriptionId', invoice.subscription)
     .single()
 
@@ -175,6 +181,7 @@ async function handleInvoicePaymentSucceeded(supabase: any, invoice: Stripe.Invo
       status: 'paid',
       paidAt: new Date(invoice.status_transitions.paid_at * 1000).toISOString(),
       receiptUrl: invoice.hosted_invoice_url,
+      organization_id: subscription.organization_id,
     })
 
   if (error) {
