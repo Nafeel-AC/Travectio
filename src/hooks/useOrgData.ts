@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useOrgRole } from '@/lib/org-role-context';
-import {
-  OrgTruckService,
-  OrgLoadService,
-  OrgDriverService,
-  OrgHOSService,
-  OrgFuelService
+import { 
+  OrgTruckService, 
+  OrgLoadService, 
+  OrgDriverService, 
+  OrgHOSService, 
+  OrgFuelService,
+  OrgFleetMetricsService
 } from '@/lib/org-supabase-client';
 
 // ============================================================================
@@ -452,4 +453,20 @@ export function useRoleAccess() {
     isDriver: role === 'driver',
     role
   };
+}
+
+// ============================================================================
+// FLEET METRICS HOOKS
+// ============================================================================
+
+export function useOrgFleetMetrics() {
+  const { activeOrgId, role } = useOrgRole();
+
+  return useQuery({
+    queryKey: ['org-fleet-metrics', activeOrgId, role],
+    queryFn: () => OrgFleetMetricsService.getFleetMetrics(),
+    enabled: !!activeOrgId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+  });
 }

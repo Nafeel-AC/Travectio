@@ -808,23 +808,45 @@ export class OrgFuelService extends OrgAwareService {
 
     if (role === 'driver') {
       // Drivers see only fuel purchases for their assigned truck
+      // First, resolve the driver record ID from the auth user ID
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow) {
+        return []; // Driver profile not found
+      }
+
       const { data: driverTrucks } = await supabase
         .from('trucks')
         .select('id')
         .eq('organization_id', orgId)
-        .eq('currentDriverId', userId);
+        .eq('currentDriverId', driverRow.id);
 
       const truckIds = driverTrucks?.map(t => t.id) || [];
       if (truckIds.length === 0) {
         return []; // Driver has no assigned truck
       }
 
-      query = query
-        .eq('organization_id', orgId)
-        .in('truckId', truckIds);
+      query = query.in('truckId', truckIds);
     } else {
       // Owners and dispatchers see all organization fuel purchases
-      query = query.eq('organization_id', orgId);
+      // Filter by trucks that belong to the organization
+      const { data: orgTrucks } = await supabase
+        .from('trucks')
+        .select('id')
+        .eq('organization_id', orgId);
+
+      const orgTruckIds = orgTrucks?.map(t => t.id) || [];
+      if (orgTruckIds.length === 0) {
+        return []; // No trucks in organization
+      }
+
+      query = query.in('truckId', orgTruckIds);
     }
 
     if (loadId) query = query.eq('loadId', loadId);
@@ -867,12 +889,25 @@ export class OrgFuelService extends OrgAwareService {
       }
     }
 
+    // Filter out fields that don't exist in the fuel_purchases table
+    const allowedFields = [
+      'truckId', 'loadId', 'fuelType', 'gallons', 'pricePerGallon', 'totalCost',
+      'stationName', 'stationAddress', 'purchaseDate', 'receiptNumber', 
+      'paymentMethod', 'notes'
+    ];
+
+    const filteredData = Object.keys(purchaseData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = purchaseData[key];
+        return obj;
+      }, {} as any);
+
     const { data, error } = await supabase
       .from('fuel_purchases')
       .insert({
-        ...purchaseData,
-        organization_id: orgId,
-        userId: userId
+        ...filteredData,
+        organization_id: orgId
       })
       .select()
       .single();
@@ -885,22 +920,24 @@ export class OrgFuelService extends OrgAwareService {
   static async updateFuelPurchase(purchaseId: string, updates: any) {
     const { userId, orgId, role } = await this.getOrgContext();
 
-    // Verify fuel purchase belongs to organization
+    // Verify fuel purchase belongs to organization (through truck relationship)
     const { data: purchase } = await supabase
       .from('fuel_purchases')
-      .select('organization_id, userId, truckId')
+      .select(`
+        truckId,
+        trucks!fuel_purchases_truckId_fkey (
+          organization_id
+        )
+      `)
       .eq('id', purchaseId)
       .single();
 
-    if (!purchase || (purchase as any).organization_id !== orgId) {
+    if (!purchase || !purchase.trucks || (purchase.trucks as any).organization_id !== orgId) {
       throw new Error('Fuel purchase not found or access denied.');
     }
 
     if (role === 'driver') {
-      // Drivers can only update their own entries for their assigned truck
-      if ((purchase as any).userId !== userId) {
-        throw new Error('Access denied. You can only update your own fuel entries.');
-      }
+      // Drivers can only update fuel entries for their assigned truck
 
       // Resolve the driver record ID from the auth user ID
       const { data: driverRow } = await supabase
@@ -945,19 +982,47 @@ export class OrgFuelService extends OrgAwareService {
   static async deleteFuelPurchase(purchaseId: string) {
     const { userId, orgId, role } = await this.getOrgContext();
 
-    // Verify fuel purchase belongs to organization
+    // Verify fuel purchase belongs to organization (through truck relationship)
     const { data: purchase } = await supabase
       .from('fuel_purchases')
-      .select('organization_id, userId')
+      .select(`
+        truckId,
+        trucks!fuel_purchases_truckId_fkey (
+          organization_id
+        )
+      `)
       .eq('id', purchaseId)
       .single();
 
-    if (!purchase || (purchase as any).organization_id !== orgId) {
+    if (!purchase || !purchase.trucks || (purchase.trucks as any).organization_id !== orgId) {
       throw new Error('Fuel purchase not found or access denied.');
     }
 
-    if (role === 'driver' && (purchase as any).userId !== userId) {
-      throw new Error('Access denied. You can only delete your own fuel entries.');
+    if (role === 'driver') {
+      // Drivers can only delete fuel entries for their assigned truck
+      // Resolve the driver record ID from the auth user ID
+      const { data: driverRow } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('organization_id', orgId)
+        .or(`auth_user_id.eq.${userId},userId.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!driverRow) {
+        throw new Error('Driver profile not found.');
+      }
+
+      const { data: driverTrucks } = await supabase
+        .from('trucks')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('currentDriverId', driverRow.id);
+
+      const truckIds = driverTrucks?.map(t => t.id) || [];
+      if (!truckIds.includes(purchase.truckId)) {
+        throw new Error('Access denied. You can only delete fuel entries for your assigned truck.');
+      }
     } else if (!this.canAccess(role, ['owner', 'dispatcher', 'driver'])) {
       throw new Error('Access denied.');
     }
@@ -969,6 +1034,65 @@ export class OrgFuelService extends OrgAwareService {
 
     if (error) throw new Error(error.message);
     return true;
+  }
+}
+
+// ============================================================================
+// ORGANIZATION-AWARE FLEET METRICS SERVICE
+// ============================================================================
+
+export class OrgFleetMetricsService extends OrgAwareService {
+  
+  // Calculate comprehensive fleet metrics for the organization
+  static async getFleetMetrics() {
+    const { userId, orgId, role } = await this.getOrgContext();
+
+    // Get all organization data in parallel
+    const [trucks, loads, fuelPurchases, hosLogs] = await Promise.all([
+      OrgTruckService.getTrucks(),
+      OrgLoadService.getLoads(),
+      OrgFuelService.getFuelPurchases(),
+      OrgHOSService.getHosLogs()
+    ]);
+
+    // Calculate basic metrics
+    const totalTrucks = trucks?.length || 0;
+    const totalLoads = loads?.length || 0;
+    const activeTrucks = trucks?.filter((truck: any) => truck.isActive)?.length || 0;
+    const totalMiles = loads?.reduce((sum: number, load: any) => sum + (load.miles || 0), 0) || 0;
+    const totalRevenue = loads?.reduce((sum: number, load: any) => sum + (load.pay || 0), 0) || 0;
+    const totalFuelCost = fuelPurchases?.reduce((sum: number, purchase: any) => sum + (purchase.totalCost || 0), 0) || 0;
+    
+    // Calculate derived metrics
+    const avgCostPerMile = totalMiles > 0 ? totalFuelCost / totalMiles : 0;
+    const netProfit = totalRevenue - totalFuelCost;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    const utilizationRate = totalTrucks > 0 ? (activeTrucks / totalTrucks) * 100 : 0;
+    const activeDrivers = trucks?.filter((truck: any) => truck.drivers && truck.isActive)?.length || 0;
+    
+    // Calculate fuel efficiency
+    const totalGallons = fuelPurchases?.reduce((sum: number, purchase: any) => sum + (purchase.gallons || 0), 0) || 0;
+    const avgMPG = totalGallons > 0 ? totalMiles / totalGallons : 6.5; // Default truck MPG
+    
+    return {
+      totalTrucks,
+      totalLoads,
+      activeTrucks,
+      totalMiles,
+      totalRevenue,
+      totalFuelCost,
+      netProfit,
+      avgCostPerMile,
+      profitMargin,
+      utilizationRate,
+      activeDrivers,
+      avgMPG,
+      totalGallons,
+      // Additional metrics
+      avgRevenuePerLoad: totalLoads > 0 ? totalRevenue / totalLoads : 0,
+      avgMilesPerLoad: totalLoads > 0 ? totalMiles / totalLoads : 0,
+      fuelEfficiencyRating: avgMPG > 7 ? 'Excellent' : avgMPG > 6 ? 'Good' : avgMPG > 5 ? 'Fair' : 'Poor'
+    };
   }
 }
 

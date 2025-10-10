@@ -7,8 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar, TrendingUp, TrendingDown, Truck, Package, DollarSign, Fuel, Users, Route, Clock, AlertTriangle, BarChart3, Receipt, Plus, Download, FileText, Lock, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { useDemo } from "@/lib/demo-context";
-import { useFleetMetrics, useTrucks, useLoads } from "@/hooks/useSupabase";
-import { useRoleAccess } from "@/hooks/useOrgData";
+import { useRoleAccess, useOrgTrucks, useOrgLoads, useOrgFuelPurchases, useOrgHosLogs, useOrgFleetMetrics } from "@/hooks/useOrgData";
 import { useOrgRole } from "@/lib/org-role-context";
 
 interface MetricCardProps {
@@ -76,35 +75,48 @@ export default function FleetAnalytics() {
     );
   }
 
-  // Use new Supabase hooks instead of old fetchAPI calls
-  const { metrics, summary, loading: metricsLoading } = useFleetMetrics();
-  const { trucks, loading: trucksLoading } = useTrucks();
-  const { loads, loading: loadsLoading } = useLoads();
+  // Use organization-aware hooks for proper data filtering
+  const { data: trucks = [], isLoading: trucksLoading } = useOrgTrucks();
+  const { data: loads = [], isLoading: loadsLoading } = useOrgLoads();
+  const { data: fuelPurchases = [], isLoading: fuelLoading } = useOrgFuelPurchases();
+  const { data: hosLogs = [], isLoading: hosLoading } = useOrgHosLogs();
+  
+  // Use the comprehensive fleet metrics service
+  const { data: fleetMetrics, isLoading: metricsLoading } = useOrgFleetMetrics();
 
-  // Use the summary data from the hook, with fallbacks
-  const fleetSummary = summary || {
+  // Use calculated metrics from service, with fallbacks to manual calculation
+  const fleetSummary = fleetMetrics || {
     totalTrucks: trucks?.length || 0,
     totalLoads: loads?.length || 0,
-    activeTrucks: trucks?.filter(truck => truck.status === 'active')?.length || 0,
-    totalMiles: 0,
-    totalRevenue: 0,
+    activeTrucks: trucks?.filter((truck: any) => truck.isActive)?.length || 0,
+    totalMiles: loads?.reduce((sum: number, load: any) => sum + (load.miles || 0), 0) || 0,
+    totalRevenue: loads?.reduce((sum: number, load: any) => sum + (load.pay || 0), 0) || 0,
+    totalFuelCost: fuelPurchases?.reduce((sum: number, purchase: any) => sum + (purchase.totalCost || 0), 0) || 0,
     avgCostPerMile: 0,
     profitMargin: 0,
-    utilizationRate: 0
+    utilizationRate: trucks?.length > 0 ? ((trucks?.filter((truck: any) => truck.isActive)?.length || 0) / trucks.length) * 100 : 0,
+    activeDrivers: trucks?.filter((truck: any) => truck.drivers && truck.isActive)?.length || 0,
+    avgMPG: 6.5,
+    netProfit: 0,
+    avgRevenuePerLoad: 0,
+    fuelEfficiencyRating: 'Good'
   };
 
-  // Debug logging to verify data is being read correctly
+  // Debug logging to verify organization-aware data is being read correctly
   console.log('Fleet Analytics Debug:', {
-    summary,
-    metrics,
+    role,
+    orgId: 'from context',
     trucks: trucks?.length,
     loads: loads?.length,
+    fuelPurchases: fuelPurchases?.length,
+    hosLogs: hosLogs?.length,
+    fleetMetrics,
     fleetSummary,
     trucksData: trucks?.slice(0, 2), // Show first 2 trucks for debugging
     loadsData: loads?.slice(0, 2)    // Show first 2 loads for debugging
   });
 
-  const isLoading = metricsLoading || trucksLoading || loadsLoading;
+  const isLoading = trucksLoading || loadsLoading || fuelLoading || hosLoading || metricsLoading;
 
   if (isLoading) {
     return (
@@ -567,7 +579,7 @@ export default function FleetAnalytics() {
                 </div>
                 <div className="mt-3">
                   <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800">
-                    {(metrics as any)?.fuelEfficiencyRating || 'Good'}
+                    {fleetSummary?.fuelEfficiencyRating || 'Good'}
                   </Badge>
                 </div>
               </CardContent>
