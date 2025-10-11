@@ -624,19 +624,6 @@ export default function Profile() {
               <p className="text-xs text-slate-400">Create your organization first. You can subscribe after.</p>
             </div>
 
-            {/* Subscribe (requires an organization) */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Subscribe</Label>
-              <div className="flex items-center gap-3">
-                <Input type="number" min={1} value={truckCount} onChange={(e)=>setTruckCount(parseInt(e.target.value || '1'))} className="w-28" />
-                <Button onClick={startSubscription} disabled={subscribing || (memberships.length === 0 && !activeOrgId)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  {subscribing ? 'Redirecting…' : 'Subscribe'}
-                </Button>
-              </div>
-              {(memberships.length === 0 && !activeOrgId) && (
-                <p className="text-xs text-slate-400">Create an organization to enable subscription.</p>
-              )}
-            </div>
             <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 <strong>Data Privacy:</strong> Your fleet data is private and only visible to you. 
