@@ -599,8 +599,8 @@ export default function Profile() {
           </Card>
         )}
 
-        {/* Account Management Card - Only visible to owners */}
-        {role === 'owner' && (
+        {/* Account Management Card - Visible to owners or users without organizations */}
+        {(role === 'owner' || !activeOrgId) && (
           <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -649,8 +649,8 @@ export default function Profile() {
 
         <Separator />
 
-        {/* Account Deletion Card - Only visible to owners */}
-        {role === 'owner' && (
+        {/* Account Deletion Card - Visible to owners or users without organizations */}
+        {(role === 'owner' || !activeOrgId) && (
         <Card className="border-red-200 dark:border-red-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
